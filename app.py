@@ -30,12 +30,6 @@ def github_headers(token: str):
     return headers
 
 def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
-    """
-    Ensure repo exists.
-    Returns:
-      True  -> repo was just created
-      False -> repo already existed
-    """
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
@@ -54,14 +48,9 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error creating repo: {r.status_code} {r.text}")
-
     return True
 
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
-    """
-    Attempt to enable GitHub Pages on the repo from the given branch root.
-    If Pages is already enabled, this is a no-op.
-    """
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
@@ -87,9 +76,6 @@ def upload_file_to_github(
     message: str,
     branch: str = "main",
 ) -> None:
-    """
-    Create or update a file in the repo at the given path.
-    """
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
@@ -103,7 +89,6 @@ def upload_file_to_github(
         raise RuntimeError(f"Error checking file: {r.status_code} {r.text}")
 
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-
     payload = {"message": message, "content": encoded, "branch": branch}
     if sha:
         payload["sha"] = sha
@@ -113,15 +98,12 @@ def upload_file_to_github(
         raise RuntimeError(f"Error uploading file: {r.status_code} {r.text}")
 
 def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
-    """
-    Ask GitHub to build the Pages site (legacy mode).
-    """
     api_base = "https://api.github.com"
     headers = github_headers(token)
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers)
     return r.status_code in (201, 202)
 
-# --- Helpers for availability check -------------------------------
+# --- Helpers for availability check -----------------------------------
 
 def check_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
@@ -148,10 +130,6 @@ def check_file_exists(owner: str, repo: str, token: str, path: str, branch: str 
     raise RuntimeError(f"Error checking file: {r.status_code} {r.text}")
 
 def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "main") -> str:
-    """
-    Look at the root of the repo and find the next available tN.html filename.
-    Returns 't1.html' if none are found or on fallback.
-    """
     api_base = "https://api.github.com"
     headers = github_headers(token)
     r = requests.get(
@@ -164,8 +142,7 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
 
     max_n = 0
     try:
-        items = r.json()
-        for item in items:
+        for item in r.json():
             if item.get("type") == "file":
                 name = item.get("name", "")
                 m = re.fullmatch(r"t(\d+)\.html", name)
@@ -174,14 +151,11 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
     except Exception:
         return "t1.html"
 
-    return f"t{max_n + 1}.html" if max_n >= 0 else "t1.html"
+    return f"t{max_n + 1}.html"
 
 # === Brand metadata ===================================================
 
 def get_brand_meta(brand: str) -> dict:
-    """
-    Brand metadata: name, logo, alt text, and a CSS class used to theme the table.
-    """
     default_logo = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
     brand_clean = (brand or "").strip() or "Action Network"
 
@@ -196,17 +170,14 @@ def get_brand_meta(brand: str) -> dict:
         meta["brand_class"] = "brand-actionnetwork"
         meta["logo_url"] = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
         meta["logo_alt"] = "Action Network logo"
-
     elif brand_clean == "VegasInsider":
         meta["brand_class"] = "brand-vegasinsider"
         meta["logo_url"] = "https://i.postimg.cc/kGVJyXc1/VI-logo-final.png"
         meta["logo_alt"] = "VegasInsider logo"
-
     elif brand_clean == "Canada Sports Betting":
         meta["brand_class"] = "brand-canadasb"
         meta["logo_url"] = "https://i.postimg.cc/ZKbrbPCJ/CSB-FN.png"
         meta["logo_alt"] = "Canada Sports Betting logo"
-
     elif brand_clean == "RotoGrinders":
         meta["brand_class"] = "brand-rotogrinders"
         meta["logo_url"] = "https://i.postimg.cc/PrcJnQtK/RG-logo-Fn.png"
@@ -214,7 +185,7 @@ def get_brand_meta(brand: str) -> dict:
 
     return meta
 
-# === 2. HTML TEMPLATE: branded searchable table (NO IFRAME/EMBED) =====
+# === 2. HTML TEMPLATE: branded searchable table (TOGGLES VIA TOKENS) ===
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -225,13 +196,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </head>
 <body style="margin:0;">
 
-<section class="vi-table-embed [[BRAND_CLASS]]" style="width:100%;max-width:100%;margin:0;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid #DCEFE6;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.09);">
 
   <style>
-    /* Scope */
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -247,12 +217,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --stripe:var(--brand-100);
       --hover:var(--brand-300);
       --scroll-thumb:var(--brand-500);
-      --scroll-thumb-hover:var(--brand-600);
-
       --footer-border:color-mix(in oklab,var(--brand-500) 35%, transparent);
     }
 
-    /* Brand overrides */
     .vi-table-embed.brand-vegasinsider{
       --brand-50:#FFF7DC;
       --brand-100:#FFE8AA;
@@ -308,28 +275,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:flex-start;
       gap:2px;
     }
-    .vi-table-embed .vi-table-header.centered{
-      align-items:center;
-      text-align:center;
-    }
+    .vi-table-embed .vi-table-header.centered{ align-items:center; text-align:center; }
     .vi-table-embed .vi-table-header .title{
-      margin:0;
-      font-size:clamp(18px,2.3vw,22px);
-      font-weight:750;
-      color:#111827;
-      display:block;
+      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:750; color:#111827; display:block;
     }
-    .vi-table-embed .vi-table-header .title.branded{
-      color:var(--brand-600);
-    }
-    .vi-table-embed .vi-table-header .subtitle{
-      margin:0;
-      font-size:13px;
-      color:#6b7280;
-      display:block;
-    }
+    .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
+    .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#6b7280; display:block; }
 
-    /* Container for table block */
+    /* Table block */
     #bt-block, #bt-block * { box-sizing:border-box; }
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
@@ -340,7 +293,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding-top: 10px;
     }
 
-    /* Controls */
     #bt-block .dw-controls{
       display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center;
       gap:12px; margin:4px 0 10px 0;
@@ -363,22 +315,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       outline:none; border-color:var(--brand-500);
       box-shadow:0 0 0 3px color-mix(in oklab,var(--brand-500) 25%,transparent); background:#fff;
     }
-    #bt-block .dw-select{
-      appearance:none;
-      -webkit-appearance:none;
-      -moz-appearance:none;
-      padding-right:26px;
-      background:#fff;
-      background-image:none;
-    }
+    #bt-block .dw-select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; padding-right:26px; background:#fff; background-image:none; }
 
     #bt-block .dw-btn{
       background:var(--brand-500); color:#fff; border:1px solid var(--brand-500); padding-inline:12px; cursor:pointer
     }
-    #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)} 
+    #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
-    #bt-block .dw-counter{display:none !important;}
 
     /* Clear button */
     #bt-block .dw-clear{
@@ -417,34 +361,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
     #bt-block thead th.sortable:hover,#bt-block thead th.sortable:focus-visible{background:var(--brand-600); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
-    #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
-
-    #bt-block thead th,
-    #bt-block tbody td { padding: 12px 10px; overflow: hidden; text-align:center; }
-    #bt-block thead th { white-space: nowrap; }
-
-    #bt-block tbody td:nth-child(2) {
-      white-space: normal;
-      word-break: keep-all;
-      overflow-wrap: break-word;
-      min-width: 100px;
-      max-width: 220px;
-      line-height: 1.3;
-    }
-
-    /* Body rows zebra */
+    #btrea: toggle === */
     [[STRIPE_CSS]]
-
     #bt-block tbody tr:hover{
       background:var(--hover);
       box-shadow:inset 3px 0 0 var(--brand-500);
       transform:translateY(-1px);
       transition:background-color .12s ease, box-shadow .12s ease, transform .08s ease;
     }
-
     #bt-block thead th{position:sticky; top:0; z-index:5}
-
-    /* Scrollbars + height */
     #bt-block .dw-scroll{
       max-height:var(--table-max-h,360px); overflow-y:auto;
       -ms-overflow-style:auto; scrollbar-width:thin; scrollbar-color:var(--scroll-thumb) transparent
@@ -455,11 +380,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
       background:var(--scroll-thumb); border-radius:9999px; border:2px solid transparent; background-clip:content-box;
     }
-
-    /* Empty row */
     #bt-block tr.dw-empty td{text-align:center; color:#6b7280; font-style:italic; padding:18px 14px; background:linear-gradient(0deg,#fff,var(--brand-50))}
 
-    /* Footer (logo only) */
+    /* Footer */
     .vi-table-embed .vi-footer {
       display:block;
       padding:10px 14px 8px;
@@ -472,60 +395,46 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:center;
       gap:12px;
     }
-    .vi-table-embed .vi-footer img{
-      height: 38px;
-      width:auto;
-      display:inline-block;
-    }
+    .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
+    .vi-table-embed .vi-footer img{ height: 38px; width:auto; display:inline-block; }
 
     /* Brand-specific logo recolor */
     .vi-table-embed.brand-actionnetwork .vi-footer img{
-      filter:
-        brightness(0) saturate(100%)
-        invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg)
-        brightness(96%) contrast(92%);
+      filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
     }
     .vi-table-embed.brand-vegasinsider .vi-footer img{
-      filter:
-        brightness(0) saturate(100%)
-        invert(72%) sepia(63%) saturate(652%) hue-rotate(6deg)
-        brightness(95%) contrast(101%);
+      filter: brightness(0) saturate(100%) invert(72%) sepia(63%) saturate(652%) hue-rotate(6deg) brightness(95%) contrast(101%);
     }
     .vi-table-embed.brand-canadasb .vi-footer img{
-      filter:
-        brightness(0) saturate(100%)
-        invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg)
-        brightness(96%) contrast(104%);
+      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
     }
     .vi-table-embed.brand-rotogrinders .vi-footer img{
-      filter:
-        brightness(0) saturate(100%)
-        invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg)
-        brightness(93%) contrast(96%);
+      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
     }
-
     .vi-table-embed.brand-vegasinsider .vi-footer img{ height:32px; }
     .vi-table-embed.brand-rotogrinders .vi-footer img{ height:32px; }
+
+    /* Toggle visibility */
+    .vi-hide{ display:none !important; }
   </style>
 
-  <!-- Header -->
-  <div class="vi-table-header [[HEADER_ALIGN_CLASS]]">
+  <!-- Header (optional) -->
+  <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
     <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
     <span class="subtitle">[[SUBTITLE]]</span>
   </div>
 
   <!-- Table block -->
   <div id="bt-block" data-dw="table">
-    <div class="dw-controls">
+    <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
       <div class="left">
-        <div class="dw-field">
+        <div class="dw-field [[SEARCH_VIS_CLASS]]">
           <input type="search" class="dw-input" placeholder="Search table…" aria-label="Search table">
           <button type="button" class="dw-clear" aria-label="Clear search">×</button>
         </div>
-        <span class="dw-counter" aria-live="polite"></span>
       </div>
 
-      <div class="right">
+      <div class="right [[PAGER_VIS_CLASS]]">
         <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/page</label>
         <select id="bt-size" class="dw-select">
           <option value="10" selected>10</option>
@@ -553,14 +462,16 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         </table>
       </div>
     </div>
+
+    <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 2px 0; color:#6b7280; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+      <span id="dw-page-status-text"></span>
+    </div>
   </div>
 
-  <!-- Footer -->
-  <div class="vi-footer" role="contentinfo">
+  <!-- Footer (optional) -->
+  <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
-      <img src="[[BRAND_LOGO_URL]]"
-           alt="[[BRAND_LOGO_ALT]]"
-           width="140" height="auto" loading="lazy" decoding="async" />
+      <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
     </div>
   </div>
 
@@ -576,28 +487,34 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const controls = root.querySelector('.dw-controls');
     if(!table || !tb || !scroller || !controls) return;
 
-    // Disable horizontal scrolling if 4 or fewer columns
-    if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
-      scroller.classList.add('no-scroll');
-    }
-
-    const field = controls.querySelector('.dw-field');
+    const searchFieldWrap = controls.querySelector('.dw-field');
     const searchInput = controls.querySelector('.dw-input');
     const clearBtn = controls.querySelector('.dw-clear');
     const sizeSel = controls.querySelector('#bt-size');
     const prevBtn = controls.querySelector('[data-page="prev"]');
     const nextBtn = controls.querySelector('[data-page="next"]');
     const emptyRow = tb.querySelector('.dw-empty');
+    const pageStatus = document.getElementById('dw-page-status-text');
+
+    // If search UI isn't present (toggled off), create safe fallbacks
+    const hasSearch = !!searchInput && !!clearBtn && !!searchFieldWrap;
+    const hasPager = !!sizeSel && !!prevBtn && !!nextBtn;
+
+    // Disable horizontal scrolling if 4 or fewer columns
+    if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
+      scroller.classList.add('no-scroll');
+    }
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    let pageSize = parseInt(sizeSel.value,10) || 10;  // 0 = All
+    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
     let page = 1;
     let filter = '';
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
+    // Sorting always on
     const heads = Array.from(table.tHead.rows[0].cells);
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -650,8 +567,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     function matchesFilter(tr){
-      return !tr.classList.contains('dw-empty') &&
-             tr.innerText.toLowerCase().includes(filter);
+      if(tr.classList.contains('dw-empty')) return false;
+      if(!filter) return true;
+      return tr.innerText.toLowerCase().includes(filter);
+    }
+
+    function setPageStatus(totalVisible, pages){
+      if(!pageStatus) return;
+      if(totalVisible === 0){
+        pageStatus.textContent = "";
+        return;
+      }
+      if(!hasPager || pageSize === 0){
+        pageStatus.textContent = "";
+        return;
+      }
+      pageStatus.textContent = "Page " + page + " of " + pages;
     }
 
     function renderPage(){
@@ -667,12 +598,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           emptyRow.style.display='table-row';
           emptyRow.firstElementChild.colSpan = heads.length;
         }
-        prevBtn.disabled = nextBtn.disabled = true;
+        if(hasPager){ prevBtn.disabled = nextBtn.disabled = true; }
+        setPageStatus(0, 0);
       }else{
         if(emptyRow) emptyRow.style.display='none';
-        if(pageSize===0){
+
+        if(!hasPager || pageSize===0){
           shown = visible;
-          prevBtn.disabled = nextBtn.disabled = true;
+          if(hasPager){ prevBtn.disabled = nextBtn.disabled = true; }
+          setPageStatus(total, 1);
         }else{
           const pages = Math.max(1, Math.ceil(total / pageSize));
           page = Math.min(Math.max(1, page), pages);
@@ -681,48 +615,53 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           shown = visible.slice(start,end);
           prevBtn.disabled = page<=1;
           nextBtn.disabled = page>=pages;
+          setPageStatus(total, pages);
         }
       }
 
       shown.forEach(r=>{ r.style.display='table-row'; });
     }
 
-    /* search + clear */
-    const syncClearBtn = ()=> field.classList.toggle('has-value', !!searchInput.value);
-    let t=null;
-    searchInput.addEventListener('input', e=>{
-      syncClearBtn();
-      clearTimeout(t);
-      t=setTimeout(()=>{
-        filter=(e.target.value||'').toLowerCase().trim();
+    // Search wiring (only if present)
+    if(hasSearch){
+      const syncClearBtn = ()=> searchFieldWrap.classList.toggle('has-value', !!searchInput.value);
+      let t=null;
+      searchInput.addEventListener('input', e=>{
+        syncClearBtn();
+        clearTimeout(t);
+        t=setTimeout(()=>{
+          filter=(e.target.value||'').toLowerCase().trim();
+          page=1;
+          renderPage();
+        },120);
+      });
+      clearBtn.addEventListener('click', ()=>{
+        searchInput.value='';
+        syncClearBtn();
+        filter='';
         page=1;
         renderPage();
-      },120);
-    });
-    clearBtn.addEventListener('click', ()=>{
-      searchInput.value='';
+        searchInput.focus();
+      });
       syncClearBtn();
-      filter='';
-      page=1;
-      renderPage();
-      searchInput.focus();
-    });
-    syncClearBtn();
+    }
 
-    /* page size + nav */
-    sizeSel.addEventListener('change', e=>{
-      pageSize = parseInt(e.target.value,10) || 0;
-      page=1;
-      renderPage();
-    });
-    prevBtn.addEventListener('click', ()=>{
-      page--;
-      renderPage();
-    });
-    nextBtn.addEventListener('click', ()=>{
-      page++;
-      renderPage();
-    });
+    // Pager wiring (only if present)
+    if(hasPager){
+      sizeSel.addEventListener('change', e=>{
+        pageSize = parseInt(e.target.value,10) || 0;
+        page=1;
+        renderPage();
+      });
+      prevBtn.addEventListener('click', ()=>{
+        page--;
+        renderPage();
+      });
+      nextBtn.addEventListener('click', ()=>{
+        page++;
+        renderPage();
+      });
+    }
 
     renderPage();
   })();
@@ -736,7 +675,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 # === 3. Generator: build TABLE_HEAD and TABLE_ROWS ====================
 
 def guess_column_type(series: pd.Series) -> str:
-    """Return 'num' if the column is mostly numeric-ish, else 'text'."""
     if pd.api.types.is_numeric_dtype(series):
         return "num"
     sample = series.dropna().astype(str).head(20)
@@ -762,10 +700,15 @@ def generate_table_html_from_df(
     striped: bool = True,
     center_titles: bool = False,
     branded_title_color: bool = True,
+    show_search: bool = True,
+    show_pager: bool = True,
+    show_page_numbers: bool = True,
+    show_header: bool = True,
+    show_footer: bool = True,
+    footer_center_logo: bool = False,
 ) -> str:
     df = df.copy()
 
-    # Build table head
     head_cells = []
     for col in df.columns:
         col_type = guess_column_type(df[col])
@@ -773,7 +716,6 @@ def generate_table_html_from_df(
         head_cells.append(f'<th scope="col" data-type="{col_type}">{safe_label}</th>')
     table_head_html = "\n              ".join(head_cells)
 
-    # Build rows
     row_html_snippets = []
     for _, row in df.iterrows():
         cells = []
@@ -785,19 +727,31 @@ def generate_table_html_from_df(
     table_rows_html = "\n".join(row_html_snippets)
     colspan = str(len(df.columns))
 
-    if striped:
-        stripe_css = """
+    stripe_css = (
+        """
     #bt-block tbody tr:nth-child(odd){background:var(--stripe);}
     #bt-block tbody tr:nth-child(even){background:#ffffff;}
 """
-    else:
-        stripe_css = """
+        if striped
+        else """
     #bt-block tbody tr:nth-child(odd),
     #bt-block tbody tr:nth-child(even){background:#ffffff;}
 """
+    )
 
     header_class = "centered" if center_titles else ""
     title_class = "branded" if branded_title_color else ""
+
+    header_vis = "" if show_header else "vi-hide"
+    footer_vis = "" if show_footer else "vi-hide"
+
+    # If both search + pager off, hide whole controls bar to avoid empty strip
+    controls_vis = "" if (show_search or show_pager) else "vi-hide"
+    search_vis = "" if show_search else "vi-hide"
+    pager_vis = "" if show_pager else "vi-hide"
+    page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
+
+    footer_align_class = "footer-center" if footer_center_logo else ""
 
     html = (
         HTML_TEMPLATE_TABLE
@@ -812,6 +766,13 @@ def generate_table_html_from_df(
         .replace("[[STRIPE_CSS]]", stripe_css)
         .replace("[[HEADER_ALIGN_CLASS]]", header_class)
         .replace("[[TITLE_CLASS]]", title_class)
+        .replace("[[HEADER_VIS_CLASS]]", header_vis)
+        .replace("[[FOOTER_VIS_CLASS]]", footer_vis)
+        .replace("[[CONTROLS_VIS_CLASS]]", controls_vis)
+        .replace("[[SEARCH_VIS_CLASS]]", search_vis)
+        .replace("[[PAGER_VIS_CLASS]]", pager_vis)
+        .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
+        .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
     )
     return html
 
@@ -836,7 +797,6 @@ st.write(
     "to publish a branded, searchable table via GitHub Pages."
 )
 
-# Brand selection
 brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
 default_brand = st.session_state.get("brand_table", "Action Network")
 if default_brand not in brand_options:
@@ -854,7 +814,6 @@ if uploaded_file is None:
     st.info("Upload a CSV to preview the table and (optionally) publish it to GitHub Pages.")
     st.stop()
 
-# Read CSV
 try:
     df = pd.read_csv(uploaded_file)
 except Exception as e:
@@ -879,7 +838,6 @@ with left_col:
         value=st.session_state.get("bt_widget_title", default_title),
         key="bt_widget_title",
     )
-
     widget_subtitle = st.text_input(
         "Table subtitle",
         value=st.session_state.get("bt_widget_subtitle", default_subtitle),
@@ -902,6 +860,44 @@ with left_col:
         key="bt_branded_title_color",
     )
 
+    st.markdown("---")
+    st.markdown("#### Display options")
+
+    show_header = st.checkbox(
+        "Show header box",
+        value=st.session_state.get("bt_show_header", True),
+        key="bt_show_header",
+        help="If off, the table starts immediately (no title/subtitle header block).",
+    )
+    show_footer = st.checkbox(
+        "Show footer (logo)",
+        value=st.session_state.get("bt_show_footer", True),
+        key="bt_show_footer",
+    )
+    footer_center_logo = st.checkbox(
+        "Center align footer logo",
+        value=st.session_state.get("bt_footer_center_logo", False),
+        key="bt_footer_center_logo",
+        disabled=not show_footer,
+    )
+
+    show_search = st.checkbox(
+        "Show search",
+        value=st.session_state.get("bt_show_search", True),
+        key="bt_show_search",
+    )
+    show_pager = st.checkbox(
+        "Show pager (rows/page + prev/next)",
+        value=st.session_state.get("bt_show_pager", True),
+        key="bt_show_pager",
+    )
+    show_page_numbers = st.checkbox(
+        "Show page numbers (Page X of Y)",
+        value=st.session_state.get("bt_show_page_numbers", True),
+        key="bt_show_page_numbers",
+        disabled=not show_pager,
+    )
+
 brand_meta_preview = get_brand_meta(st.session_state.get("brand_table", brand))
 
 html_preview = generate_table_html_from_df(
@@ -914,6 +910,12 @@ html_preview = generate_table_html_from_df(
     striped=striped_rows,
     center_titles=center_titles,
     branded_title_color=branded_title_color,
+    show_search=show_search,
+    show_pager=show_pager,
+    show_page_numbers=show_page_numbers,
+    show_header=show_header,
+    show_footer=show_footer,
+    footer_center_logo=footer_center_logo,
 )
 
 with right_col:
@@ -1078,8 +1080,15 @@ if update_clicked:
             striped_for_publish = st.session_state.get("bt_striped_rows", True)
             center_titles_for_publish = st.session_state.get("bt_center_titles", False)
             branded_title_for_publish = st.session_state.get("bt_branded_title_color", True)
-            brand_meta_publish = get_brand_meta(st.session_state.get("brand_table", brand))
 
+            show_header_p = st.session_state.get("bt_show_header", True)
+            show_footer_p = st.session_state.get("bt_show_footer", True)
+            footer_center_p = st.session_state.get("bt_footer_center_logo", False)
+            show_search_p = st.session_state.get("bt_show_search", True)
+            show_pager_p = st.session_state.get("bt_show_pager", True)
+            show_page_numbers_p = st.session_state.get("bt_show_page_numbers", True)
+
+            brand_meta_publish = get_brand_meta(st.session_state.get("brand_table", brand))
             widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
 
             html_final = generate_table_html_from_df(
@@ -1092,6 +1101,12 @@ if update_clicked:
                 striped=striped_for_publish,
                 center_titles=center_titles_for_publish,
                 branded_title_color=branded_title_for_publish,
+                show_search=show_search_p,
+                show_pager=show_pager_p,
+                show_page_numbers=show_page_numbers_p,
+                show_header=show_header_p,
+                show_footer=show_footer_p,
+                footer_center_logo=footer_center_p,
             )
 
             progress.progress(80)
