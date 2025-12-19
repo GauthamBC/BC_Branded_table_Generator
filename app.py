@@ -361,14 +361,25 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
     #bt-block thead th.sortable:hover,#bt-block thead th.sortable:focus-visible{background:var(--brand-600); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
-    #btrea: toggle === */
+    #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
+
+    #bt-block thead th,
+    #bt-block tbody td { padding: 12px 10px; overflow: hidden; text-align:center; }
+    #bt-block thead th { white-space: nowrap; }
+
+    /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
+
+    /* Hover should win over stripes */
+    #bt-block tbody tr:hover td{
+      background:var(--hover) !important;
+    }
     #bt-block tbody tr:hover{
-      background:var(--hover);
       box-shadow:inset 3px 0 0 var(--brand-500);
       transform:translateY(-1px);
       transition:background-color .12s ease, box-shadow .12s ease, transform .08s ease;
     }
+
     #bt-block thead th{position:sticky; top:0; z-index:5}
     #bt-block .dw-scroll{
       max-height:var(--table-max-h,360px); overflow-y:auto;
@@ -380,7 +391,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
       background:var(--scroll-thumb); border-radius:9999px; border:2px solid transparent; background-clip:content-box;
     }
-    #bt-block tr.dw-empty td{text-align:center; color:#6b7280; font-style:italic; padding:18px 14px; background:linear-gradient(0deg,#fff,var(--brand-50))}
+    #bt-block tr.dw-empty td{
+      text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
+      background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
+    }
 
     /* Footer */
     .vi-table-embed .vi-footer {
@@ -414,7 +428,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-vegasinsider .vi-footer img{ height:32px; }
     .vi-table-embed.brand-rotogrinders .vi-footer img{ height:32px; }
 
-    /* Toggle visibility */
     .vi-hide{ display:none !important; }
   </style>
 
@@ -496,25 +509,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
-    // If search UI isn't present (toggled off), create safe fallbacks
     const hasSearch = !!searchInput && !!clearBtn && !!searchFieldWrap;
     const hasPager = !!sizeSel && !!prevBtn && !!nextBtn;
 
-    // Disable horizontal scrolling if 4 or fewer columns
     if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
       scroller.classList.add('no-scroll');
     }
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
+    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
     let filter = '';
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
-    // Sorting always on
     const heads = Array.from(table.tHead.rows[0].cells);
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -574,14 +584,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     function setPageStatus(totalVisible, pages){
       if(!pageStatus) return;
-      if(totalVisible === 0){
-        pageStatus.textContent = "";
-        return;
-      }
-      if(!hasPager || pageSize === 0){
-        pageStatus.textContent = "";
-        return;
-      }
+      if(totalVisible === 0){ pageStatus.textContent = ""; return; }
+      if(!hasPager || pageSize === 0){ pageStatus.textContent = ""; return; }
       pageStatus.textContent = "Page " + page + " of " + pages;
     }
 
@@ -622,7 +626,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       shown.forEach(r=>{ r.style.display='table-row'; });
     }
 
-    // Search wiring (only if present)
     if(hasSearch){
       const syncClearBtn = ()=> searchFieldWrap.classList.toggle('has-value', !!searchInput.value);
       let t=null;
@@ -646,21 +649,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       syncClearBtn();
     }
 
-    // Pager wiring (only if present)
     if(hasPager){
       sizeSel.addEventListener('change', e=>{
         pageSize = parseInt(e.target.value,10) || 0;
         page=1;
         renderPage();
       });
-      prevBtn.addEventListener('click', ()=>{
-        page--;
-        renderPage();
-      });
-      nextBtn.addEventListener('click', ()=>{
-        page++;
-        renderPage();
-      });
+      prevBtn.addEventListener('click', ()=>{ page--; renderPage(); });
+      nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
     renderPage();
@@ -727,15 +723,15 @@ def generate_table_html_from_df(
     table_rows_html = "\n".join(row_html_snippets)
     colspan = str(len(df.columns))
 
+    # ✅ Stripe applied to TD (more reliable), skip empty row
     stripe_css = (
         """
-    #bt-block tbody tr:nth-child(odd){background:var(--stripe);}
-    #bt-block tbody tr:nth-child(even){background:#ffffff;}
+    #bt-block tbody tr:not(.dw-empty):nth-child(odd) td{background:var(--stripe);}
+    #bt-block tbody tr:not(.dw-empty):nth-child(even) td{background:#ffffff;}
 """
         if striped
         else """
-    #bt-block tbody tr:nth-child(odd),
-    #bt-block tbody tr:nth-child(even){background:#ffffff;}
+    #bt-block tbody tr:not(.dw-empty) td{background:#ffffff;}
 """
     )
 
@@ -745,7 +741,6 @@ def generate_table_html_from_df(
     header_vis = "" if show_header else "vi-hide"
     footer_vis = "" if show_footer else "vi-hide"
 
-    # If both search + pager off, hide whole controls bar to avoid empty strip
     controls_vis = "" if (show_search or show_pager) else "vi-hide"
     search_vis = "" if show_search else "vi-hide"
     pager_vis = "" if show_pager else "vi-hide"
@@ -780,7 +775,6 @@ def generate_table_html_from_df(
 
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 
-# Remove link/anchor icons next to headers (Streamlit adds them by default)
 st.markdown(
     """
     <style>
@@ -827,7 +821,6 @@ if df.empty:
 default_title = "Table 1"
 default_subtitle = "Subheading"
 
-# ---------- Configure (left) + Preview (right) ----------
 left_col, right_col = st.columns([1, 3], gap="large")
 
 with left_col:
@@ -922,12 +915,10 @@ with right_col:
     st.markdown("### Live Preview")
     components.html(html_preview, height=780, scrolling=True)
 
-# ---------- HTML output ----------
 st.markdown("---")
 st.markdown("### HTML file contents")
 st.text_area(label="", value=html_preview, height=350, label_visibility="collapsed")
 
-# ---------- GitHub / hosting settings ----------
 st.markdown("---")
 st.markdown("### Publish to GitHub Pages (optional)")
 
@@ -991,7 +982,6 @@ if not GITHUB_TOKEN:
 elif not effective_github_user or not repo_name.strip():
     st.info("Fill in username and campaign name above.")
 
-# --- Page availability logic ---
 if page_check_clicked:
     if not can_run_github:
         st.error("Cannot run availability check – add your GitHub token, username and repo first.")
@@ -1063,7 +1053,6 @@ if GITHUB_TOKEN and effective_github_user and repo_name.strip() and availability
         else:
             st.info("Update the campaign name above, then run **Page availability check** again.")
 
-# --- Update widget (publish) logic ---
 if update_clicked:
     if not can_run_github:
         st.error("Cannot update widget – add your GitHub token, username and repo first.")
@@ -1110,11 +1099,9 @@ if update_clicked:
             )
 
             progress.progress(80)
-
             ensure_repo_exists(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
 
             progress.progress(90)
-
             try:
                 ensure_pages_enabled(effective_github_user, repo_name.strip(), GITHUB_TOKEN, branch="main")
             except Exception:
