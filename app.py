@@ -23,9 +23,7 @@ GITHUB_USER_DEFAULT = get_secret("GITHUB_USER", "")
 # === GitHub helpers ===================================================
 
 def github_headers(token: str):
-    headers = {
-        "Accept": "application/vnd.github+json",
-    }
+    headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     headers["X-GitHub-Api-Version"] = "2022-11-28"
@@ -43,7 +41,7 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
 
     r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers)
     if r.status_code == 200:
-        return False  # already exists
+        return False
     if r.status_code != 404:
         raise RuntimeError(f"Error checking repo: {r.status_code} {r.text}")
 
@@ -57,7 +55,7 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error creating repo: {r.status_code} {r.text}")
 
-    return True  # newly created
+    return True
 
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
     """
@@ -73,7 +71,6 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     if r.status_code not in (404, 403):
         raise RuntimeError(f"Error checking GitHub Pages: {r.status_code} {r.text}")
     if r.status_code == 403:
-        # No permission via API; nothing we can do programmatically.
         return
 
     payload = {"source": {"branch": branch, "path": "/"}}
@@ -107,11 +104,7 @@ def upload_file_to_github(
 
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
 
-    payload = {
-        "message": message,
-        "content": encoded,
-        "branch": branch,
-    }
+    payload = {"message": message, "content": encoded, "branch": branch}
     if sha:
         payload["sha"] = sha
 
@@ -232,7 +225,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </head>
 <body style="margin:0;">
 
-<section class="vi-table-embed [[BRAND_CLASS]]" style="max-width:960px;margin:16px auto;
+<section class="vi-table-embed [[BRAND_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid #DCEFE6;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.09);">
@@ -340,12 +333,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block, #bt-block * { box-sizing:border-box; }
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
-      --gutter: clamp(8px, 4vw, 14px);
-      --table-max-h: 500px;
+      --gutter: 14px;
+      --table-max-h: 720px;
       --vbar-w: 6px; --vbar-w-hover: 8px;
-
-      padding: 8px var(--gutter);
-      padding-top: 8px;
+      padding: 10px var(--gutter);
+      padding-top: 10px;
     }
 
     /* Controls */
@@ -466,23 +458,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Empty row */
     #bt-block tr.dw-empty td{text-align:center; color:#6b7280; font-style:italic; padding:18px 14px; background:linear-gradient(0deg,#fff,var(--brand-50))}
-
-    /* Responsive */
-    #bt-block .dw-input { width: clamp(160px, 26vw, 320px); }
-    #bt-block .dw-select { min-width: 68px; }
-    #bt-block .dw-btn { padding-inline: 8px; }
-
-    @media (max-width: 600px){
-      #bt-block .dw-controls{
-        grid-template-columns:minmax(0,1fr) auto;
-        column-gap:8px; row-gap:6px; margin:6px 0 8px;
-      }
-      #bt-block .dw-input{width:100%; padding:6px 24px 6px 10px; height:34px; font-size:13px;}
-      #bt-block .dw-clear{width:20px; height:20px;}
-      #bt-block thead th{ font-size:13px; line-height:1.2; }
-      #bt-block .dw-select{min-width:68px; height:32px; padding:6px 22px 6px 8px; font-size:13px;}
-      #bt-block .dw-btn{width:32px; height:32px; padding:0; border-radius:12px; display:inline-flex; align-items:center; justify-content:center;}
-    }
 
     /* Footer (logo only) */
     .vi-table-embed .vi-footer {
@@ -761,9 +736,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 # === 3. Generator: build TABLE_HEAD and TABLE_ROWS ====================
 
 def guess_column_type(series: pd.Series) -> str:
-    """
-    Rough heuristic: return 'num' if the column is mostly numeric-ish, else 'text'.
-    """
+    """Return 'num' if the column is mostly numeric-ish, else 'text'."""
     if pd.api.types.is_numeric_dtype(series):
         return "num"
     sample = series.dropna().astype(str).head(20)
@@ -846,6 +819,17 @@ def generate_table_html_from_df(
 
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 
+# Remove link/anchor icons next to headers (Streamlit adds them by default)
+st.markdown(
+    """
+    <style>
+      [data-testid="stHeaderAnchor"] { display:none !important; }
+      a.header-anchor { display:none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("Branded Table Generator")
 st.write(
     "Upload a CSV, choose a brand and GitHub campaign, then click **Update widget** "
@@ -853,12 +837,7 @@ st.write(
 )
 
 # Brand selection
-brand_options = [
-    "Action Network",
-    "VegasInsider",
-    "Canada Sports Betting",
-    "RotoGrinders",
-]
+brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
 default_brand = st.session_state.get("brand_table", "Action Network")
 if default_brand not in brand_options:
     default_brand = "Action Network"
@@ -871,7 +850,6 @@ brand = st.selectbox(
 )
 
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
-
 if uploaded_file is None:
     st.info("Upload a CSV to preview the table and (optionally) publish it to GitHub Pages.")
     st.stop()
@@ -887,41 +865,37 @@ if df.empty:
     st.error("Uploaded CSV has no rows.")
     st.stop()
 
-# Defaults
 default_title = "Table 1"
 default_subtitle = "Subheading"
 
-# ---------- Configure & preview table (IMMEDIATE) ----------
-st.subheader("Configure & preview")
+# ---------- Configure (left) + Preview (right) ----------
+left_col, right_col = st.columns([1, 3], gap="large")
 
-row1_col1, row1_col2 = st.columns(2)
-with row1_col1:
+with left_col:
+    st.markdown("### Configure")
+
     widget_title = st.text_input(
         "Table title",
         value=st.session_state.get("bt_widget_title", default_title),
         key="bt_widget_title",
     )
-with row1_col2:
+
     widget_subtitle = st.text_input(
         "Table subtitle",
         value=st.session_state.get("bt_widget_subtitle", default_subtitle),
         key="bt_widget_subtitle",
     )
 
-row2_col1, row2_col2, row2_col3 = st.columns(3)
-with row2_col1:
     striped_rows = st.checkbox(
         "Striped rows",
         value=st.session_state.get("bt_striped_rows", True),
         key="bt_striped_rows",
     )
-with row2_col2:
     center_titles = st.checkbox(
         "Center title & subtitle",
         value=st.session_state.get("bt_center_titles", False),
         key="bt_center_titles",
     )
-with row2_col3:
     branded_title_color = st.checkbox(
         "Branded title color",
         value=st.session_state.get("bt_branded_title_color", True),
@@ -942,16 +916,18 @@ html_preview = generate_table_html_from_df(
     branded_title_color=branded_title_color,
 )
 
-st.subheader("Live Preview")
-components.html(html_preview, height=650, scrolling=True)
+with right_col:
+    st.markdown("### Live Preview")
+    components.html(html_preview, height=780, scrolling=True)
 
+# ---------- HTML output ----------
 st.markdown("---")
-st.subheader("HTML file contents")
+st.markdown("### HTML file contents")
 st.text_area(label="", value=html_preview, height=350, label_visibility="collapsed")
 
 # ---------- GitHub / hosting settings ----------
 st.markdown("---")
-st.subheader("Publish to GitHub Pages (optional)")
+st.markdown("### Publish to GitHub Pages (optional)")
 
 saved_gh_user = st.session_state.get("bt_gh_user", "")
 saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
@@ -989,7 +965,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Buttons row
 can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name.strip())
 
 col_check, col_get = st.columns([1, 1])
@@ -1006,7 +981,6 @@ with col_get:
         disabled=not can_run_github,
     )
 
-# Helper info messages if disabled
 if not GITHUB_TOKEN:
     st.info(
         "Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) "
@@ -1021,25 +995,16 @@ if page_check_clicked:
         st.error("Cannot run availability check – add your GitHub token, username and repo first.")
     else:
         try:
-            repo_exists = check_repo_exists(
-                effective_github_user,
-                repo_name.strip(),
-                GITHUB_TOKEN,
-            )
+            repo_exists = check_repo_exists(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
             file_exists = False
             next_fname = None
             if repo_exists:
                 file_exists = check_file_exists(
-                    effective_github_user,
-                    repo_name.strip(),
-                    GITHUB_TOKEN,
-                    base_filename,
+                    effective_github_user, repo_name.strip(), GITHUB_TOKEN, base_filename
                 )
                 if file_exists:
                     next_fname = find_next_widget_filename(
-                        effective_github_user,
-                        repo_name.strip(),
-                        GITHUB_TOKEN,
+                        effective_github_user, repo_name.strip(), GITHUB_TOKEN
                     )
 
             st.session_state["bt_availability"] = {
@@ -1053,50 +1018,48 @@ if page_check_clicked:
         except Exception as e:
             st.error(f"Availability check failed: {e}")
 
-# ---------- Availability result + options ----------
 availability = st.session_state.get("bt_availability")
-if GITHUB_TOKEN and effective_github_user and repo_name.strip():
-    if availability:
-        repo_exists = availability.get("repo_exists", False)
-        file_exists = availability.get("file_exists", False)
-        checked_filename = availability.get("checked_filename", base_filename)
-        suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
+if GITHUB_TOKEN and effective_github_user and repo_name.strip() and availability:
+    repo_exists = availability.get("repo_exists", False)
+    file_exists = availability.get("file_exists", False)
+    checked_filename = availability.get("checked_filename", base_filename)
+    suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
 
-        if not repo_exists:
+    if not repo_exists:
+        st.info(
+            "No existing repo found for this campaign. "
+            "When you click **Update widget**, the repo will be created and "
+            f"your table will be saved as `{checked_filename}`."
+        )
+        st.session_state["bt_widget_file_name"] = checked_filename
+    elif repo_exists and not file_exists:
+        st.success(
+            f"Repo exists and `{checked_filename}` is available. "
+            "Update widget will save your table to this file."
+        )
+        st.session_state["bt_widget_file_name"] = checked_filename
+    else:
+        st.warning(f"A page named `{checked_filename}` already exists in this repo.")
+        choice = st.radio(
+            "What would you like to do?",
+            options=[
+                "Replace existing widget (overwrite file)",
+                f"Create additional widget file in same repo (use {suggested_new_filename})",
+                "Change campaign name instead",
+            ],
+            key="bt_file_conflict_choice",
+        )
+        if choice.startswith("Replace"):
+            st.session_state["bt_widget_file_name"] = checked_filename
+            st.info(f"Update widget will overwrite `{checked_filename}` in this repo.")
+        elif choice.startswith("Create additional"):
+            st.session_state["bt_widget_file_name"] = suggested_new_filename
             st.info(
-                "No existing repo found for this campaign. "
-                "When you click **Update widget**, the repo will be created and "
-                f"your table will be saved as `{checked_filename}`."
+                f"Update widget will create a new file `{suggested_new_filename}` "
+                "in the same repo for this widget."
             )
-            st.session_state["bt_widget_file_name"] = checked_filename
-        elif repo_exists and not file_exists:
-            st.success(
-                f"Repo exists and `{checked_filename}` is available. "
-                "Update widget will save your table to this file."
-            )
-            st.session_state["bt_widget_file_name"] = checked_filename
         else:
-            st.warning(f"A page named `{checked_filename}` already exists in this repo.")
-            choice = st.radio(
-                "What would you like to do?",
-                options=[
-                    "Replace existing widget (overwrite file)",
-                    f"Create additional widget file in same repo (use {suggested_new_filename})",
-                    "Change campaign name instead",
-                ],
-                key="bt_file_conflict_choice",
-            )
-            if choice.startswith("Replace"):
-                st.session_state["bt_widget_file_name"] = checked_filename
-                st.info(f"Update widget will overwrite `{checked_filename}` in this repo.")
-            elif choice.startswith("Create additional"):
-                st.session_state["bt_widget_file_name"] = suggested_new_filename
-                st.info(
-                    f"Update widget will create a new file `{suggested_new_filename}` "
-                    "in the same repo for this widget."
-                )
-            else:
-                st.info("Update the campaign name above, then run **Page availability check** again.")
+            st.info("Update the campaign name above, then run **Page availability check** again.")
 
 # --- Update widget (publish) logic ---
 if update_clicked:
@@ -1110,7 +1073,6 @@ if update_clicked:
                 time.sleep(0.12)
                 progress.progress(pct)
 
-            # Pull current config from session state
             title_for_publish = st.session_state.get("bt_widget_title", default_title)
             subtitle_for_publish = st.session_state.get("bt_widget_subtitle", default_subtitle)
             striped_for_publish = st.session_state.get("bt_striped_rows", True)
@@ -1134,21 +1096,12 @@ if update_clicked:
 
             progress.progress(80)
 
-            ensure_repo_exists(
-                effective_github_user,
-                repo_name.strip(),
-                GITHUB_TOKEN,
-            )
+            ensure_repo_exists(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
 
             progress.progress(90)
 
             try:
-                ensure_pages_enabled(
-                    effective_github_user,
-                    repo_name.strip(),
-                    GITHUB_TOKEN,
-                    branch="main",
-                )
+                ensure_pages_enabled(effective_github_user, repo_name.strip(), GITHUB_TOKEN, branch="main")
             except Exception:
                 pass
 
@@ -1162,11 +1115,7 @@ if update_clicked:
                 branch="main",
             )
 
-            trigger_pages_build(
-                effective_github_user,
-                repo_name.strip(),
-                GITHUB_TOKEN,
-            )
+            trigger_pages_build(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
 
             progress.progress(100)
             time.sleep(0.15)
