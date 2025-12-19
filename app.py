@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ============== 0. Secrets ==============
+# ===================== 0) Secrets =====================
 
 def get_secret(key: str, default: str = "") -> str:
     try:
@@ -20,7 +20,7 @@ def get_secret(key: str, default: str = "") -> str:
 GITHUB_TOKEN = get_secret("GITHUB_TOKEN", "")
 GITHUB_USER_DEFAULT = get_secret("GITHUB_USER", "")
 
-# === GitHub helpers ===================================================
+# ===================== GitHub helpers =====================
 
 def github_headers(token: str):
     headers = {"Accept": "application/vnd.github+json"}
@@ -103,7 +103,7 @@ def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers)
     return r.status_code in (201, 202)
 
-# --- Helpers for availability check -----------------------------------
+# --- Availability check helpers ---
 
 def check_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
@@ -153,7 +153,7 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
 
     return f"t{max_n + 1}.html"
 
-# === Brand metadata ===================================================
+# ===================== Brand metadata =====================
 
 def get_brand_meta(brand: str) -> dict:
     default_logo = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
@@ -185,7 +185,7 @@ def get_brand_meta(brand: str) -> dict:
 
     return meta
 
-# === 2. HTML TEMPLATE: branded searchable table (TOGGLES VIA TOKENS) ===
+# ===================== HTML Template =====================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -691,7 +691,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </html>
 """
 
-# === 3. Generator: build TABLE_HEAD and TABLE_ROWS ====================
+# ===================== Generator =====================
 
 def guess_column_type(series: pd.Series) -> str:
     if pd.api.types.is_numeric_dtype(series):
@@ -747,7 +747,6 @@ def generate_table_html_from_df(
     table_rows_html = "\n".join(row_html_snippets)
     colspan = str(len(df.columns))
 
-    # Stripe applied to TD, skip empty row
     stripe_css = (
         """
     #bt-block tbody tr:not(.dw-empty):nth-child(odd) td{background:var(--stripe);}
@@ -770,16 +769,14 @@ def generate_table_html_from_df(
     pager_vis = "" if show_pager else "vi-hide"
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
 
-    # Footer logo alignment classes
     footer_logo_align = (footer_logo_align or "Right").strip().lower()
     if footer_logo_align == "center":
         footer_align_class = "footer-center"
     elif footer_logo_align == "left":
         footer_align_class = "footer-left"
     else:
-        footer_align_class = ""  # right = default
+        footer_align_class = ""
 
-    # Table cell alignment classes
     cell_align = (cell_align or "Center").strip().lower()
     if cell_align == "left":
         cell_align_class = "align-left"
@@ -812,11 +809,115 @@ def generate_table_html_from_df(
     )
     return html
 
-# === 4. Streamlit App ================================================
+# ===================== UI helpers =====================
+
+def stable_config_hash(cfg: dict) -> str:
+    # deterministic, short-ish string
+    keys = sorted(cfg.keys())
+    return "|".join([f"{k}={repr(cfg.get(k))}" for k in keys])
+
+def simulate_progress(label: str, total_sleep: float = 0.35):
+    ph = st.empty()
+    ph.caption(label)
+    prog = st.progress(0)
+    steps = [15, 35, 60, 80, 100]
+    per = total_sleep / len(steps) if steps else 0.05
+    for s in steps:
+        time.sleep(per)
+        prog.progress(s)
+    time.sleep(0.05)
+    ph.empty()
+    prog.empty()
+
+def draft_config_from_state() -> dict:
+    return {
+        "brand": st.session_state.get("brand_table", "Action Network"),
+        "title": st.session_state.get("bt_widget_title", "Table 1"),
+        "subtitle": st.session_state.get("bt_widget_subtitle", "Subheading"),
+        "striped": st.session_state.get("bt_striped_rows", True),
+        "show_header": st.session_state.get("bt_show_header", True),
+        "center_titles": st.session_state.get("bt_center_titles", False),
+        "branded_title_color": st.session_state.get("bt_branded_title_color", True),
+        "show_footer": st.session_state.get("bt_show_footer", True),
+        "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Right"),
+        "cell_align": st.session_state.get("bt_cell_align", "Center"),
+        "show_search": st.session_state.get("bt_show_search", True),
+        "show_pager": st.session_state.get("bt_show_pager", True),
+        "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
+    }
+
+def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
+    meta = get_brand_meta(cfg["brand"])
+    return generate_table_html_from_df(
+        df=df,
+        title=cfg["title"],
+        subtitle=cfg["subtitle"],
+        brand_logo_url=meta["logo_url"],
+        brand_logo_alt=meta["logo_alt"],
+        brand_class=meta["brand_class"],
+        striped=cfg["striped"],
+        center_titles=cfg["center_titles"],
+        branded_title_color=cfg["branded_title_color"],
+        show_search=cfg["show_search"],
+        show_pager=cfg["show_pager"],
+        show_page_numbers=cfg["show_page_numbers"],
+        show_header=cfg["show_header"],
+        show_footer=cfg["show_footer"],
+        footer_logo_align=cfg["footer_logo_align"],
+        cell_align=cfg["cell_align"],
+    )
+
+def ensure_initial_confirm(df: pd.DataFrame):
+    if "bt_confirmed_cfg" not in st.session_state:
+        cfg = draft_config_from_state()
+        st.session_state["bt_confirmed_cfg"] = cfg
+        st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
+        st.session_state["bt_confirmed_html_preview"] = html_from_config(df, cfg)
+        st.session_state.setdefault("bt_html_code", "")
+        st.session_state.setdefault("bt_html_generated", False)
+        st.session_state.setdefault("bt_html_hash", "")
+        st.session_state.setdefault("bt_last_published_url", "")
+        st.session_state.setdefault("bt_iframe_code", "")
+
+def confirm_table(df: pd.DataFrame):
+    cfg = draft_config_from_state()
+    st.session_state["bt_confirmed_cfg"] = cfg
+    st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
+    st.session_state["bt_confirmed_html_preview"] = html_from_config(df, cfg)
+
+def generate_html_code_from_confirmed(df: pd.DataFrame):
+    # always uses CONFIRMED (and refreshes preview HTML)
+    cfg = st.session_state.get("bt_confirmed_cfg")
+    if not cfg:
+        return
+    html = html_from_config(df, cfg)
+    st.session_state["bt_confirmed_html_preview"] = html
+    st.session_state["bt_html_code"] = html
+    st.session_state["bt_html_generated"] = True
+    st.session_state["bt_html_hash"] = stable_config_hash(cfg)
+
+def compute_pages_url(user: str, repo: str, filename: str) -> str:
+    # GitHub Pages default (project pages): https://<user>.github.io/<repo>/<file>
+    user = (user or "").strip()
+    repo = (repo or "").strip()
+    filename = (filename or "").lstrip("/").strip() or "branded_table.html"
+    return f"https://{user}.github.io/{repo}/{filename}"
+
+def build_iframe_snippet(url: str, height: int = 800) -> str:
+    url = (url or "").strip()
+    h = int(height) if height else 800
+    return f"""<iframe
+  src="{html_mod.escape(url, quote=True)}"
+  width="100%"
+  height="{h}"
+  style="border:0; border-radius:12px; overflow:hidden;"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade"
+></iframe>"""
+
+# ===================== Streamlit App =====================
 
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
-
-# Remove link/anchor icons next to headers
 st.markdown(
     """
     <style>
@@ -829,8 +930,8 @@ st.markdown(
 
 st.title("Branded Table Generator")
 st.write(
-    "Upload a CSV, choose a brand and GitHub campaign, then click **Update widget** "
-    "to publish a branded, searchable table via GitHub Pages."
+    "Upload a CSV, choose a brand and campaign, then **Confirm & save** your table settings. "
+    "Generate HTML, then (optionally) publish to GitHub Pages and generate an iframe embed."
 )
 
 brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
@@ -847,7 +948,7 @@ brand = st.selectbox(
 
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 if uploaded_file is None:
-    st.info("Upload a CSV to preview the table and (optionally) publish it to GitHub Pages.")
+    st.info("Upload a CSV to start.")
     st.stop()
 
 try:
@@ -860,204 +961,272 @@ if df.empty:
     st.error("Uploaded CSV has no rows.")
     st.stop()
 
-default_title = "Table 1"
-default_subtitle = "Subheading"
+# Initialize confirmation state once df is loaded
+ensure_initial_confirm(df)
 
-# ---------- Configure (left) + Preview (right) ----------
-left_col, right_col = st.columns([1, 3], gap="large")
+# Main tabs (requested): HTML / Iframe
+tab_html, tab_iframe = st.tabs(["HTML", "Iframe"])
 
-with left_col:
-    st.markdown("### Configure")
+# --------------------- HTML TAB ---------------------
+with tab_html:
+    left_col, right_col = st.columns([1, 3], gap="large")
 
-    tab_header, tab_content = st.tabs(["Table header/footer", "Table content"])
+    with left_col:
+        st.markdown("### Configure")
 
-    with tab_header:
-        widget_title = st.text_input(
-            "Table title",
-            value=st.session_state.get("bt_widget_title", default_title),
-            key="bt_widget_title",
-        )
-        widget_subtitle = st.text_input(
-            "Table subtitle",
-            value=st.session_state.get("bt_widget_subtitle", default_subtitle),
-            key="bt_widget_subtitle",
+        # Confirm button (requested)
+        confirm_clicked = st.button(
+            "✅ Confirm and save table contents",
+            key="bt_confirm_btn",
+            use_container_width=True,
         )
 
-        show_header = st.checkbox(
-            "Show header box",
-            value=st.session_state.get("bt_show_header", True),
-            key="bt_show_header",
-            help="If off, the table starts immediately (no title/subtitle header block).",
+        # Edit controls are "draft"; preview uses CONFIRMED until you click confirm
+        tab_header, tab_content = st.tabs(["Table header/footer", "Table content"])
+
+        with tab_header:
+            st.text_input(
+                "Table title",
+                value=st.session_state.get("bt_widget_title", "Table 1"),
+                key="bt_widget_title",
+            )
+            st.text_input(
+                "Table subtitle",
+                value=st.session_state.get("bt_widget_subtitle", "Subheading"),
+                key="bt_widget_subtitle",
+            )
+
+            show_header = st.checkbox(
+                "Show header box",
+                value=st.session_state.get("bt_show_header", True),
+                key="bt_show_header",
+            )
+            st.checkbox(
+                "Center title & subtitle",
+                value=st.session_state.get("bt_center_titles", False),
+                key="bt_center_titles",
+                disabled=not show_header,
+            )
+            st.checkbox(
+                "Branded title color",
+                value=st.session_state.get("bt_branded_title_color", True),
+                key="bt_branded_title_color",
+                disabled=not show_header,
+            )
+
+            show_footer = st.checkbox(
+                "Show footer (logo)",
+                value=st.session_state.get("bt_show_footer", True),
+                key="bt_show_footer",
+            )
+            st.selectbox(
+                "Footer logo alignment",
+                options=["Right", "Center", "Left"],
+                index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Right")),
+                key="bt_footer_logo_align",
+                disabled=not show_footer,
+            )
+
+        with tab_content:
+            st.checkbox(
+                "Striped rows",
+                value=st.session_state.get("bt_striped_rows", True),
+                key="bt_striped_rows",
+            )
+            st.selectbox(
+                "Table content alignment",
+                options=["Center", "Left", "Right"],
+                index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
+                key="bt_cell_align",
+            )
+            st.checkbox(
+                "Show search",
+                value=st.session_state.get("bt_show_search", True),
+                key="bt_show_search",
+            )
+            show_pager = st.checkbox(
+                "Show pager (rows/page + prev/next)",
+                value=st.session_state.get("bt_show_pager", True),
+                key="bt_show_pager",
+                help="If off, the table will show ALL rows by default.",
+            )
+            st.checkbox(
+                "Show page numbers (Page X of Y)",
+                value=st.session_state.get("bt_show_page_numbers", True),
+                key="bt_show_page_numbers",
+                disabled=not show_pager,
+            )
+
+        # Status: unconfirmed changes?
+        draft_hash = stable_config_hash(draft_config_from_state())
+        confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
+        if draft_hash != confirmed_hash:
+            st.warning("You have unconfirmed changes. Click **Confirm and save table contents** to apply them.")
+        else:
+            st.caption("Draft matches confirmed table settings.")
+
+    # Confirm action (do after widgets render)
+    if confirm_clicked:
+        simulate_progress("Saving table settings…", total_sleep=0.45)
+        confirm_table(df)
+        # if HTML already generated, mark it stale until regenerated
+        if st.session_state.get("bt_html_generated", False):
+            if st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", ""):
+                st.session_state["bt_html_stale"] = True
+            else:
+                st.session_state["bt_html_stale"] = False
+        st.success("Table contents confirmed and saved.")
+
+    # Preview uses CONFIRMED HTML only
+    with right_col:
+        st.markdown("### Preview (confirmed)")
+        preview_html = st.session_state.get("bt_confirmed_html_preview", "")
+        components.html(preview_html, height=780, scrolling=True)
+
+    # HTML generation section (requested buttons & logic)
+    st.markdown("---")
+    st.markdown("### HTML")
+
+    html_generated = bool(st.session_state.get("bt_html_generated", False))
+    html_hash = st.session_state.get("bt_html_hash", "")
+    confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
+    draft_hash = stable_config_hash(draft_config_from_state())
+
+    # stale means: confirmed != html_hash OR draft != confirmed (unconfirmed changes)
+    confirmed_vs_html_stale = (html_generated and (html_hash != confirmed_hash))
+    unconfirmed_changes = (draft_hash != confirmed_hash)
+
+    col_a, col_b, col_c = st.columns([1, 1, 2])
+
+    with col_a:
+        get_html_clicked = st.button(
+            "📄 Get HTML code",
+            key="bt_get_html_code",
+            disabled=not bool(st.session_state.get("bt_confirmed_cfg")),
+            use_container_width=True,
         )
-        center_titles = st.checkbox(
-            "Center title & subtitle",
-            value=st.session_state.get("bt_center_titles", False),
-            key="bt_center_titles",
-            disabled=not show_header,
-        )
-        branded_title_color = st.checkbox(
-            "Branded title color",
-            value=st.session_state.get("bt_branded_title_color", True),
-            key="bt_branded_title_color",
-            disabled=not show_header,
+    with col_b:
+        update_html_clicked = st.button(
+            "♻️ Update HTML",
+            key="bt_update_html_code",
+            disabled=not html_generated,
+            use_container_width=True,
         )
 
-        show_footer = st.checkbox(
-            "Show footer (logo)",
-            value=st.session_state.get("bt_show_footer", True),
-            key="bt_show_footer",
-        )
-        footer_logo_align = st.selectbox(
-            "Footer logo alignment",
-            options=["Right", "Center", "Left"],
-            index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Right")),
-            key="bt_footer_logo_align",
-            disabled=not show_footer,
-        )
+    with col_c:
+        if unconfirmed_changes:
+            st.info("HTML is always generated from **confirmed** settings. Confirm your changes first (or click **Update HTML** which will auto-confirm).")
+        elif confirmed_vs_html_stale:
+            st.warning("Your confirmed table changed since HTML was generated. Click **Update HTML**.")
+        elif html_generated:
+            st.success("HTML is up to date with confirmed table settings.")
+        else:
+            st.caption("Generate HTML after confirming your table settings.")
 
-    with tab_content:
-        striped_rows = st.checkbox(
-            "Striped rows",
-            value=st.session_state.get("bt_striped_rows", True),
-            key="bt_striped_rows",
-        )
+    if get_html_clicked:
+        # Uses CONFIRMED
+        simulate_progress("Generating HTML…", total_sleep=0.40)
+        generate_html_code_from_confirmed(df)
+        st.session_state["bt_html_stale"] = False
+        st.success("HTML code generated from confirmed table settings.")
 
-        cell_align = st.selectbox(
-            "Table content alignment",
-            options=["Center", "Left", "Right"],
-            index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
-            key="bt_cell_align",
-        )
+    if update_html_clicked:
+        # If user changed draft after generating, auto-confirm first, then regenerate
+        if stable_config_hash(draft_config_from_state()) != st.session_state.get("bt_confirmed_hash", ""):
+            simulate_progress("Confirming latest table settings…", total_sleep=0.35)
+            confirm_table(df)
+        simulate_progress("Updating HTML…", total_sleep=0.40)
+        generate_html_code_from_confirmed(df)
+        st.session_state["bt_html_stale"] = False
+        st.success("HTML updated based on the latest confirmed table settings.")
 
-        show_search = st.checkbox(
-            "Show search",
-            value=st.session_state.get("bt_show_search", True),
-            key="bt_show_search",
-        )
-        show_pager = st.checkbox(
-            "Show pager (rows/page + prev/next)",
-            value=st.session_state.get("bt_show_pager", True),
-            key="bt_show_pager",
-            help="If off, the table will show ALL rows by default.",
-        )
-        show_page_numbers = st.checkbox(
-            "Show page numbers (Page X of Y)",
-            value=st.session_state.get("bt_show_page_numbers", True),
-            key="bt_show_page_numbers",
-            disabled=not show_pager,
-        )
-
-brand_meta_preview = get_brand_meta(st.session_state.get("brand_table", brand))
-
-html_preview = generate_table_html_from_df(
-    df,
-    st.session_state.get("bt_widget_title", default_title),
-    st.session_state.get("bt_widget_subtitle", default_subtitle),
-    brand_meta_preview["logo_url"],
-    brand_meta_preview["logo_alt"],
-    brand_meta_preview["brand_class"],
-    striped=st.session_state.get("bt_striped_rows", True),
-    center_titles=st.session_state.get("bt_center_titles", False),
-    branded_title_color=st.session_state.get("bt_branded_title_color", True),
-    show_search=st.session_state.get("bt_show_search", True),
-    show_pager=st.session_state.get("bt_show_pager", True),
-    show_page_numbers=st.session_state.get("bt_show_page_numbers", True),
-    show_header=st.session_state.get("bt_show_header", True),
-    show_footer=st.session_state.get("bt_show_footer", True),
-    footer_logo_align=st.session_state.get("bt_footer_logo_align", "Right"),
-    cell_align=st.session_state.get("bt_cell_align", "Center"),
-)
-
-with right_col:
-    st.markdown("### Live Preview")
-    components.html(html_preview, height=780, scrolling=True)
-
-# ---------- HTML output ----------
-st.markdown("---")
-st.markdown("### HTML file contents")
-st.text_area(label="", value=html_preview, height=350, label_visibility="collapsed")
-
-# ---------- GitHub / hosting settings ----------
-st.markdown("---")
-st.markdown("### Publish to GitHub Pages (optional)")
-
-saved_gh_user = st.session_state.get("bt_gh_user", "")
-saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
-
-username_options = ["GauthamBC", "ActionNetwork", "MoonWatcher", "SampleUser"]
-if GITHUB_USER_DEFAULT and GITHUB_USER_DEFAULT not in username_options:
-    username_options.insert(0, GITHUB_USER_DEFAULT)
-
-default_idx = username_options.index(saved_gh_user) if saved_gh_user in username_options else 0
-
-github_username_input = st.selectbox(
-    "Username (GitHub username)",
-    options=username_options,
-    index=default_idx,
-    key="bt_gh_user",
-)
-effective_github_user = github_username_input.strip()
-
-repo_name = st.text_input(
-    "Widget hosting repository name",
-    value=saved_gh_repo,
-    key="bt_gh_repo",
-)
-
-base_filename = "branded_table.html"
-widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
-
-st.caption(f"Target file in repo: `{widget_file_name}` (default: `{base_filename}`)")
-
-st.markdown(
-    "<p style='font-size:0.85rem; color:#c4c4c4;'>"
-    "Use <strong>Page availability check</strong> to see whether a page already exists "
-    "for this campaign, then click <strong>Update widget</strong> to publish."
-    "</p>",
-    unsafe_allow_html=True,
-)
-
-can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name.strip())
-
-col_check, col_get = st.columns([1, 1])
-with col_check:
-    page_check_clicked = st.button(
-        "Page availability check",
-        key="bt_page_check",
-        disabled=not can_run_github,
-    )
-with col_get:
-    update_clicked = st.button(
-        "Update widget",
-        key="bt_update_widget",
-        disabled=not can_run_github,
-    )
-
-if not GITHUB_TOKEN:
-    st.info(
-        "Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) "
-        "to enable automatic GitHub publishing."
-    )
-elif not effective_github_user or not repo_name.strip():
-    st.info("Fill in username and campaign name above.")
-
-# --- Page availability logic ---
-if page_check_clicked:
-    if not can_run_github:
-        st.error("Cannot run availability check – add your GitHub token, username and repo first.")
+    html_code = st.session_state.get("bt_html_code", "")
+    if html_code:
+        st.text_area("HTML code (generated)", value=html_code, height=350, label_visibility="visible")
     else:
+        st.text_area("HTML code (generated)", value="", height=200, label_visibility="visible", placeholder="Click “Get HTML code” to generate.")
+
+# --------------------- IFRAME TAB ---------------------
+with tab_iframe:
+    st.markdown("### Iframe / GitHub Pages")
+
+    html_generated = bool(st.session_state.get("bt_html_generated", False))
+    html_hash = st.session_state.get("bt_html_hash", "")
+    confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
+    draft_hash = stable_config_hash(draft_config_from_state())
+    unconfirmed_changes = (draft_hash != confirmed_hash)
+    html_stale = html_generated and (html_hash != confirmed_hash)
+
+    if not html_generated:
+        st.warning("Generate HTML first (go to the **HTML** tab and click **Get HTML code**).")
+    elif unconfirmed_changes or html_stale:
+        st.warning("Your HTML is not up-to-date with the latest table settings. Go to **HTML** tab → **Update HTML**.")
+
+    # GitHub options (only really usable once HTML is generated + fresh)
+    saved_gh_user = st.session_state.get("bt_gh_user", "")
+    saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
+
+    username_options = ["GauthamBC", "ActionNetwork", "MoonWatcher", "SampleUser"]
+    if GITHUB_USER_DEFAULT and GITHUB_USER_DEFAULT not in username_options:
+        username_options.insert(0, GITHUB_USER_DEFAULT)
+
+    default_idx = username_options.index(saved_gh_user) if saved_gh_user in username_options else 0
+    github_username_input = st.selectbox(
+        "Username (GitHub username)",
+        options=username_options,
+        index=default_idx,
+        key="bt_gh_user",
+        disabled=not html_generated,
+    )
+    effective_github_user = (github_username_input or "").strip()
+
+    repo_name = st.text_input(
+        "Widget hosting repository name",
+        value=saved_gh_repo,
+        key="bt_gh_repo",
+        disabled=not html_generated,
+    ).strip()
+
+    base_filename = "branded_table.html"
+    st.session_state.setdefault("bt_widget_file_name", base_filename)
+    widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
+
+    st.caption(f"Target file in repo: `{widget_file_name}` (default: `{base_filename}`)")
+
+    can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
+    can_publish = bool(can_run_github and html_generated and (not unconfirmed_changes) and (not html_stale))
+
+    # Availability check + Publish
+    col_check, col_pub = st.columns([1, 1])
+    with col_check:
+        page_check_clicked = st.button(
+            "Page availability check",
+            key="bt_page_check",
+            disabled=not can_run_github or not html_generated,
+            use_container_width=True,
+        )
+    with col_pub:
+        publish_clicked = st.button(
+            "Publish HTML to GitHub Pages",
+            key="bt_publish_html",
+            disabled=not can_publish,
+            help="Disabled until HTML is generated AND up-to-date with confirmed table settings.",
+            use_container_width=True,
+        )
+
+    if not GITHUB_TOKEN:
+        st.info("Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
+
+    # Availability logic
+    if page_check_clicked:
         try:
-            repo_exists = check_repo_exists(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
+            repo_exists = check_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
             file_exists = False
             next_fname = None
             if repo_exists:
-                file_exists = check_file_exists(
-                    effective_github_user, repo_name.strip(), GITHUB_TOKEN, base_filename
-                )
+                file_exists = check_file_exists(effective_github_user, repo_name, GITHUB_TOKEN, base_filename)
                 if file_exists:
-                    next_fname = find_next_widget_filename(
-                        effective_github_user, repo_name.strip(), GITHUB_TOKEN
-                    )
+                    next_fname = find_next_widget_filename(effective_github_user, repo_name, GITHUB_TOKEN)
 
             st.session_state["bt_availability"] = {
                 "repo_exists": repo_exists,
@@ -1066,99 +1235,75 @@ if page_check_clicked:
                 "suggested_new_filename": next_fname,
             }
             st.session_state.setdefault("bt_widget_file_name", base_filename)
-
+            st.success("Availability check complete.")
         except Exception as e:
             st.error(f"Availability check failed: {e}")
 
-availability = st.session_state.get("bt_availability")
-if GITHUB_TOKEN and effective_github_user and repo_name.strip() and availability:
-    repo_exists = availability.get("repo_exists", False)
-    file_exists = availability.get("file_exists", False)
-    checked_filename = availability.get("checked_filename", base_filename)
-    suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
+    availability = st.session_state.get("bt_availability")
+    if html_generated and can_run_github and availability:
+        repo_exists = availability.get("repo_exists", False)
+        file_exists = availability.get("file_exists", False)
+        checked_filename = availability.get("checked_filename", base_filename)
+        suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
 
-    if not repo_exists:
-        st.info(
-            "No existing repo found for this campaign. "
-            "When you click **Update widget**, the repo will be created and "
-            f"your table will be saved as `{checked_filename}`."
-        )
-        st.session_state["bt_widget_file_name"] = checked_filename
-    elif repo_exists and not file_exists:
-        st.success(
-            f"Repo exists and `{checked_filename}` is available. "
-            "Update widget will save your table to this file."
-        )
-        st.session_state["bt_widget_file_name"] = checked_filename
-    else:
-        st.warning(f"A page named `{checked_filename}` already exists in this repo.")
-        choice = st.radio(
-            "What would you like to do?",
-            options=[
-                "Replace existing widget (overwrite file)",
-                f"Create additional widget file in same repo (use {suggested_new_filename})",
-                "Change campaign name instead",
-            ],
-            key="bt_file_conflict_choice",
-        )
-        if choice.startswith("Replace"):
-            st.session_state["bt_widget_file_name"] = checked_filename
-            st.info(f"Update widget will overwrite `{checked_filename}` in this repo.")
-        elif choice.startswith("Create additional"):
-            st.session_state["bt_widget_file_name"] = suggested_new_filename
+        if not repo_exists:
             st.info(
-                f"Update widget will create a new file `{suggested_new_filename}` "
-                "in the same repo for this widget."
+                "No existing repo found for this campaign. "
+                f"Publishing will create the repo and save your HTML as `{checked_filename}`."
             )
+            st.session_state["bt_widget_file_name"] = checked_filename
+        elif repo_exists and not file_exists:
+            st.success(f"Repo exists and `{checked_filename}` is available.")
+            st.session_state["bt_widget_file_name"] = checked_filename
         else:
-            st.info("Update the campaign name above, then run **Page availability check** again.")
+            st.warning(f"A page named `{checked_filename}` already exists in this repo.")
+            choice = st.radio(
+                "What would you like to do?",
+                options=[
+                    "Replace existing widget (overwrite file)",
+                    f"Create additional widget file in same repo (use {suggested_new_filename})",
+                    "Change campaign name instead",
+                ],
+                key="bt_file_conflict_choice",
+                disabled=not html_generated,
+            )
+            if choice.startswith("Replace"):
+                st.session_state["bt_widget_file_name"] = checked_filename
+                st.info(f"Will overwrite `{checked_filename}`.")
+            elif choice.startswith("Create additional"):
+                st.session_state["bt_widget_file_name"] = suggested_new_filename
+                st.info(f"Will create `{suggested_new_filename}`.")
+            else:
+                st.info("Change repo name above, then run availability check again.")
 
-# --- Update widget (publish) logic ---
-if update_clicked:
-    if not can_run_github:
-        st.error("Cannot update widget – add your GitHub token, username and repo first.")
-    else:
+    # Publish logic (uses GENERATED HTML only)
+    if publish_clicked:
         try:
             progress_placeholder = st.empty()
             progress = progress_placeholder.progress(0)
-            for pct in (20, 45, 70):
-                time.sleep(0.12)
+
+            # small visible steps
+            for pct in (10, 25, 45):
+                time.sleep(0.10)
                 progress.progress(pct)
 
-            brand_meta_publish = get_brand_meta(st.session_state.get("brand_table", brand))
-            widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
+            html_final = st.session_state.get("bt_html_code", "")
+            if not html_final:
+                raise RuntimeError("No generated HTML found. Go to HTML tab and click Get HTML code.")
 
-            html_final = generate_table_html_from_df(
-                df,
-                st.session_state.get("bt_widget_title", default_title),
-                st.session_state.get("bt_widget_subtitle", default_subtitle),
-                brand_meta_publish["logo_url"],
-                brand_meta_publish["logo_alt"],
-                brand_meta_publish["brand_class"],
-                striped=st.session_state.get("bt_striped_rows", True),
-                center_titles=st.session_state.get("bt_center_titles", False),
-                branded_title_color=st.session_state.get("bt_branded_title_color", True),
-                show_search=st.session_state.get("bt_show_search", True),
-                show_pager=st.session_state.get("bt_show_pager", True),
-                show_page_numbers=st.session_state.get("bt_show_page_numbers", True),
-                show_header=st.session_state.get("bt_show_header", True),
-                show_footer=st.session_state.get("bt_show_footer", True),
-                footer_logo_align=st.session_state.get("bt_footer_logo_align", "Right"),
-                cell_align=st.session_state.get("bt_cell_align", "Center"),
-            )
-
-            progress.progress(80)
-            ensure_repo_exists(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
-
-            progress.progress(90)
+            ensure_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
+            progress.progress(65)
             try:
-                ensure_pages_enabled(effective_github_user, repo_name.strip(), GITHUB_TOKEN, branch="main")
+                ensure_pages_enabled(effective_github_user, repo_name, GITHUB_TOKEN, branch="main")
             except Exception:
                 pass
+            progress.progress(80)
+
+            widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
 
             upload_file_to_github(
                 effective_github_user,
-                repo_name.strip(),
+                repo_name,
                 GITHUB_TOKEN,
                 widget_file_name,
                 html_final,
@@ -1166,13 +1311,15 @@ if update_clicked:
                 branch="main",
             )
 
-            trigger_pages_build(effective_github_user, repo_name.strip(), GITHUB_TOKEN)
+            trigger_pages_build(effective_github_user, repo_name, GITHUB_TOKEN)
 
             progress.progress(100)
-            time.sleep(0.15)
+            time.sleep(0.12)
             progress_placeholder.empty()
 
-            st.success("Branded table HTML updated on GitHub Pages.")
+            pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
+            st.session_state["bt_last_published_url"] = pages_url
+            st.success("Published. GitHub Pages may take a minute to update.")
 
         except Exception as e:
             try:
@@ -1180,3 +1327,46 @@ if update_clicked:
             except Exception:
                 pass
             st.error(f"GitHub publish failed: {e}")
+
+    # Iframe generation (requested: disabled unless HTML generated)
+    st.markdown("---")
+    st.markdown("### Iframe embed")
+
+    pages_url = st.session_state.get("bt_last_published_url", "")
+    default_url = ""
+    if html_generated and effective_github_user and repo_name:
+        default_url = compute_pages_url(effective_github_user, repo_name, st.session_state.get("bt_widget_file_name", base_filename))
+
+    url_to_use = st.text_input(
+        "Page URL used for iframe",
+        value=pages_url or default_url,
+        key="bt_iframe_url",
+        disabled=not html_generated,
+        help="If you publish above, this will auto-fill. Otherwise it will be the expected GitHub Pages URL.",
+    )
+
+    iframe_height = st.number_input(
+        "Iframe height (px)",
+        min_value=300,
+        max_value=2000,
+        value=int(st.session_state.get("bt_iframe_height", 800)),
+        step=50,
+        key="bt_iframe_height",
+        disabled=not html_generated,
+    )
+
+    get_iframe_clicked = st.button(
+        "🧩 Get iframe code",
+        key="bt_get_iframe",
+        disabled=not html_generated or not bool(url_to_use.strip()),
+        use_container_width=True,
+        help="Disabled until HTML is generated.",
+    )
+
+    if get_iframe_clicked:
+        simulate_progress("Generating iframe…", total_sleep=0.25)
+        st.session_state["bt_iframe_code"] = build_iframe_snippet(url_to_use, height=int(iframe_height))
+        st.success("Iframe code generated.")
+
+    iframe_code = st.session_state.get("bt_iframe_code", "")
+    st.text_area("Iframe code", value=iframe_code, height=180, placeholder="Click “Get iframe code” to generate.")
