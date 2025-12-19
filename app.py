@@ -196,7 +196,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </head>
 <body style="margin:0;">
 
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid #DCEFE6;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.09);">
@@ -218,7 +218,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --hover:var(--brand-300);
       --scroll-thumb:var(--brand-500);
       --footer-border:color-mix(in oklab,var(--brand-500) 35%, transparent);
+
+      --cell-align:center;
     }
+    .vi-table-embed.align-left { --cell-align:left; }
+    .vi-table-embed.align-center { --cell-align:center; }
+    .vi-table-embed.align-right { --cell-align:right; }
 
     .vi-table-embed.brand-vegasinsider{
       --brand-50:#FFF7DC;
@@ -351,8 +356,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Header row */
     #bt-block thead th{
-      background:var(--header-bg); color:#ffffff; font-weight:700; text-align:center;
-      padding:12px 14px; white-space:nowrap; vertical-align:middle; border:0;
+      background:var(--header-bg); color:#ffffff; font-weight:700; vertical-align:middle; border:0;
+      padding:12px 14px; white-space:nowrap;
       transition:background-color .15s, color .15s, box-shadow .15s, transform .05s;
     }
     #bt-block thead th.sortable{cursor:pointer; user-select:none}
@@ -363,17 +368,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
     #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
 
+    /* Alignment (applies to both th + td) */
     #bt-block thead th,
-    #bt-block tbody td { padding: 12px 10px; overflow: hidden; text-align:center; }
+    #bt-block tbody td {
+      padding: 12px 10px;
+      overflow: hidden;
+      text-align: var(--cell-align, center);
+    }
     #bt-block thead th { white-space: nowrap; }
 
     /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
 
     /* Hover should win over stripes */
-    #bt-block tbody tr:hover td{
-      background:var(--hover) !important;
-    }
+    #bt-block tbody tr:hover td{ background:var(--hover) !important; }
     #bt-block tbody tr:hover{
       box-shadow:inset 3px 0 0 var(--brand-500);
       transform:translateY(-1px);
@@ -410,6 +418,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       gap:12px;
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
+    .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
     .vi-table-embed .vi-footer img{ height: 38px; width:auto; display:inline-block; }
 
     /* Brand-specific logo recolor */
@@ -500,17 +509,27 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const controls = root.querySelector('.dw-controls');
     if(!table || !tb || !scroller || !controls) return;
 
+    const controlsHidden = controls.classList.contains('vi-hide');
+
     const searchFieldWrap = controls.querySelector('.dw-field');
     const searchInput = controls.querySelector('.dw-input');
     const clearBtn = controls.querySelector('.dw-clear');
+
+    const pagerWrap = controls.querySelector('.right');
     const sizeSel = controls.querySelector('#bt-size');
     const prevBtn = controls.querySelector('[data-page="prev"]');
     const nextBtn = controls.querySelector('[data-page="next"]');
+
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
-    const hasSearch = !!searchInput && !!clearBtn && !!searchFieldWrap;
-    const hasPager = !!sizeSel && !!prevBtn && !!nextBtn;
+    const hasSearch = !controlsHidden
+      && !!searchFieldWrap && !searchFieldWrap.classList.contains('vi-hide')
+      && !!searchInput && !!clearBtn;
+
+    const hasPager = !controlsHidden
+      && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
+      && !!sizeSel && !!prevBtn && !!nextBtn;
 
     if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
       scroller.classList.add('no-scroll');
@@ -518,13 +537,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
+    // ✅ If pager is OFF, show ALL rows by default
+    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
     let page = 1;
     let filter = '';
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
+    // Sorting always on
     const heads = Array.from(table.tHead.rows[0].cells);
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -626,6 +647,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       shown.forEach(r=>{ r.style.display='table-row'; });
     }
 
+    // Search wiring (only if visible)
     if(hasSearch){
       const syncClearBtn = ()=> searchFieldWrap.classList.toggle('has-value', !!searchInput.value);
       let t=null;
@@ -649,6 +671,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       syncClearBtn();
     }
 
+    // Pager wiring (only if visible)
     if(hasPager){
       sizeSel.addEventListener('change', e=>{
         pageSize = parseInt(e.target.value,10) || 0;
@@ -701,7 +724,8 @@ def generate_table_html_from_df(
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
-    footer_center_logo: bool = False,
+    footer_logo_align: str = "Right",   # Right / Center / Left
+    cell_align: str = "Center",         # Center / Left / Right
 ) -> str:
     df = df.copy()
 
@@ -723,7 +747,7 @@ def generate_table_html_from_df(
     table_rows_html = "\n".join(row_html_snippets)
     colspan = str(len(df.columns))
 
-    # ✅ Stripe applied to TD (more reliable), skip empty row
+    # Stripe applied to TD, skip empty row
     stripe_css = (
         """
     #bt-block tbody tr:not(.dw-empty):nth-child(odd) td{background:var(--stripe);}
@@ -746,7 +770,23 @@ def generate_table_html_from_df(
     pager_vis = "" if show_pager else "vi-hide"
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
 
-    footer_align_class = "footer-center" if footer_center_logo else ""
+    # Footer logo alignment classes
+    footer_logo_align = (footer_logo_align or "Right").strip().lower()
+    if footer_logo_align == "center":
+        footer_align_class = "footer-center"
+    elif footer_logo_align == "left":
+        footer_align_class = "footer-left"
+    else:
+        footer_align_class = ""  # right = default
+
+    # Table cell alignment classes
+    cell_align = (cell_align or "Center").strip().lower()
+    if cell_align == "left":
+        cell_align_class = "align-left"
+    elif cell_align == "right":
+        cell_align_class = "align-right"
+    else:
+        cell_align_class = "align-center"
 
     html = (
         HTML_TEMPLATE_TABLE
@@ -768,6 +808,7 @@ def generate_table_html_from_df(
         .replace("[[PAGER_VIS_CLASS]]", pager_vis)
         .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
+        .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
     )
     return html
 
@@ -775,6 +816,7 @@ def generate_table_html_from_df(
 
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 
+# Remove link/anchor icons next to headers
 st.markdown(
     """
     <style>
@@ -821,104 +863,121 @@ if df.empty:
 default_title = "Table 1"
 default_subtitle = "Subheading"
 
+# ---------- Configure (left) + Preview (right) ----------
 left_col, right_col = st.columns([1, 3], gap="large")
 
 with left_col:
     st.markdown("### Configure")
 
-    widget_title = st.text_input(
-        "Table title",
-        value=st.session_state.get("bt_widget_title", default_title),
-        key="bt_widget_title",
-    )
-    widget_subtitle = st.text_input(
-        "Table subtitle",
-        value=st.session_state.get("bt_widget_subtitle", default_subtitle),
-        key="bt_widget_subtitle",
-    )
+    tab_header, tab_content = st.tabs(["Table header/footer", "Table content"])
 
-    striped_rows = st.checkbox(
-        "Striped rows",
-        value=st.session_state.get("bt_striped_rows", True),
-        key="bt_striped_rows",
-    )
-    center_titles = st.checkbox(
-        "Center title & subtitle",
-        value=st.session_state.get("bt_center_titles", False),
-        key="bt_center_titles",
-    )
-    branded_title_color = st.checkbox(
-        "Branded title color",
-        value=st.session_state.get("bt_branded_title_color", True),
-        key="bt_branded_title_color",
-    )
+    with tab_header:
+        widget_title = st.text_input(
+            "Table title",
+            value=st.session_state.get("bt_widget_title", default_title),
+            key="bt_widget_title",
+        )
+        widget_subtitle = st.text_input(
+            "Table subtitle",
+            value=st.session_state.get("bt_widget_subtitle", default_subtitle),
+            key="bt_widget_subtitle",
+        )
 
-    st.markdown("---")
-    st.markdown("#### Display options")
+        show_header = st.checkbox(
+            "Show header box",
+            value=st.session_state.get("bt_show_header", True),
+            key="bt_show_header",
+            help="If off, the table starts immediately (no title/subtitle header block).",
+        )
+        center_titles = st.checkbox(
+            "Center title & subtitle",
+            value=st.session_state.get("bt_center_titles", False),
+            key="bt_center_titles",
+            disabled=not show_header,
+        )
+        branded_title_color = st.checkbox(
+            "Branded title color",
+            value=st.session_state.get("bt_branded_title_color", True),
+            key="bt_branded_title_color",
+            disabled=not show_header,
+        )
 
-    show_header = st.checkbox(
-        "Show header box",
-        value=st.session_state.get("bt_show_header", True),
-        key="bt_show_header",
-        help="If off, the table starts immediately (no title/subtitle header block).",
-    )
-    show_footer = st.checkbox(
-        "Show footer (logo)",
-        value=st.session_state.get("bt_show_footer", True),
-        key="bt_show_footer",
-    )
-    footer_center_logo = st.checkbox(
-        "Center align footer logo",
-        value=st.session_state.get("bt_footer_center_logo", False),
-        key="bt_footer_center_logo",
-        disabled=not show_footer,
-    )
+        show_footer = st.checkbox(
+            "Show footer (logo)",
+            value=st.session_state.get("bt_show_footer", True),
+            key="bt_show_footer",
+        )
+        footer_logo_align = st.selectbox(
+            "Footer logo alignment",
+            options=["Right", "Center", "Left"],
+            index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Right")),
+            key="bt_footer_logo_align",
+            disabled=not show_footer,
+        )
 
-    show_search = st.checkbox(
-        "Show search",
-        value=st.session_state.get("bt_show_search", True),
-        key="bt_show_search",
-    )
-    show_pager = st.checkbox(
-        "Show pager (rows/page + prev/next)",
-        value=st.session_state.get("bt_show_pager", True),
-        key="bt_show_pager",
-    )
-    show_page_numbers = st.checkbox(
-        "Show page numbers (Page X of Y)",
-        value=st.session_state.get("bt_show_page_numbers", True),
-        key="bt_show_page_numbers",
-        disabled=not show_pager,
-    )
+    with tab_content:
+        striped_rows = st.checkbox(
+            "Striped rows",
+            value=st.session_state.get("bt_striped_rows", True),
+            key="bt_striped_rows",
+        )
+
+        cell_align = st.selectbox(
+            "Table content alignment",
+            options=["Center", "Left", "Right"],
+            index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
+            key="bt_cell_align",
+        )
+
+        show_search = st.checkbox(
+            "Show search",
+            value=st.session_state.get("bt_show_search", True),
+            key="bt_show_search",
+        )
+        show_pager = st.checkbox(
+            "Show pager (rows/page + prev/next)",
+            value=st.session_state.get("bt_show_pager", True),
+            key="bt_show_pager",
+            help="If off, the table will show ALL rows by default.",
+        )
+        show_page_numbers = st.checkbox(
+            "Show page numbers (Page X of Y)",
+            value=st.session_state.get("bt_show_page_numbers", True),
+            key="bt_show_page_numbers",
+            disabled=not show_pager,
+        )
 
 brand_meta_preview = get_brand_meta(st.session_state.get("brand_table", brand))
 
 html_preview = generate_table_html_from_df(
     df,
-    widget_title,
-    widget_subtitle,
+    st.session_state.get("bt_widget_title", default_title),
+    st.session_state.get("bt_widget_subtitle", default_subtitle),
     brand_meta_preview["logo_url"],
     brand_meta_preview["logo_alt"],
     brand_meta_preview["brand_class"],
-    striped=striped_rows,
-    center_titles=center_titles,
-    branded_title_color=branded_title_color,
-    show_search=show_search,
-    show_pager=show_pager,
-    show_page_numbers=show_page_numbers,
-    show_header=show_header,
-    show_footer=show_footer,
-    footer_center_logo=footer_center_logo,
+    striped=st.session_state.get("bt_striped_rows", True),
+    center_titles=st.session_state.get("bt_center_titles", False),
+    branded_title_color=st.session_state.get("bt_branded_title_color", True),
+    show_search=st.session_state.get("bt_show_search", True),
+    show_pager=st.session_state.get("bt_show_pager", True),
+    show_page_numbers=st.session_state.get("bt_show_page_numbers", True),
+    show_header=st.session_state.get("bt_show_header", True),
+    show_footer=st.session_state.get("bt_show_footer", True),
+    footer_logo_align=st.session_state.get("bt_footer_logo_align", "Right"),
+    cell_align=st.session_state.get("bt_cell_align", "Center"),
 )
 
 with right_col:
     st.markdown("### Live Preview")
     components.html(html_preview, height=780, scrolling=True)
 
+# ---------- HTML output ----------
 st.markdown("---")
 st.markdown("### HTML file contents")
 st.text_area(label="", value=html_preview, height=350, label_visibility="collapsed")
 
+# ---------- GitHub / hosting settings ----------
 st.markdown("---")
 st.markdown("### Publish to GitHub Pages (optional)")
 
@@ -982,6 +1041,7 @@ if not GITHUB_TOKEN:
 elif not effective_github_user or not repo_name.strip():
     st.info("Fill in username and campaign name above.")
 
+# --- Page availability logic ---
 if page_check_clicked:
     if not can_run_github:
         st.error("Cannot run availability check – add your GitHub token, username and repo first.")
@@ -1053,6 +1113,7 @@ if GITHUB_TOKEN and effective_github_user and repo_name.strip() and availability
         else:
             st.info("Update the campaign name above, then run **Page availability check** again.")
 
+# --- Update widget (publish) logic ---
 if update_clicked:
     if not can_run_github:
         st.error("Cannot update widget – add your GitHub token, username and repo first.")
@@ -1064,38 +1125,26 @@ if update_clicked:
                 time.sleep(0.12)
                 progress.progress(pct)
 
-            title_for_publish = st.session_state.get("bt_widget_title", default_title)
-            subtitle_for_publish = st.session_state.get("bt_widget_subtitle", default_subtitle)
-            striped_for_publish = st.session_state.get("bt_striped_rows", True)
-            center_titles_for_publish = st.session_state.get("bt_center_titles", False)
-            branded_title_for_publish = st.session_state.get("bt_branded_title_color", True)
-
-            show_header_p = st.session_state.get("bt_show_header", True)
-            show_footer_p = st.session_state.get("bt_show_footer", True)
-            footer_center_p = st.session_state.get("bt_footer_center_logo", False)
-            show_search_p = st.session_state.get("bt_show_search", True)
-            show_pager_p = st.session_state.get("bt_show_pager", True)
-            show_page_numbers_p = st.session_state.get("bt_show_page_numbers", True)
-
             brand_meta_publish = get_brand_meta(st.session_state.get("brand_table", brand))
             widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
 
             html_final = generate_table_html_from_df(
                 df,
-                title_for_publish,
-                subtitle_for_publish,
+                st.session_state.get("bt_widget_title", default_title),
+                st.session_state.get("bt_widget_subtitle", default_subtitle),
                 brand_meta_publish["logo_url"],
                 brand_meta_publish["logo_alt"],
                 brand_meta_publish["brand_class"],
-                striped=striped_for_publish,
-                center_titles=center_titles_for_publish,
-                branded_title_color=branded_title_for_publish,
-                show_search=show_search_p,
-                show_pager=show_pager_p,
-                show_page_numbers=show_page_numbers_p,
-                show_header=show_header_p,
-                show_footer=show_footer_p,
-                footer_center_logo=footer_center_p,
+                striped=st.session_state.get("bt_striped_rows", True),
+                center_titles=st.session_state.get("bt_center_titles", False),
+                branded_title_color=st.session_state.get("bt_branded_title_color", True),
+                show_search=st.session_state.get("bt_show_search", True),
+                show_pager=st.session_state.get("bt_show_pager", True),
+                show_page_numbers=st.session_state.get("bt_show_page_numbers", True),
+                show_header=st.session_state.get("bt_show_header", True),
+                show_footer=st.session_state.get("bt_show_footer", True),
+                footer_logo_align=st.session_state.get("bt_footer_logo_align", "Right"),
+                cell_align=st.session_state.get("bt_cell_align", "Center"),
             )
 
             progress.progress(80)
