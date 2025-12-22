@@ -866,12 +866,12 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         cell_align=cfg["cell_align"],
     )
 
-def ensure_initial_confirm(df: pd.DataFrame):
+def ensure_initial_confirm(df_confirmed: pd.DataFrame):
     if "bt_confirmed_cfg" not in st.session_state:
         cfg = draft_config_from_state()
         st.session_state["bt_confirmed_cfg"] = cfg
         st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
-        st.session_state["bt_confirmed_html_preview"] = html_from_config(df, cfg)
+        st.session_state["bt_confirmed_html_preview"] = html_from_config(df_confirmed, cfg)
 
         st.session_state.setdefault("bt_html_code", "")
         st.session_state.setdefault("bt_html_generated", False)
@@ -880,17 +880,17 @@ def ensure_initial_confirm(df: pd.DataFrame):
         st.session_state.setdefault("bt_iframe_code", "")
         st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
 
-def confirm_table(df: pd.DataFrame):
+def confirm_table(df_confirmed: pd.DataFrame):
     cfg = draft_config_from_state()
     st.session_state["bt_confirmed_cfg"] = cfg
     st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
-    st.session_state["bt_confirmed_html_preview"] = html_from_config(df, cfg)
+    st.session_state["bt_confirmed_html_preview"] = html_from_config(df_confirmed, cfg)
 
-def generate_html_code_from_confirmed(df: pd.DataFrame):
+def generate_html_code_from_confirmed(df_confirmed: pd.DataFrame):
     cfg = st.session_state.get("bt_confirmed_cfg")
     if not cfg:
         return
-    html = html_from_config(df, cfg)
+    html = html_from_config(df_confirmed, cfg)
     st.session_state["bt_confirmed_html_preview"] = html
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
@@ -913,6 +913,27 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
   loading="lazy"
   referrerpolicy="no-referrer-when-downgrade"
 ></iframe>"""
+
+def reset_widget_state_for_new_upload():
+    # Reset the “confirmed/html/publish” state so new uploads start clean
+    keys_to_clear = [
+        "bt_confirmed_cfg",
+        "bt_confirmed_hash",
+        "bt_confirmed_html_preview",
+        "bt_html_code",
+        "bt_html_generated",
+        "bt_html_hash",
+        "bt_last_published_url",
+        "bt_iframe_code",
+        "bt_widget_file_name",
+        "bt_availability",
+        "bt_file_conflict_choice",
+        "bt_iframe_url",
+        "bt_html_stale",
+    ]
+    for k in keys_to_clear:
+        if k in st.session_state:
+            del st.session_state[k]
 
 # ===================== Streamlit App =====================
 
@@ -947,23 +968,57 @@ if uploaded_file is None:
     st.stop()
 
 try:
-    df = pd.read_csv(uploaded_file)
+    df_uploaded_now = pd.read_csv(uploaded_file)
 except Exception as e:
     st.error(f"Error reading CSV: {e}")
     st.stop()
 
-if df.empty:
+if df_uploaded_now.empty:
     st.error("Uploaded CSV has no rows.")
     st.stop()
 
-ensure_initial_confirm(df)
+# ===================== NEW: DF state (uploaded / draft / confirmed) =====================
+
+uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
+prev_name = st.session_state.get("bt_uploaded_name")
+
+if prev_name != uploaded_name:
+    reset_widget_state_for_new_upload()
+
+    st.session_state["bt_uploaded_name"] = uploaded_name
+    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy()
+    st.session_state["bt_df_draft"] = df_uploaded_now.copy()       # editable
+    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()   # used for preview/html
+
+df_draft = st.session_state["bt_df_draft"]
+df_confirmed = st.session_state["bt_df_confirmed"]
+
+ensure_initial_confirm(df_confirmed)
 
 # ===================== Layout: Left (1/4) tabs + Right (3/4) preview =====================
 
 left_col, right_col = st.columns([1, 3], gap="large")
 
-# Always-on preview (CONFIRMED)
+# Right: editor + always-on preview (CONFIRMED)
 with right_col:
+    st.markdown("### Edit data (draft)")
+    with st.expander("Open editor", expanded=False):
+        edited_df = st.data_editor(
+            df_draft,
+            use_container_width=True,
+            num_rows="dynamic",
+            key="bt_data_editor",
+        )
+        st.session_state["bt_df_draft"] = edited_df
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("↩️ Reset draft to uploaded CSV", use_container_width=True):
+                st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
+                st.rerun()
+        with c2:
+            st.caption("Edits apply to the draft. Click **Confirm and save** to update preview/HTML.")
+
     st.markdown("### Preview (confirmed)")
     preview_html = st.session_state.get("bt_confirmed_html_preview", "")
     components.html(preview_html, height=820, scrolling=True)
@@ -976,14 +1031,12 @@ with left_col:
     with tab_config:
         st.markdown("#### Table setup")
 
-        # confirm button (finalize)
         confirm_clicked = st.button(
             "✅ Confirm and save table contents",
             key="bt_confirm_btn",
             use_container_width=True,
         )
 
-        # two small subtabs (keeps it tidy)
         sub_head, sub_content = st.tabs(["Header / Footer", "Content"])
 
         with sub_head:
@@ -1059,17 +1112,24 @@ with left_col:
                 disabled=not show_pager,
             )
 
-        # status + action
         draft_hash = stable_config_hash(draft_config_from_state())
         confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
         unconfirmed_changes = (draft_hash != confirmed_hash)
 
         if confirm_clicked:
-            simulate_progress("Saving table settings…", total_sleep=0.45)
-            confirm_table(df)
+            simulate_progress("Saving table settings & data…", total_sleep=0.45)
+
+            # ✅ confirm DATA: draft -> confirmed
+            st.session_state["bt_df_confirmed"] = st.session_state["bt_df_draft"].copy()
+
+            # ✅ confirm CONFIG + rebuild confirmed preview using confirmed df
+            confirm_table(st.session_state["bt_df_confirmed"])
+
             # if HTML exists, mark stale if mismatch
             if st.session_state.get("bt_html_generated", False):
-                st.session_state["bt_html_stale"] = (st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", ""))
+                st.session_state["bt_html_stale"] = (
+                    st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", "")
+                )
             st.success("Saved. Preview updated (confirmed).")
         else:
             if unconfirmed_changes:
@@ -1117,17 +1177,18 @@ with left_col:
                 st.warning("Confirm your changes first (or use Update HTML).")
             else:
                 simulate_progress("Generating HTML…", total_sleep=0.40)
-                generate_html_code_from_confirmed(df)
-                st.success("HTML generated from confirmed settings.")
+                generate_html_code_from_confirmed(st.session_state["bt_df_confirmed"])
+                st.success("HTML generated from confirmed settings + confirmed data.")
 
         if update_html_clicked:
-            # auto-confirm any draft changes first
+            # auto-confirm any draft changes first (SETTINGS) + regenerate
             if stable_config_hash(draft_config_from_state()) != st.session_state.get("bt_confirmed_hash", ""):
                 simulate_progress("Confirming latest settings…", total_sleep=0.30)
-                confirm_table(df)
+                confirm_table(st.session_state["bt_df_confirmed"])
+
             simulate_progress("Updating HTML…", total_sleep=0.40)
-            generate_html_code_from_confirmed(df)
-            st.success("HTML updated from the latest confirmed settings.")
+            generate_html_code_from_confirmed(st.session_state["bt_df_confirmed"])
+            st.success("HTML updated from the latest confirmed settings + confirmed data.")
 
         html_code = st.session_state.get("bt_html_code", "")
         st.text_area(
@@ -1154,7 +1215,6 @@ with left_col:
         elif unconfirmed_changes or html_stale:
             st.warning("Your HTML is not up to date. Go to HTML tab → **Update HTML**.")
 
-        # GitHub inputs (disabled until HTML generated)
         saved_gh_user = st.session_state.get("bt_gh_user", "")
         saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
 
@@ -1208,7 +1268,6 @@ with left_col:
         if not GITHUB_TOKEN:
             st.info("Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
 
-        # Availability logic
         if page_check_clicked:
             try:
                 repo_exists = check_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
@@ -1259,7 +1318,6 @@ with left_col:
                 elif choice.startswith("Create additional"):
                     st.session_state["bt_widget_file_name"] = suggested_new_filename
 
-        # Publish logic (uses generated HTML only)
         if publish_clicked:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
