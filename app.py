@@ -214,6 +214,8 @@ def dataframe_to_image_bytes(
     fmt: str = "png",
     dpi: int = 300,
 ) -> bytes:
+    import textwrap
+
     df = df.copy().fillna("")
     palette = brand_palette(brand_name)
     header_bg = palette["header_bg"]
@@ -221,14 +223,12 @@ def dataframe_to_image_bytes(
 
     n_rows, n_cols = df.shape
 
-    # ---- Smart sizing for many columns ----
-    # Wider canvas per column + slightly smaller font when there are many columns
-    col_w = 1.65 if n_cols <= 6 else 2.15  # more width per col if many cols
-    row_h = 0.40
+    # ---- sizing ----
+    col_w = 2.15 if n_cols >= 7 else 1.75
+    row_h = 0.45
     fig_w = max(10.0, n_cols * col_w)
     fig_h = max(3.2, (n_rows + 1) * row_h)
 
-    # Font scale
     font_size = 11
     if n_cols >= 8:
         font_size = 9
@@ -238,6 +238,52 @@ def dataframe_to_image_bytes(
     top_pad = 0.9 if include_header_block else 0.25
     bot_pad = 0.9 if (include_footer and footer_logo_url) else 0.25
     fig_h = fig_h + top_pad + bot_pad
+
+    # ---- wrap widths per column (characters) ----
+    # Adjust these if you want tighter/looser wrap.
+    # More columns => fewer chars per line.
+    base_wrap = 28
+    if n_cols >= 7:
+        base_wrap = 22
+    if n_cols >= 9:
+        base_wrap = 18
+
+    # Try to give important columns slightly more room
+    wrap_map = {}
+    for c in df.columns:
+        name = str(c).lower()
+        if "url" in name:
+            wrap_map[c] = max(14, base_wrap - 6)
+        elif "email" in name:
+            wrap_map[c] = max(14, base_wrap - 6)
+        elif "title" in name:
+            wrap_map[c] = base_wrap
+        else:
+            wrap_map[c] = base_wrap
+
+    def soft_break_long_tokens(s: str) -> str:
+        # Helps wrap very long words/urls/emails that have no spaces
+        # Inserts zero-width break hints.
+        return s.replace("/", "/\u200b").replace(".", ".\u200b").replace("@", "@\u200b").replace("-", "-\u200b")
+
+    def wrap_cell(text: str, width: int) -> str:
+        t = soft_break_long_tokens(str(text))
+        # textwrap works better if there are some break opportunities (we injected above)
+        return "\n".join(textwrap.wrap(t, width=width, break_long_words=True, break_on_hyphens=True)) or ""
+
+    # Build wrapped cell text matrix + track line counts per row
+    wrapped_values = []
+    row_line_counts = []  # body rows only
+    for _, row in df.iterrows():
+        wrapped_row = []
+        max_lines = 1
+        for c in df.columns:
+            w = wrap_map[c]
+            v = wrap_cell(row[c], w)
+            wrapped_row.append(v)
+            max_lines = max(max_lines, v.count("\n") + 1 if v else 1)
+        wrapped_values.append(wrapped_row)
+        row_line_counts.append(max_lines)
 
     fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
     ax = fig.add_axes([0.02, 0.02, 0.96, 0.96])
@@ -259,9 +305,9 @@ def dataframe_to_image_bytes(
     table_bbox = [0.00, y_table_bottom, 1.00, y_table_top - y_table_bottom]
 
     table = ax.table(
-        cellText=df.values.tolist(),
+        cellText=wrapped_values,
         colLabels=[str(c) for c in df.columns],
-        cellLoc="left",   # ✅ better for long text
+        cellLoc="left",
         colLoc="center",
         bbox=table_bbox,
     )
@@ -269,28 +315,35 @@ def dataframe_to_image_bytes(
     table.auto_set_font_size(False)
     table.set_fontsize(font_size)
 
-    # Force columns to share width evenly, but allow more breathing room via bigger fig_w
-    # Also wrap long text so it doesn't run across boundaries
+    # Wrap + alignment
     for (r, c), cell in table.get_celld().items():
         cell.get_text().set_wrap(True)
-        cell.set_linewidth(0.5)
+        cell.set_linewidth(0.4)
 
-    # Header styling
+    # Header styling (row 0)
     for c in range(n_cols):
         cell = table[(0, c)]
         cell.set_facecolor(header_bg)
         cell.get_text().set_color("white")
         cell.get_text().set_weight("bold")
         cell.set_edgecolor("white")
-        cell.get_text().set_ha("center")  # center headers
+        cell.get_text().set_ha("center")
 
-    # Zebra striping + left align body
+    # Body styling + zebra + IMPORTANT: row height adjustments
+    # Base height (relative); we scale it by line count for each row
+    base_body_height = table[(1, 0)].get_height() if n_rows > 0 else 0.05
+
     for r in range(1, n_rows + 1):
+        lines = row_line_counts[r - 1]  # because row 1 in table is first body row
+        # Height scale: 1 line => 1.0, 2 lines => 1.7, 3 lines => 2.4, etc.
+        scale = 1.0 + (lines - 1) * 0.70
+
         for c in range(n_cols):
             cell = table[(r, c)]
             cell.set_facecolor(stripe_bg if (r % 2 == 1) else "white")
             cell.set_edgecolor("white")
             cell.get_text().set_ha("left")
+            cell.set_height(base_body_height * scale)
 
     # Footer logo
     if include_footer and footer_logo_url:
