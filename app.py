@@ -311,6 +311,13 @@ def dataframe_to_image_bytes(
         colLoc="center",
         bbox=table_bbox,
     )
+    # ---- Add consistent padding + nicer vertical alignment ----
+    PADDING = 0.18  # try 0.15–0.25
+    for (r, c), cell in table.get_celld().items():
+        cell.PAD = PADDING                 # ✅ adds breathing space inside cells
+        cell.get_text().set_wrap(True)
+        cell.get_text().set_va("center")   # ✅ vertically centered multi-line text
+        cell.set_linewidth(0.4)
 
     table.auto_set_font_size(False)
     table.set_fontsize(font_size)
@@ -336,7 +343,7 @@ def dataframe_to_image_bytes(
     for r in range(1, n_rows + 1):
         lines = row_line_counts[r - 1]  # because row 1 in table is first body row
         # Height scale: 1 line => 1.0, 2 lines => 1.7, 3 lines => 2.4, etc.
-        scale = 1.0 + (lines - 1) * 0.70
+        scale = 1.25 + (lines - 1) * 0.85
 
         for c in range(n_cols):
             cell = table[(r, c)]
