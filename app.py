@@ -236,7 +236,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --header-bg:var(--brand-500);
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
-      --scroll-thumb:var(--brand-600);
+      --scroll-thumb:var(--brand-500); /* ✅ exact same as header (#F2C23A) */
       --footer-border:color-mix(in oklab,var(--brand-500) 40%, transparent);
     }
 
@@ -425,16 +425,21 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
     }
+
+    /* ✅ Updated VI filter to better match #F2C23A */
     .vi-table-embed.brand-vegasinsider .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(72%) sepia(63%) saturate(652%) hue-rotate(6deg) brightness(95%) contrast(101%);
+      filter: brightness(0) saturate(100%) invert(77%) sepia(62%) saturate(680%) hue-rotate(2deg) brightness(101%) contrast(98%);
     }
+
     .vi-table-embed.brand-canadasb .vi-footer img{
       filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
     }
     .vi-table-embed.brand-rotogrinders .vi-footer img{
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
     }
-    .vi-table-embed.brand-vegasinsider .vi-footer img{ height:32px; }
+
+    /* ✅ Make VegasInsider logo smaller */
+    .vi-table-embed.brand-vegasinsider .vi-footer img{ height:24px; }
     .vi-table-embed.brand-rotogrinders .vi-footer img{ height:32px; }
 
     .vi-hide{ display:none !important; }
@@ -724,7 +729,7 @@ def generate_table_html_from_df(
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
-    footer_logo_align: str = "Right",
+    footer_logo_align: str = "Center",  # ✅ default now Center
     cell_align: str = "Center",
 ) -> str:
     df = df.copy()
@@ -769,7 +774,7 @@ def generate_table_html_from_df(
     pager_vis = "" if show_pager else "vi-hide"
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
 
-    footer_logo_align = (footer_logo_align or "Right").strip().lower()
+    footer_logo_align = (footer_logo_align or "Center").strip().lower()
     if footer_logo_align == "center":
         footer_align_class = "footer-center"
     elif footer_logo_align == "left":
@@ -838,7 +843,7 @@ def draft_config_from_state() -> dict:
         "center_titles": st.session_state.get("bt_center_titles", False),
         "branded_title_color": st.session_state.get("bt_branded_title_color", True),
         "show_footer": st.session_state.get("bt_show_footer", True),
-        "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Right"),
+        "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Center"),  # ✅ default Center
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
@@ -916,6 +921,10 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
     st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
+
+    # ✅ ensure footer alignment defaults to Center if not already set
+    st.session_state.setdefault("bt_footer_logo_align", "Center")
+
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
 
@@ -1051,7 +1060,7 @@ with left_col:
             st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
-        # ✅ New: Brand Tab Added Before Header/Footer + Body
+        # ✅ Brand Tab Added Before Header/Footer + Body
         sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
 
         with sub_brand:
@@ -1104,10 +1113,12 @@ with left_col:
                 value=st.session_state.get("bt_show_footer", True),
                 key="bt_show_footer",
             )
+
+            # ✅ default selection now Center (driven by session_state default)
             st.selectbox(
                 "Footer Logo Alignment",
                 options=["Right", "Center", "Left"],
-                index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Right")),
+                index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Center")),
                 key="bt_footer_logo_align",
                 disabled=not show_footer,
             )
