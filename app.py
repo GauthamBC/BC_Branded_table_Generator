@@ -214,10 +214,6 @@ def dataframe_to_image_bytes(
     fmt: str = "png",
     dpi: int = 300,
 ) -> bytes:
-    """
-    High-res render of a dataframe to PNG/JPEG.
-    NOTE: search/pager/page numbers are not part of this export by design.
-    """
     df = df.copy().fillna("")
     palette = brand_palette(brand_name)
     header_bg = palette["header_bg"]
@@ -225,13 +221,20 @@ def dataframe_to_image_bytes(
 
     n_rows, n_cols = df.shape
 
-    # dynamic sizing
-    row_h = 0.38
-    col_w = 1.35
-    fig_w = max(7.5, n_cols * col_w)
-    fig_h = max(3.0, (n_rows + 1) * row_h)
+    # ---- Smart sizing for many columns ----
+    # Wider canvas per column + slightly smaller font when there are many columns
+    col_w = 1.65 if n_cols <= 6 else 2.15  # more width per col if many cols
+    row_h = 0.40
+    fig_w = max(10.0, n_cols * col_w)
+    fig_h = max(3.2, (n_rows + 1) * row_h)
 
-    # header/footer padding
+    # Font scale
+    font_size = 11
+    if n_cols >= 8:
+        font_size = 9
+    if n_cols >= 10:
+        font_size = 8
+
     top_pad = 0.9 if include_header_block else 0.25
     bot_pad = 0.9 if (include_footer and footer_logo_url) else 0.25
     fig_h = fig_h + top_pad + bot_pad
@@ -258,27 +261,36 @@ def dataframe_to_image_bytes(
     table = ax.table(
         cellText=df.values.tolist(),
         colLabels=[str(c) for c in df.columns],
-        cellLoc="center",
+        cellLoc="left",   # ✅ better for long text
         colLoc="center",
         bbox=table_bbox,
     )
-    table.auto_set_font_size(False)
-    table.set_fontsize(11)
 
-    # Header row style
+    table.auto_set_font_size(False)
+    table.set_fontsize(font_size)
+
+    # Force columns to share width evenly, but allow more breathing room via bigger fig_w
+    # Also wrap long text so it doesn't run across boundaries
+    for (r, c), cell in table.get_celld().items():
+        cell.get_text().set_wrap(True)
+        cell.set_linewidth(0.5)
+
+    # Header styling
     for c in range(n_cols):
         cell = table[(0, c)]
         cell.set_facecolor(header_bg)
         cell.get_text().set_color("white")
         cell.get_text().set_weight("bold")
         cell.set_edgecolor("white")
+        cell.get_text().set_ha("center")  # center headers
 
-    # Body zebra stripes
+    # Zebra striping + left align body
     for r in range(1, n_rows + 1):
         for c in range(n_cols):
             cell = table[(r, c)]
             cell.set_facecolor(stripe_bg if (r % 2 == 1) else "white")
             cell.set_edgecolor("white")
+            cell.get_text().set_ha("left")
 
     # Footer logo
     if include_footer and footer_logo_url:
@@ -287,7 +299,7 @@ def dataframe_to_image_bytes(
             resp.raise_for_status()
             logo = Image.open(io.BytesIO(resp.content)).convert("RGBA")
 
-            target_h_px = int(dpi * 0.35)  # ~0.35 inches
+            target_h_px = int(dpi * 0.35)
             scale = target_h_px / max(1, logo.size[1])
             new_w = max(1, int(logo.size[0] * scale))
             logo = logo.resize((new_w, target_h_px), Image.LANCZOS)
@@ -307,7 +319,6 @@ def dataframe_to_image_bytes(
     fig.savefig(buf, format=save_fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
     return buf.getvalue()
-
 # ===================== HTML Template =====================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
