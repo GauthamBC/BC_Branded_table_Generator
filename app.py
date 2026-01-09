@@ -434,6 +434,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-canadasb .vi-footer img{
       filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
     }
+    .vi-table-embed.brand-canadasb .vi-footer img{
+      height: 28px;   /* reduce size — adjust to 26–30px if needed */
+    }
     .vi-table-embed.brand-rotogrinders .vi-footer img{
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
     }
