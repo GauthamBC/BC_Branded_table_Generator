@@ -724,8 +724,8 @@ def generate_table_html_from_df(
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
-    footer_logo_align: str = "Right",   # Right / Center / Left
-    cell_align: str = "Center",         # Center / Left / Right
+    footer_logo_align: str = "Right",
+    cell_align: str = "Center",
 ) -> str:
     df = df.copy()
 
@@ -920,14 +920,12 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_stale", False)
 
 def do_confirm_snapshot():
-    # Freeze CONFIRMED data + CONFIRMED config in one click
     st.session_state["bt_df_confirmed"] = st.session_state["bt_df_draft"].copy()
 
     cfg = draft_config_from_state()
     st.session_state["bt_confirmed_cfg"] = cfg
     st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
 
-    # ✅ Immediately regenerate HTML from confirmed snapshot
     html = html_from_config(st.session_state["bt_df_confirmed"], st.session_state["bt_confirmed_cfg"])
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
@@ -951,17 +949,11 @@ st.markdown(
 
 st.title("Branded Table Generator")
 
+# Ensure Brand State Exists (Brand Picker Now Lives Under Configure)
 brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
-default_brand = st.session_state.get("brand_table", "Action Network")
-if default_brand not in brand_options:
-    default_brand = "Action Network"
-
-st.selectbox(
-    "Choose A Brand",
-    options=brand_options,
-    index=brand_options.index(default_brand),
-    key="brand_table",
-)
+st.session_state.setdefault("brand_table", "Action Network")
+if st.session_state["brand_table"] not in brand_options:
+    st.session_state["brand_table"] = "Action Network"
 
 uploaded_file = st.file_uploader("Upload Your CSV File", type=["csv"])
 if uploaded_file is None:
@@ -977,8 +969,6 @@ except Exception as e:
 if df_uploaded_now.empty:
     st.error("Uploaded CSV Has No Rows.")
     st.stop()
-
-# ===================== DF State (Uploaded / Draft / Confirmed) =====================
 
 uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
 prev_name = st.session_state.get("bt_uploaded_name")
@@ -1014,7 +1004,6 @@ with right_col:
         with c2:
             st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save To Finalize HTML/Publishing.")
 
-    # ✅ Live Preview: 2-Column Header (Left Title, Right Status Message)
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
 
@@ -1062,16 +1051,21 @@ with left_col:
             st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
-        sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
+        # ✅ New: Brand Tab Added Before Header/Footer + Body
+        sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
 
-        # Header/Footer Order:
-        # Show Header Box
-        # Table Title
-        # Table Subtitle
-        # Center Title And Subtitle
-        # Branded Title Colour
-        # Show Footer (Logo)
-        # Footer Logo Alignment
+        with sub_brand:
+            current_brand = st.session_state.get("brand_table", "Action Network")
+            if current_brand not in brand_options:
+                current_brand = "Action Network"
+
+            st.selectbox(
+                "Brand",
+                options=brand_options,
+                index=brand_options.index(current_brand),
+                key="brand_table",
+            )
+
         with sub_head:
             show_header = st.checkbox(
                 "Show Header Box",
@@ -1147,8 +1141,6 @@ with left_col:
                 key="bt_show_page_numbers",
                 disabled=not show_pager,
             )
-
-        # (Optional cleanup applied): No extra warning here; the preview header carries the status.
 
     # ---------- HTML TAB ----------
     with tab_html:
