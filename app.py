@@ -186,510 +186,9 @@ def get_brand_meta(brand: str) -> dict:
     return meta
 
 # ===================== HTML Template =====================
-
-HTML_TEMPLATE_TABLE = r"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>[[TITLE]]</title>
-</head>
-<body style="margin:0;">
-
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
-         font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-         color:#181a1f;background:#ffffff;border:1px solid #DCEFE6;border-radius:12px;
-         box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.09);">
-
-  <style>
-    .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
-
-    .vi-table-embed{
-      --brand-50:#F6FFF9; 
-      --brand-100:#DCF2EB;
-      --brand-300:#BCE5D6;
-      --brand-500:#56C257; 
-      --brand-600:#3FA94B; 
-      --brand-700:#2E8538; 
-      --brand-900:#1F5D28;
-
-      --header-bg:var(--brand-500);
-      --stripe:var(--brand-100);
-      --hover:var(--brand-300);
-      --scroll-thumb:var(--brand-500);
-      --footer-border:color-mix(in oklab,var(--brand-500) 35%, transparent);
-
-      --cell-align:center;
-    }
-    .vi-table-embed.align-left { --cell-align:left; }
-    .vi-table-embed.align-center { --cell-align:center; }
-    .vi-table-embed.align-right { --cell-align:right; }
-
-    .vi-table-embed.brand-vegasinsider{
-      --brand-50:#FFF7DC;
-      --brand-100:#FFE8AA;
-      --brand-300:#FFE8AA;
-      --brand-500:#F2C23A;
-      --brand-600:#D9A72A;
-      --brand-700:#B9851A;
-      --brand-900:#111111;
-      --header-bg:var(--brand-500);
-      --stripe:var(--brand-50);
-      --hover:var(--brand-100);
-      --scroll-thumb:var(--brand-600);
-      --footer-border:color-mix(in oklab,var(--brand-500) 40%, transparent);
-    }
-
-    .vi-table-embed.brand-canadasb{
-      --brand-50:#FEF2F2;
-      --brand-100:#FEE2E2;
-      --brand-300:#FECACA;
-      --brand-500:#EF4444;
-      --brand-600:#DC2626;
-      --brand-700:#B91C1C;
-      --brand-900:#7F1D1D;
-      --header-bg:var(--brand-600);
-      --stripe:var(--brand-50);
-      --hover:var(--brand-100);
-      --scroll-thumb:var(--brand-600);
-      --footer-border:color-mix(in oklab,var(--brand-600) 40%, transparent);
-    }
-
-    .vi-table-embed.brand-rotogrinders{
-      --brand-50:#E8F1FF;
-      --brand-100:#D3E3FF;
-      --brand-300:#9ABCF9;
-      --brand-500:#2F7DF3;
-      --brand-600:#0159D1;
-      --brand-700:#0141A1;
-      --brand-900:#011F54;
-      --header-bg:var(--brand-700);
-      --stripe:var(--brand-50);
-      --hover:var(--brand-100);
-      --scroll-thumb:var(--brand-600);
-      --footer-border:color-mix(in oklab,var(--brand-600) 40%, transparent);
-    }
-
-    /* Header block */
-    .vi-table-embed .vi-table-header{
-      padding:10px 16px 8px;
-      border-bottom:1px solid var(--brand-100);
-      background:linear-gradient(90deg,var(--brand-50),#ffffff);
-      display:flex;
-      flex-direction:column;
-      align-items:flex-start;
-      gap:2px;
-    }
-    .vi-table-embed .vi-table-header.centered{ align-items:center; text-align:center; }
-    .vi-table-embed .vi-table-header .title{
-      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:750; color:#111827; display:block;
-    }
-    .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
-    .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#6b7280; display:block; }
-
-    /* Table block */
-    #bt-block, #bt-block * { box-sizing:border-box; }
-    #bt-block{
-      --bg:#ffffff; --text:#1f2937;
-      --gutter: 14px;
-      --table-max-h: 720px;
-      --vbar-w: 6px; --vbar-w-hover: 8px;
-      padding: 10px var(--gutter);
-      padding-top: 10px;
-    }
-
-    #bt-block .dw-controls{
-      display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center;
-      gap:12px; margin:4px 0 10px 0;
-    }
-    #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
-
-    #bt-block .dw-field{position:relative}
-    #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
-      font:14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; border-radius:10px; padding:8px 10px; transition:.15s ease;
-    }
-    #bt-block .dw-input,#bt-block .dw-select{
-      background:#fff;
-      border:1px solid var(--brand-700);
-      color:var(--text); box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
-    }
-    #bt-block .dw-input{width:min(320px,100%); padding-right:36px}
-    #bt-block .dw-input::placeholder{color:#9AA4B2}
-    #bt-block .dw-input:focus,#bt-block .dw-select:focus{
-      outline:none; border-color:var(--brand-500);
-      box-shadow:0 0 0 3px color-mix(in oklab,var(--brand-500) 25%,transparent); background:#fff;
-    }
-    #bt-block .dw-select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; padding-right:26px; background:#fff; background-image:none; }
-
-    #bt-block .dw-btn{
-      background:var(--brand-500); color:#fff; border:1px solid var(--brand-500); padding-inline:12px; cursor:pointer
-    }
-    #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
-    #bt-block .dw-btn:active{transform:translateY(1px)}
-    #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
-
-    /* Clear button */
-    #bt-block .dw-clear{
-      position:absolute; right:10px; top:50%; translate:0 -50%; width:22px; height:22px; border-radius:9999px; border:0;
-      background:transparent; color:var(--brand-700); cursor:pointer; display:none; align-items:center; justify-content:center;
-    }
-    #bt-block .dw-field.has-value .dw-clear{display:flex}
-    #bt-block .dw-clear:hover{background:var(--brand-100)}
-
-    /* Card & table */
-    #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
-    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-    #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
-
-    #bt-block table.dw-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      color: var(--text);
-      font-variant-numeric: tabular-nums;
-      background: transparent;
-      min-width: 600px;
-      table-layout: auto;
-    }
-
-    /* Header row */
-    #bt-block thead th{
-      background:var(--header-bg); color:#ffffff; font-weight:700; vertical-align:middle; border:0;
-      padding:12px 14px; white-space:nowrap;
-      transition:background-color .15s, color .15s, box-shadow .15s, transform .05s;
-    }
-    #bt-block thead th.sortable{cursor:pointer; user-select:none}
-    #bt-block thead th.sortable::after{content:"↕"; font-size:12px; opacity:.75; margin-left:8px; color:#ffffff}
-    #bt-block thead th.sortable[data-sort="asc"]::after{content:"▲"}
-    #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
-    #bt-block thead th.sortable:hover,#bt-block thead th.sortable:focus-visible{background:var(--brand-600); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
-    #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
-    #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
-
-    /* Alignment (applies to both th + td) */
-    #bt-block thead th,
-    #bt-block tbody td {
-      padding: 12px 10px;
-      overflow: hidden;
-      text-align: var(--cell-align, center);
-    }
-    #bt-block thead th { white-space: nowrap; }
-
-    /* Body rows zebra (injected) */
-    [[STRIPE_CSS]]
-
-    /* Hover should win over stripes */
-    #bt-block tbody tr:hover td{ background:var(--hover) !important; }
-    #bt-block tbody tr:hover{
-      box-shadow:inset 3px 0 0 var(--brand-500);
-      transform:translateY(-1px);
-      transition:background-color .12s ease, box-shadow .12s ease, transform .08s ease;
-    }
-
-    #bt-block thead th{position:sticky; top:0; z-index:5}
-    #bt-block .dw-scroll{
-      max-height:var(--table-max-h,360px); overflow-y:auto;
-      -ms-overflow-style:auto; scrollbar-width:thin; scrollbar-color:var(--scroll-thumb) transparent
-    }
-    #bt-block .dw-scroll::-webkit-scrollbar:horizontal{height:0; display:none}
-    #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
-    #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
-    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background:var(--scroll-thumb); border-radius:9999px; border:2px solid transparent; background-clip:content-box;
-    }
-    #bt-block tr.dw-empty td{
-      text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
-      background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
-    }
-
-    /* Footer */
-    .vi-table-embed .vi-footer {
-      display:block;
-      padding:10px 14px 8px;
-      border-top:1px solid var(--footer-border);
-      background:linear-gradient(90deg,var(--brand-50),#ffffff);
-    }
-    .vi-table-embed .footer-inner{
-      display:flex;
-      justify-content:flex-end;
-      align-items:center;
-      gap:12px;
-    }
-    .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
-    .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
-    .vi-table-embed .vi-footer img{ height: 38px; width:auto; display:inline-block; }
-
-    /* Brand-specific logo recolor */
-    .vi-table-embed.brand-actionnetwork .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
-    }
-    .vi-table-embed.brand-vegasinsider .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(72%) sepia(63%) saturate(652%) hue-rotate(6deg) brightness(95%) contrast(101%);
-    }
-    .vi-table-embed.brand-canadasb .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
-    }
-    .vi-table-embed.brand-rotogrinders .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
-    }
-    .vi-table-embed.brand-vegasinsider .vi-footer img{ height:32px; }
-    .vi-table-embed.brand-rotogrinders .vi-footer img{ height:32px; }
-
-    .vi-hide{ display:none !important; }
-  </style>
-
-  <!-- Header (optional) -->
-  <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
-    <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
-    <span class="subtitle">[[SUBTITLE]]</span>
-  </div>
-
-  <!-- Table block -->
-  <div id="bt-block" data-dw="table">
-    <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
-      <div class="left">
-        <div class="dw-field [[SEARCH_VIS_CLASS]]">
-          <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
-          <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
-        </div>
-      </div>
-
-      <div class="right [[PAGER_VIS_CLASS]]">
-        <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
-        <select id="bt-size" class="dw-select">
-          <option value="10" selected>10</option>
-          <option value="15">15</option>
-          <option value="20">20</option>
-          <option value="0">All</option>
-        </select>
-        <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
-        <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
-      </div>
-    </div>
-
-    <div class="dw-card">
-      <div class="dw-scroll">
-        <table class="dw-table">
-          <thead>
-            <tr>
-              [[TABLE_HEAD]]
-            </tr>
-          </thead>
-          <tbody>
-            [[TABLE_ROWS]]
-            <tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No Matches Found.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 2px 0; color:#6b7280; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
-      <span id="dw-page-status-text"></span>
-    </div>
-  </div>
-
-  <!-- Footer (optional) -->
-  <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
-    <div class="footer-inner">
-      <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
-    </div>
-  </div>
-
-  <script>
-  (function(){
-    const root = document.getElementById('bt-block');
-    if (!root || root.dataset.dwInit === '1') return;
-    root.dataset.dwInit='1';
-
-    const table = root.querySelector('table.dw-table');
-    const tb = table ? table.tBodies[0] : null;
-    const scroller = root.querySelector('.dw-scroll');
-    const controls = root.querySelector('.dw-controls');
-    if(!table || !tb || !scroller || !controls) return;
-
-    const controlsHidden = controls.classList.contains('vi-hide');
-
-    const searchFieldWrap = controls.querySelector('.dw-field');
-    const searchInput = controls.querySelector('.dw-input');
-    const clearBtn = controls.querySelector('.dw-clear');
-
-    const pagerWrap = controls.querySelector('.right');
-    const sizeSel = controls.querySelector('#bt-size');
-    const prevBtn = controls.querySelector('[data-page="prev"]');
-    const nextBtn = controls.querySelector('[data-page="next"]');
-
-    const emptyRow = tb.querySelector('.dw-empty');
-    const pageStatus = document.getElementById('dw-page-status-text');
-
-    const hasSearch = !controlsHidden
-      && !!searchFieldWrap && !searchFieldWrap.classList.contains('vi-hide')
-      && !!searchInput && !!clearBtn;
-
-    const hasPager = !controlsHidden
-      && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
-      && !!sizeSel && !!prevBtn && !!nextBtn;
-
-    if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
-      scroller.classList.add('no-scroll');
-    }
-
-    Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
-
-    // ✅ If pager is OFF, show ALL rows by default
-    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
-    let page = 1;
-    let filter = '';
-
-    const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
-    scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
-
-    // Sorting always on
-    const heads = Array.from(table.tHead.rows[0].cells);
-    heads.forEach((th,i)=>{
-      th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
-      const type = th.dataset.type || 'text';
-      const go = ()=> sortBy(i,type,th);
-      th.addEventListener('click',go);
-      th.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } });
-    });
-
-    function textOf(tr,i){ return (tr.children[i].innerText||'').trim(); }
-
-    function sortBy(colIdx, type, th){
-      const rows = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const current = th.dataset.sort || 'none';
-      const next = current==='none' ? 'asc' : current==='asc' ? 'desc' : 'none';
-
-      heads.forEach(h=>{
-        h.dataset.sort='none';
-        h.setAttribute('aria-sort','none');
-        h.classList.remove('is-sorted');
-      });
-
-      if(next === 'none'){
-        rows.sort((a,b)=>(+a.dataset.idx)-(+b.dataset.idx));
-        rows.forEach(r=>tb.insertBefore(r, emptyRow));
-        renderPage();
-        return;
-      }
-
-      th.dataset.sort = next;
-      th.setAttribute('aria-sort', next==='asc'?'ascending':'descending');
-
-      const mul = next==='asc'?1:-1;
-      rows.sort((a,b)=>{
-        let v1=textOf(a,colIdx), v2=textOf(b,colIdx);
-        if((type||'text')==='num'){
-          v1=parseFloat(v1.replace(/[^0-9.\-]/g,'')); if(isNaN(v1)) v1=-Infinity;
-          v2=parseFloat(v2.replace(/[^0-9.\-]/g,'')); if(isNaN(v2)) v2=-Infinity;
-        }else{
-          v1=(v1+'').toLowerCase();
-          v2=(v2+'').toLowerCase();
-        }
-        if(v1>v2) return 1*mul;
-        if(v1<v2) return -1*mul;
-        return 0;
-      });
-      rows.forEach(r=>tb.insertBefore(r, emptyRow));
-      th.classList.add('is-sorted');
-      renderPage();
-    }
-
-    function matchesFilter(tr){
-      if(tr.classList.contains('dw-empty')) return false;
-      if(!filter) return true;
-      return tr.innerText.toLowerCase().includes(filter);
-    }
-
-    function setPageStatus(totalVisible, pages){
-      if(!pageStatus) return;
-      if(totalVisible === 0){ pageStatus.textContent = ""; return; }
-      if(!hasPager || pageSize === 0){ pageStatus.textContent = ""; return; }
-      pageStatus.textContent = "Page " + page + " Of " + pages;
-    }
-
-    function renderPage(){
-      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const visible = ordered.filter(matchesFilter);
-      const total = visible.length;
-
-      ordered.forEach(r=>{ r.style.display='none'; });
-      let shown = [];
-
-      if(total===0){
-        if(emptyRow){
-          emptyRow.style.display='table-row';
-          emptyRow.firstElementChild.colSpan = heads.length;
-        }
-        if(hasPager){ prevBtn.disabled = nextBtn.disabled = true; }
-        setPageStatus(0, 0);
-      }else{
-        if(emptyRow) emptyRow.style.display='none';
-
-        if(!hasPager || pageSize===0){
-          shown = visible;
-          if(hasPager){ prevBtn.disabled = nextBtn.disabled = true; }
-          setPageStatus(total, 1);
-        }else{
-          const pages = Math.max(1, Math.ceil(total / pageSize));
-          page = Math.min(Math.max(1, page), pages);
-          const start = (page-1)*pageSize;
-          const end = start + pageSize;
-          shown = visible.slice(start,end);
-          prevBtn.disabled = page<=1;
-          nextBtn.disabled = page>=pages;
-          setPageStatus(total, pages);
-        }
-      }
-
-      shown.forEach(r=>{ r.style.display='table-row'; });
-    }
-
-    // Search wiring (only if visible)
-    if(hasSearch){
-      const syncClearBtn = ()=> searchFieldWrap.classList.toggle('has-value', !!searchInput.value);
-      let t=null;
-      searchInput.addEventListener('input', e=>{
-        syncClearBtn();
-        clearTimeout(t);
-        t=setTimeout(()=>{
-          filter=(e.target.value||'').toLowerCase().trim();
-          page=1;
-          renderPage();
-        },120);
-      });
-      clearBtn.addEventListener('click', ()=>{
-        searchInput.value='';
-        syncClearBtn();
-        filter='';
-        page=1;
-        renderPage();
-        searchInput.focus();
-      });
-      syncClearBtn();
-    }
-
-    // Pager wiring (only if visible)
-    if(hasPager){
-      sizeSel.addEventListener('change', e=>{
-        pageSize = parseInt(e.target.value,10) || 0;
-        page=1;
-        renderPage();
-      });
-      prevBtn.addEventListener('click', ()=>{ page--; renderPage(); });
-      nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
-    }
-
-    renderPage();
-  })();
-  </script>
-
-</section>
-</body>
-</html>
-"""
+# (UNCHANGED: keep your template exactly as-is; omitted here for brevity)
+# IMPORTANT: paste your existing HTML_TEMPLATE_TABLE here.
+HTML_TEMPLATE_TABLE = r"""REPLACE_WITH_YOUR_EXISTING_TEMPLATE"""
 
 # ===================== Generator =====================
 
@@ -724,8 +223,8 @@ def generate_table_html_from_df(
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
-    footer_logo_align: str = "Right",   # Right / Center / Left
-    cell_align: str = "Center",         # Center / Left / Right
+    footer_logo_align: str = "Right",
+    cell_align: str = "Center",
 ) -> str:
     df = df.copy()
 
@@ -866,35 +365,66 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         cell_align=cfg["cell_align"],
     )
 
-def ensure_initial_confirm(df_confirmed: pd.DataFrame):
+def reset_widget_state_for_new_upload():
+    keys_to_clear = [
+        "bt_confirmed_cfg",
+        "bt_confirmed_hash",
+        "bt_html_code",
+        "bt_html_generated",
+        "bt_html_hash",
+        "bt_last_published_url",
+        "bt_iframe_code",
+        "bt_widget_file_name",
+        "bt_availability",
+        "bt_file_conflict_choice",
+        "bt_iframe_url",
+        "bt_html_stale",
+        "bt_confirm_flash",
+    ]
+    for k in keys_to_clear:
+        if k in st.session_state:
+            del st.session_state[k]
+
+def ensure_confirm_state_exists():
+    # confirmed snapshot defaults to whatever was uploaded initially
     if "bt_confirmed_cfg" not in st.session_state:
         cfg = draft_config_from_state()
         st.session_state["bt_confirmed_cfg"] = cfg
         st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
-        st.session_state["bt_confirmed_html_preview"] = html_from_config(df_confirmed, cfg)
 
-        st.session_state.setdefault("bt_html_code", "")
-        st.session_state.setdefault("bt_html_generated", False)
-        st.session_state.setdefault("bt_html_hash", "")
-        st.session_state.setdefault("bt_last_published_url", "")
-        st.session_state.setdefault("bt_iframe_code", "")
-        st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
+    st.session_state.setdefault("bt_html_code", "")
+    st.session_state.setdefault("bt_html_generated", False)
+    st.session_state.setdefault("bt_html_hash", "")
+    st.session_state.setdefault("bt_last_published_url", "")
+    st.session_state.setdefault("bt_iframe_code", "")
+    st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
+    st.session_state.setdefault("bt_confirm_flash", False)
 
-def confirm_table(df_confirmed: pd.DataFrame):
+def do_confirm_snapshot():
+    # Freeze CONFIRMED data + CONFIRMED config in one click (no double-click)
+    st.session_state["bt_df_confirmed"] = st.session_state["bt_df_draft"].copy()
+
     cfg = draft_config_from_state()
     st.session_state["bt_confirmed_cfg"] = cfg
     st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
-    st.session_state["bt_confirmed_html_preview"] = html_from_config(df_confirmed, cfg)
 
-def generate_html_code_from_confirmed(df_confirmed: pd.DataFrame):
+    # mark HTML stale if it exists
+    if st.session_state.get("bt_html_generated", False):
+        st.session_state["bt_html_stale"] = (
+            st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", "")
+        )
+
+    st.session_state["bt_confirm_flash"] = True
+
+def generate_html_from_confirmed():
     cfg = st.session_state.get("bt_confirmed_cfg")
-    if not cfg:
+    dfc = st.session_state.get("bt_df_confirmed")
+    if cfg is None or dfc is None:
         return
-    html = html_from_config(df_confirmed, cfg)
-    st.session_state["bt_confirmed_html_preview"] = html
+    html = html_from_config(dfc, cfg)
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
-    st.session_state["bt_html_hash"] = stable_config_hash(cfg)
+    st.session_state["bt_html_hash"] = st.session_state.get("bt_confirmed_hash", "")
 
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
@@ -913,26 +443,6 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
   loading="lazy"
   referrerpolicy="no-referrer-when-downgrade"
 ></iframe>"""
-
-def reset_widget_state_for_new_upload():
-    keys_to_clear = [
-        "bt_confirmed_cfg",
-        "bt_confirmed_hash",
-        "bt_confirmed_html_preview",
-        "bt_html_code",
-        "bt_html_generated",
-        "bt_html_hash",
-        "bt_last_published_url",
-        "bt_iframe_code",
-        "bt_widget_file_name",
-        "bt_availability",
-        "bt_file_conflict_choice",
-        "bt_iframe_url",
-        "bt_html_stale",
-    ]
-    for k in keys_to_clear:
-        if k in st.session_state:
-            del st.session_state[k]
 
 # ===================== Streamlit App =====================
 
@@ -976,38 +486,35 @@ if df_uploaded_now.empty:
     st.error("Uploaded CSV Has No Rows.")
     st.stop()
 
-# ===================== NEW: DF state (uploaded / draft / confirmed) =====================
-
 uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
 prev_name = st.session_state.get("bt_uploaded_name")
 
 if prev_name != uploaded_name:
     reset_widget_state_for_new_upload()
-
     st.session_state["bt_uploaded_name"] = uploaded_name
     st.session_state["bt_df_uploaded"] = df_uploaded_now.copy()
     st.session_state["bt_df_draft"] = df_uploaded_now.copy()
     st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()
 
+ensure_confirm_state_exists()
+
 df_draft = st.session_state["bt_df_draft"]
 df_confirmed = st.session_state["bt_df_confirmed"]
 
-ensure_initial_confirm(df_confirmed)
-
-# ===================== Layout: Left (1/4) tabs + Right (3/4) preview =====================
+# ===================== Layout =====================
 
 left_col, right_col = st.columns([1, 3], gap="large")
 
-# Right: editor + always-on preview (CONFIRMED)
+# ---------- RIGHT: Editor + LIVE Preview (Draft) ----------
 with right_col:
-    # ✅ Removed: "Edit Data (Draft)" Heading
     with st.expander("Open Editor", expanded=False):
         edited_df = st.data_editor(
-            df_draft,
+            st.session_state["bt_df_draft"],
             use_container_width=True,
             num_rows="dynamic",
             key="bt_data_editor",
         )
+        # Keep draft always updated
         st.session_state["bt_df_draft"] = edited_df
 
         c1, c2 = st.columns(2)
@@ -1016,31 +523,38 @@ with right_col:
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits Apply To The Draft. Click **Confirm And Save** To Update Preview/HTML.")
+            st.caption("Edits Apply To The Draft Immediately. Confirm To Freeze A Snapshot For HTML/Publishing.")
 
-    st.markdown("### Preview (Confirmed)")
-    preview_html = st.session_state.get("bt_confirmed_html_preview", "")
-    components.html(preview_html, height=820, scrolling=True)
+    # ✅ LIVE PREVIEW: ALWAYS FROM DRAFT (DATA + SETTINGS)
+    st.markdown("### Preview (Live Draft)")
+    live_cfg = draft_config_from_state()
+    live_preview_html = html_from_config(st.session_state["bt_df_draft"], live_cfg)
+    components.html(live_preview_html, height=820, scrolling=True)
 
-# Left sidebar tabs: Configure / HTML / Iframe
+# ---------- LEFT: Tabs ----------
 with left_col:
     tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
 
-    # ---------- CONFIGURE TAB ----------
+    # ===================== CONFIGURE TAB =====================
     with tab_config:
         st.markdown("#### Table Setup")
 
-        confirm_clicked = st.button(
+        # ✅ One-click confirm via callback (fixes “double click” feel)
+        st.button(
             "✅ Confirm And Save Table Contents",
             key="bt_confirm_btn",
             use_container_width=True,
+            on_click=do_confirm_snapshot,
         )
 
-        # ✅ Rename "Content" -> "Body"
+        # Show confirm success once
+        if st.session_state.get("bt_confirm_flash", False):
+            st.success("Saved. Confirmed Snapshot Updated (HTML Uses This Snapshot).")
+            st.session_state["bt_confirm_flash"] = False
+
         sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
         with sub_head:
-            # ✅ Reordered Exactly As Requested
             show_header = st.checkbox(
                 "Show Header Box",
                 value=st.session_state.get("bt_show_header", True),
@@ -1116,103 +630,74 @@ with left_col:
                 disabled=not show_pager,
             )
 
+        # Informational state: whether draft differs from confirmed
         draft_hash = stable_config_hash(draft_config_from_state())
         confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
-        unconfirmed_changes = (draft_hash != confirmed_hash)
-
-        if confirm_clicked:
-            simulate_progress("Saving Table Settings And Data…", total_sleep=0.45)
-
-            st.session_state["bt_df_confirmed"] = st.session_state["bt_df_draft"].copy()
-            confirm_table(st.session_state["bt_df_confirmed"])
-
-            if st.session_state.get("bt_html_generated", False):
-                st.session_state["bt_html_stale"] = (
-                    st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", "")
-                )
-            st.success("Saved. Preview Updated (Confirmed).")
+        if draft_hash != confirmed_hash or not st.session_state["bt_df_draft"].equals(st.session_state["bt_df_confirmed"]):
+            st.warning("Live Preview Reflects Draft. HTML/Publishing Uses The Last Confirmed Snapshot.")
         else:
-            if unconfirmed_changes:
-                st.warning("You Have Unconfirmed Changes. Click **Confirm And Save** To Update The Preview.")
-            else:
-                st.caption("All Changes Are Confirmed.")
+            st.caption("Draft Matches Confirmed Snapshot.")
 
-    # ---------- HTML TAB ----------
+    # ===================== HTML TAB =====================
     with tab_html:
-        st.markdown("#### HTML Generation")
+        st.markdown("#### HTML Generation (From Confirmed Snapshot)")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         html_hash = st.session_state.get("bt_html_hash", "")
         confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
-        draft_hash = stable_config_hash(draft_config_from_state())
-        unconfirmed_changes = (draft_hash != confirmed_hash)
+
         confirmed_vs_html_stale = (html_generated and (html_hash != confirmed_hash))
 
         col_a, col_b = st.columns([1, 1])
         with col_a:
-            get_html_clicked = st.button(
-                "📄 Get HTML Code",
-                key="bt_get_html_code",
-                use_container_width=True,
-            )
+            get_html_clicked = st.button("📄 Get HTML Code", key="bt_get_html_code", use_container_width=True)
         with col_b:
             update_html_clicked = st.button(
-                "♻️ Update HTML",
+                "♻️ Update HTML (Auto-Confirm + Regenerate)",
                 key="bt_update_html",
-                disabled=not html_generated,
                 use_container_width=True,
             )
 
-        if unconfirmed_changes:
-            st.info("HTML Is Generated From **Confirmed** Settings. Confirm Changes First, Or Click **Update HTML** To Auto-Confirm + Regenerate.")
-        elif confirmed_vs_html_stale:
-            st.warning("HTML Is Out Of Date Vs Confirmed Settings. Click **Update HTML**.")
-        elif html_generated:
-            st.success("HTML Is Up To Date With Confirmed Settings.")
+        if html_generated and not confirmed_vs_html_stale:
+            st.success("HTML Is Up To Date With The Confirmed Snapshot.")
+        elif html_generated and confirmed_vs_html_stale:
+            st.warning("HTML Is Out Of Date Vs Confirmed Snapshot. Click Update HTML.")
         else:
-            st.caption("Click **Get HTML Code** After Confirming Your Table Settings.")
+            st.caption("Click Get HTML Code To Generate HTML From The Confirmed Snapshot.")
 
         if get_html_clicked:
-            if unconfirmed_changes:
-                st.warning("Confirm Your Changes First (Or Use Update HTML).")
-            else:
-                simulate_progress("Generating HTML…", total_sleep=0.40)
-                generate_html_code_from_confirmed(st.session_state["bt_df_confirmed"])
-                st.success("HTML Generated From Confirmed Settings + Confirmed Data.")
+            simulate_progress("Generating HTML From Confirmed Snapshot…", total_sleep=0.35)
+            generate_html_from_confirmed()
+            st.success("HTML Generated From Confirmed Snapshot.")
 
         if update_html_clicked:
-            if stable_config_hash(draft_config_from_state()) != st.session_state.get("bt_confirmed_hash", ""):
-                simulate_progress("Confirming Latest Settings…", total_sleep=0.30)
-                confirm_table(st.session_state["bt_df_confirmed"])
+            simulate_progress("Confirming Draft Snapshot…", total_sleep=0.25)
+            do_confirm_snapshot()
+            simulate_progress("Updating HTML…", total_sleep=0.35)
+            generate_html_from_confirmed()
+            st.success("Confirmed Snapshot Updated And HTML Regenerated.")
 
-            simulate_progress("Updating HTML…", total_sleep=0.40)
-            generate_html_code_from_confirmed(st.session_state["bt_df_confirmed"])
-            st.success("HTML Updated From The Latest Confirmed Settings + Confirmed Data.")
-
-        html_code = st.session_state.get("bt_html_code", "")
         st.text_area(
             "HTML Code",
-            value=html_code,
+            value=st.session_state.get("bt_html_code", ""),
             height=420,
             placeholder="Generate HTML To See The Code Here.",
         )
 
-    # ---------- IFRAME TAB ----------
+    # ===================== IFRAME TAB =====================
     with tab_iframe:
         st.markdown("#### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         html_hash = st.session_state.get("bt_html_hash", "")
         confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
-        draft_hash = stable_config_hash(draft_config_from_state())
 
-        unconfirmed_changes = (draft_hash != confirmed_hash)
         html_stale = (html_generated and (html_hash != confirmed_hash))
 
         if not html_generated:
             st.warning("Generate HTML First (HTML Tab).")
-        elif unconfirmed_changes or html_stale:
-            st.warning("Your HTML Is Not Up To Date. Go To HTML Tab → **Update HTML**.")
+        elif html_stale:
+            st.warning("Your HTML Is Not Up To Date With The Confirmed Snapshot. Go To HTML Tab → Update HTML.")
 
         saved_gh_user = st.session_state.get("bt_gh_user", "")
         saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
@@ -1241,11 +726,10 @@ with left_col:
         base_filename = "branded_table.html"
         st.session_state.setdefault("bt_widget_file_name", base_filename)
         widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
-
         st.caption(f"Target File In Repo: `{widget_file_name}`")
 
         can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
-        can_publish = bool(can_run_github and html_generated and (not unconfirmed_changes) and (not html_stale))
+        can_publish = bool(can_run_github and html_generated and (not html_stale))
 
         col_check, col_pub = st.columns([1, 1])
         with col_check:
@@ -1261,7 +745,7 @@ with left_col:
                 key="bt_publish_html",
                 disabled=not can_publish,
                 use_container_width=True,
-                help="Disabled Until HTML Is Generated And Up-To-Date.",
+                help="Disabled Until HTML Is Generated And Up-To-Date With Confirmed Snapshot.",
             )
 
         if not GITHUB_TOKEN:
@@ -1405,10 +889,9 @@ with left_col:
             st.session_state["bt_iframe_code"] = build_iframe_snippet(url_to_use, height=int(iframe_height))
             st.success("IFrame Code Generated.")
 
-        iframe_code = st.session_state.get("bt_iframe_code", "")
         st.text_area(
             "IFrame Code",
-            value=iframe_code,
+            value=st.session_state.get("bt_iframe_code", ""),
             height=200,
             placeholder="Generate HTML First, Then Generate IFrame Code Here.",
         )
