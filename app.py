@@ -1,15 +1,12 @@
 import base64
 import time
 import re
-import io
 import html as html_mod
+
 import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-
-from PIL import Image
-import matplotlib.pyplot as plt
 
 # ===================== 0) Secrets =====================
 
@@ -189,196 +186,139 @@ def get_brand_meta(brand: str) -> dict:
 
     return meta
 
-# ===================== Image Export Helpers =====================
+# ===================== html2canvas Export Wrapper =====================
 
-def brand_palette(brand: str) -> dict:
-    b = (brand or "").strip()
-    if b == "VegasInsider":
-        return {"header_bg": "#F2C23A", "stripe": "#FFF7DC"}
-    if b == "Canada Sports Betting":
-        return {"header_bg": "#DC2626", "stripe": "#FEF2F2"}
-    if b == "RotoGrinders":
-        return {"header_bg": "#0141A1", "stripe": "#E8F1FF"}
-    # Action Network default
-    return {"header_bg": "#56C257", "stripe": "#DCF2EB"}
+def build_html2canvas_exporter(export_table_html: str, *, default_name: str = "table_export", scale: int = 3) -> str:
+    """
+    Wrap your existing widget HTML with a small export UI that downloads PNG/JPG client-side using html2canvas.
+    """
+    m = re.search(r"<body[^>]*>(.*)</body>", export_table_html, flags=re.I | re.S)
+    body_inner = m.group(1) if m else export_table_html
 
-def dataframe_to_image_bytes(
-    df: pd.DataFrame,
-    *,
-    title: str = "",
-    subtitle: str = "",
-    include_header_block: bool = True,
-    include_footer: bool = True,
-    footer_logo_url: str = "",
-    brand_name: str = "Action Network",
-    fmt: str = "png",
-    dpi: int = 300,
-) -> bytes:
-    import textwrap
+    safe_name = html_mod.escape(default_name, quote=True)
+    scale = int(scale) if scale else 3
+    scale = max(1, min(scale, 5))
 
-    df = df.copy().fillna("")
-    palette = brand_palette(brand_name)
-    header_bg = palette["header_bg"]
-    stripe_bg = palette["stripe"]
+    return f"""
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {{
+      margin: 0;
+      padding: 12px;
+      background: #f3f4f6;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }}
+    .export-bar {{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      padding:10px 12px;
+      background:#ffffff;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+      margin-bottom:12px;
+    }}
+    .export-bar .left {{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }}
+    .btn {{
+      border:0;
+      border-radius:10px;
+      padding:10px 12px;
+      cursor:pointer;
+      background:#111827;
+      color:#fff;
+      font-weight:600;
+    }}
+    .btn.secondary {{ background:#374151; }}
+    .hint {{ color:#6b7280; font-size:12px; }}
+    /* During export: hide controls/pager/status and remove hover/animations */
+    .exporting .dw-controls,
+    .exporting .dw-page-status {{
+      display:none !important;
+    }}
+    .exporting * {{
+      animation:none !important;
+      transition:none !important;
+    }}
+  </style>
+</head>
 
-    n_rows, n_cols = df.shape
+<body>
+  <div class="export-bar">
+    <div class="left">
+      <button class="btn" id="btnPng">Download PNG</button>
+      <button class="btn secondary" id="btnJpg">Download JPG</button>
+      <span class="hint">Scale: {scale}x</span>
+    </div>
+    <div class="hint" id="status"></div>
+  </div>
 
-    # ---- sizing ----
-    col_w = 2.15 if n_cols >= 7 else 1.75
-    row_h = 0.45
-    fig_w = max(10.0, n_cols * col_w)
-    fig_h = max(3.2, (n_rows + 1) * row_h)
+  <div id="capture-root">
+    {body_inner}
+  </div>
 
-    font_size = 11
-    if n_cols >= 8:
-        font_size = 9
-    if n_cols >= 10:
-        font_size = 8
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    (function(){{
+      const statusEl = document.getElementById('status');
 
-    top_pad = 0.9 if include_header_block else 0.25
-    bot_pad = 0.9 if (include_footer and footer_logo_url) else 0.25
-    fig_h = fig_h + top_pad + bot_pad
+      function setStatus(msg) {{
+        if(statusEl) statusEl.textContent = msg || '';
+      }}
 
-    # ---- wrap widths per column (characters) ----
-    # Adjust these if you want tighter/looser wrap.
-    # More columns => fewer chars per line.
-    base_wrap = 28
-    if n_cols >= 7:
-        base_wrap = 22
-    if n_cols >= 9:
-        base_wrap = 18
+      async function captureAndDownload(mime) {{
+        const node = document.querySelector('.vi-table-embed');
+        if (!node) {{
+          setStatus('Could not find .vi-table-embed to capture.');
+          return;
+        }}
 
-    # Try to give important columns slightly more room
-    wrap_map = {}
-    for c in df.columns:
-        name = str(c).lower()
-        if "url" in name:
-            wrap_map[c] = max(14, base_wrap - 6)
-        elif "email" in name:
-            wrap_map[c] = max(14, base_wrap - 6)
-        elif "title" in name:
-            wrap_map[c] = base_wrap
-        else:
-            wrap_map[c] = base_wrap
+        node.classList.add('exporting');
+        setStatus('Rendering…');
 
-    def soft_break_long_tokens(s: str) -> str:
-        # Helps wrap very long words/urls/emails that have no spaces
-        # Inserts zero-width break hints.
-        return s.replace("/", "/\u200b").replace(".", ".\u200b").replace("@", "@\u200b").replace("-", "-\u200b")
+        await new Promise(r => setTimeout(r, 50));
 
-    def wrap_cell(text: str, width: int) -> str:
-        t = soft_break_long_tokens(str(text))
-        # textwrap works better if there are some break opportunities (we injected above)
-        return "\n".join(textwrap.wrap(t, width=width, break_long_words=True, break_on_hyphens=True)) or ""
+        try {{
+          const canvas = await html2canvas(node, {{
+            backgroundColor: null,
+            scale: {scale},
+            useCORS: true,
+            allowTaint: true,
+            logging: false
+          }});
 
-    # Build wrapped cell text matrix + track line counts per row
-    wrapped_values = []
-    row_line_counts = []  # body rows only
-    for _, row in df.iterrows():
-        wrapped_row = []
-        max_lines = 1
-        for c in df.columns:
-            w = wrap_map[c]
-            v = wrap_cell(row[c], w)
-            wrapped_row.append(v)
-            max_lines = max(max_lines, v.count("\n") + 1 if v else 1)
-        wrapped_values.append(wrapped_row)
-        row_line_counts.append(max_lines)
+          const ext = (mime === 'image/jpeg') ? 'jpg' : 'png';
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL(mime, mime === 'image/jpeg' ? 0.95 : undefined);
+          a.download = '{safe_name}.' + ext;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setStatus('Downloaded.');
+        }} catch (e) {{
+          console.error(e);
+          setStatus('Export failed (see console).');
+        }} finally {{
+          node.classList.remove('exporting');
+        }}
+      }}
 
-    fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
-    ax = fig.add_axes([0.02, 0.02, 0.96, 0.96])
-    ax.axis("off")
+      document.getElementById('btnPng').addEventListener('click', () => captureAndDownload('image/png'));
+      document.getElementById('btnJpg').addEventListener('click', () => captureAndDownload('image/jpeg'));
+    }})();
+  </script>
+</body>
+</html>
+"""
 
-    # Header text
-    y_cursor = 0.98
-    if include_header_block:
-        if title:
-            fig.text(0.5, y_cursor, title, ha="center", va="top", fontsize=18, fontweight="bold")
-            y_cursor -= 0.04
-        if subtitle:
-            fig.text(0.5, y_cursor, subtitle, ha="center", va="top", fontsize=12)
-        y_table_top = 0.90
-    else:
-        y_table_top = 0.96
-
-    y_table_bottom = 0.12 if (include_footer and footer_logo_url) else 0.04
-    table_bbox = [0.00, y_table_bottom, 1.00, y_table_top - y_table_bottom]
-
-    table = ax.table(
-        cellText=wrapped_values,
-        colLabels=[str(c) for c in df.columns],
-        cellLoc="left",
-        colLoc="center",
-        bbox=table_bbox,
-    )
-    # ---- Add consistent padding + nicer vertical alignment ----
-    PADDING = 0.18  # try 0.15–0.25
-    for (r, c), cell in table.get_celld().items():
-        cell.PAD = PADDING                 # ✅ adds breathing space inside cells
-        cell.get_text().set_wrap(True)
-        cell.get_text().set_va("center")   # ✅ vertically centered multi-line text
-        cell.set_linewidth(0.4)
-
-    table.auto_set_font_size(False)
-    table.set_fontsize(font_size)
-
-    # Wrap + alignment
-    for (r, c), cell in table.get_celld().items():
-        cell.get_text().set_wrap(True)
-        cell.set_linewidth(0.4)
-
-    # Header styling (row 0)
-    for c in range(n_cols):
-        cell = table[(0, c)]
-        cell.set_facecolor(header_bg)
-        cell.get_text().set_color("white")
-        cell.get_text().set_weight("bold")
-        cell.set_edgecolor("white")
-        cell.get_text().set_ha("center")
-
-    # Body styling + zebra + IMPORTANT: row height adjustments
-    # Base height (relative); we scale it by line count for each row
-    base_body_height = table[(1, 0)].get_height() if n_rows > 0 else 0.05
-
-    for r in range(1, n_rows + 1):
-        lines = row_line_counts[r - 1]  # because row 1 in table is first body row
-        # Height scale: 1 line => 1.0, 2 lines => 1.7, 3 lines => 2.4, etc.
-        scale = 1.25 + (lines - 1) * 0.85
-
-        for c in range(n_cols):
-            cell = table[(r, c)]
-            cell.set_facecolor(stripe_bg if (r % 2 == 1) else "white")
-            cell.set_edgecolor("white")
-            cell.get_text().set_ha("left")
-            cell.set_height(base_body_height * scale)
-
-    # Footer logo
-    if include_footer and footer_logo_url:
-        try:
-            resp = requests.get(footer_logo_url, timeout=10)
-            resp.raise_for_status()
-            logo = Image.open(io.BytesIO(resp.content)).convert("RGBA")
-
-            target_h_px = int(dpi * 0.35)
-            scale = target_h_px / max(1, logo.size[1])
-            new_w = max(1, int(logo.size[0] * scale))
-            logo = logo.resize((new_w, target_h_px), Image.LANCZOS)
-
-            ax_logo = fig.add_axes([0.5 - 0.15, 0.03, 0.30, 0.08])
-            ax_logo.axis("off")
-            ax_logo.imshow(logo)
-        except Exception:
-            pass
-
-    buf = io.BytesIO()
-    fmt = (fmt or "png").lower().strip()
-    if fmt not in ("png", "jpeg", "jpg"):
-        fmt = "png"
-    save_fmt = "jpeg" if fmt in ("jpeg", "jpg") else "png"
-
-    fig.savefig(buf, format=save_fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.15)
-    plt.close(fig)
-    return buf.getvalue()
 # ===================== HTML Template =====================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
@@ -1098,7 +1038,7 @@ def reset_widget_state_for_new_upload():
         "bt_iframe_url",
         "bt_html_stale",
         "bt_confirm_flash",
-        # image exports
+        # legacy image exports (matplotlib)
         "bt_img_png",
         "bt_img_jpg",
     ]
@@ -1118,12 +1058,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
     st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
-
     st.session_state.setdefault("bt_footer_logo_align", "Center")
-
-    # image state
-    st.session_state.setdefault("bt_img_png", b"")
-    st.session_state.setdefault("bt_img_jpg", b"")
 
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
@@ -1140,10 +1075,6 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
-
-    # Invalidate image exports because confirmed snapshot changed
-    st.session_state["bt_img_png"] = b""
-    st.session_state["bt_img_jpg"] = b""
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -1378,7 +1309,6 @@ with left_col:
         st.markdown("#### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
-
         if not html_generated:
             st.warning("Click Confirm And Save Table Contents To Generate HTML Before Publishing.")
 
@@ -1578,13 +1508,14 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML, Then Generate IFrame Code Here.",
         )
 
-    # ---------- IMAGE TAB ----------
+    # ---------- IMAGE TAB (html2canvas) ----------
     with tab_image:
-        st.markdown("#### Image Export (High-Res)")
+        st.markdown("#### Image Export (High-Res, html2canvas)")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
             st.warning("Click Confirm And Save Table Contents first (Image export uses the confirmed snapshot).")
+            st.stop()
 
         cfg = st.session_state.get("bt_confirmed_cfg", draft_config_from_state())
         df_base = st.session_state.get("bt_df_confirmed", st.session_state.get("bt_df_draft")).copy()
@@ -1613,79 +1544,24 @@ with left_col:
         df_export = df_base if (n is None) else df_base.head(int(n))
 
         st.markdown("---")
-        copt1, copt2 = st.columns(2)
-        with copt1:
-            include_header_block = st.checkbox(
-                "Header (Title + Subtitle)",
-                value=True,
-                disabled=not html_generated,
-            )
-        with copt2:
-            include_footer = st.checkbox(
-                "Footer (Logo)",
-                value=True,
-                disabled=not html_generated,
-            )
+        c1, c2, c3 = st.columns([1, 1, 1])
+        with c1:
+            include_header_block = st.checkbox("Header (Title + Subtitle)", value=True)
+        with c2:
+            include_footer = st.checkbox("Footer (Logo)", value=True)
+        with c3:
+            scale = st.selectbox("Quality (scale)", options=[2, 3, 4], index=1)
 
-        st.caption("Image export always hides Rows/Page, Search bar, and Page X of N.")
+        st.caption("Downloads happen in the browser. If a logo fails to render, it’s usually a CORS restriction from the image host.")
 
-        meta = get_brand_meta(cfg.get("brand", "Action Network"))
+        export_cfg = dict(cfg)
+        export_cfg["show_search"] = False
+        export_cfg["show_pager"] = False
+        export_cfg["show_page_numbers"] = False
+        export_cfg["show_header"] = bool(include_header_block)
+        export_cfg["show_footer"] = bool(include_footer)
 
-        col_png, col_jpg = st.columns(2)
+        export_html = html_from_config(df_export, export_cfg)
+        exporter_doc = build_html2canvas_exporter(export_html, default_name="table_export", scale=int(scale))
 
-        with col_png:
-            if st.button("Generate PNG", use_container_width=True, disabled=not html_generated):
-                simulate_progress("Rendering PNG…", total_sleep=0.25)
-                png_bytes = dataframe_to_image_bytes(
-                    df_export,
-                    title=cfg.get("title", ""),
-                    subtitle=cfg.get("subtitle", ""),
-                    include_header_block=include_header_block,
-                    include_footer=include_footer,
-                    footer_logo_url=meta["logo_url"],
-                    brand_name=cfg.get("brand", "Action Network"),
-                    fmt="png",
-                    dpi=300,
-                )
-                st.session_state["bt_img_png"] = png_bytes
-                st.success("PNG ready.")
-
-            st.download_button(
-                "Download PNG (High-Res)",
-                data=st.session_state.get("bt_img_png", b""),
-                file_name="table_export.png",
-                mime="image/png",
-                use_container_width=True,
-                disabled=not bool(st.session_state.get("bt_img_png")),
-            )
-
-        with col_jpg:
-            if st.button("Generate JPEG", use_container_width=True, disabled=not html_generated):
-                simulate_progress("Rendering JPEG…", total_sleep=0.25)
-                jpg_bytes = dataframe_to_image_bytes(
-                    df_export,
-                    title=cfg.get("title", ""),
-                    subtitle=cfg.get("subtitle", ""),
-                    include_header_block=include_header_block,
-                    include_footer=include_footer,
-                    footer_logo_url=meta["logo_url"],
-                    brand_name=cfg.get("brand", "Action Network"),
-                    fmt="jpeg",
-                    dpi=300,
-                )
-                st.session_state["bt_img_jpg"] = jpg_bytes
-                st.success("JPEG ready.")
-
-            st.download_button(
-                "Download JPEG (High-Res)",
-                data=st.session_state.get("bt_img_jpg", b""),
-                file_name="table_export.jpg",
-                mime="image/jpeg",
-                use_container_width=True,
-                disabled=not bool(st.session_state.get("bt_img_jpg")),
-            )
-
-        st.markdown("---")
-        st.markdown("#### Preview (PNG)")
-        if st.session_state.get("bt_img_png"):
-            st.image(st.session_state["bt_img_png"])
+        components.html(exporter_doc, height=900, scrolling=True)
