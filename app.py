@@ -37,17 +37,17 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     if r.status_code == 200:
         return False
     if r.status_code != 404:
-        raise RuntimeError(f"Error checking repo: {r.status_code} {r.text}")
+        raise RuntimeError(f"Error Checking Repo: {r.status_code} {r.text}")
 
     payload = {
         "name": repo,
         "auto_init": True,
         "private": False,
-        "description": "Branded searchable table (auto-created by Streamlit app).",
+        "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
     r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload)
     if r.status_code not in (200, 201):
-        raise RuntimeError(f"Error creating repo: {r.status_code} {r.text}")
+        raise RuntimeError(f"Error Creating Repo: {r.status_code} {r.text}")
     return True
 
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
@@ -58,14 +58,14 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     if r.status_code == 200:
         return
     if r.status_code not in (404, 403):
-        raise RuntimeError(f"Error checking GitHub Pages: {r.status_code} {r.text}")
+        raise RuntimeError(f"Error Checking GitHub Pages: {r.status_code} {r.text}")
     if r.status_code == 403:
         return
 
     payload = {"source": {"branch": branch, "path": "/"}}
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, json=payload)
     if r.status_code not in (201, 202):
-        raise RuntimeError(f"Error enabling GitHub Pages: {r.status_code} {r.text}")
+        raise RuntimeError(f"Error Enabling GitHub Pages: {r.status_code} {r.text}")
 
 def upload_file_to_github(
     owner: str,
@@ -86,7 +86,7 @@ def upload_file_to_github(
     if r.status_code == 200:
         sha = r.json().get("sha")
     elif r.status_code not in (404,):
-        raise RuntimeError(f"Error checking file: {r.status_code} {r.text}")
+        raise RuntimeError(f"Error Checking File: {r.status_code} {r.text}")
 
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     payload = {"message": message, "content": encoded, "branch": branch}
@@ -95,7 +95,7 @@ def upload_file_to_github(
 
     r = requests.put(get_url, headers=headers, json=payload)
     if r.status_code not in (200, 201):
-        raise RuntimeError(f"Error uploading file: {r.status_code} {r.text}")
+        raise RuntimeError(f"Error Uploading File: {r.status_code} {r.text}")
 
 def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
@@ -113,7 +113,7 @@ def check_repo_exists(owner: str, repo: str, token: str) -> bool:
         return True
     if r.status_code == 404:
         return False
-    raise RuntimeError(f"Error checking repo: {r.status_code} {r.text}")
+    raise RuntimeError(f"Error Checking Repo: {r.status_code} {r.text}")
 
 def check_file_exists(owner: str, repo: str, token: str, path: str, branch: str = "main") -> bool:
     api_base = "https://api.github.com"
@@ -127,7 +127,7 @@ def check_file_exists(owner: str, repo: str, token: str, path: str, branch: str 
         return True
     if r.status_code == 404:
         return False
-    raise RuntimeError(f"Error checking file: {r.status_code} {r.text}")
+    raise RuntimeError(f"Error Checking File: {r.status_code} {r.text}")
 
 def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "main") -> str:
     api_base = "https://api.github.com"
@@ -162,26 +162,26 @@ def get_brand_meta(brand: str) -> dict:
     meta = {
         "name": brand_clean,
         "logo_url": default_logo,
-        "logo_alt": f"{brand_clean} logo",
+        "logo_alt": f"{brand_clean} Logo",
         "brand_class": "brand-actionnetwork",
     }
 
     if brand_clean == "Action Network":
         meta["brand_class"] = "brand-actionnetwork"
         meta["logo_url"] = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
-        meta["logo_alt"] = "Action Network logo"
+        meta["logo_alt"] = "Action Network Logo"
     elif brand_clean == "VegasInsider":
         meta["brand_class"] = "brand-vegasinsider"
         meta["logo_url"] = "https://i.postimg.cc/kGVJyXc1/VI-logo-final.png"
-        meta["logo_alt"] = "VegasInsider logo"
+        meta["logo_alt"] = "VegasInsider Logo"
     elif brand_clean == "Canada Sports Betting":
         meta["brand_class"] = "brand-canadasb"
         meta["logo_url"] = "https://i.postimg.cc/ZKbrbPCJ/CSB-FN.png"
-        meta["logo_alt"] = "Canada Sports Betting logo"
+        meta["logo_alt"] = "Canada Sports Betting Logo"
     elif brand_clean == "RotoGrinders":
         meta["brand_class"] = "brand-rotogrinders"
         meta["logo_url"] = "https://i.postimg.cc/PrcJnQtK/RG-logo-Fn.png"
-        meta["logo_alt"] = "RotoGrinders logo"
+        meta["logo_alt"] = "RotoGrinders Logo"
 
     return meta
 
@@ -451,21 +451,21 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
       <div class="left">
         <div class="dw-field [[SEARCH_VIS_CLASS]]">
-          <input type="search" class="dw-input" placeholder="Search table…" aria-label="Search table">
-          <button type="button" class="dw-clear" aria-label="Clear search">×</button>
+          <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
+          <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
         </div>
       </div>
 
       <div class="right [[PAGER_VIS_CLASS]]">
-        <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/page</label>
+        <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
         <select id="bt-size" class="dw-select">
           <option value="10" selected>10</option>
           <option value="15">15</option>
           <option value="20">20</option>
           <option value="0">All</option>
         </select>
-        <button class="dw-btn" data-page="prev" aria-label="Previous page">‹</button>
-        <button class="dw-btn" data-page="next" aria-label="Next page">›</button>
+        <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
+        <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
       </div>
     </div>
 
@@ -479,7 +479,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           </thead>
           <tbody>
             [[TABLE_ROWS]]
-            <tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No matches found.</td></tr>
+            <tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No Matches Found.</td></tr>
           </tbody>
         </table>
       </div>
@@ -607,7 +607,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       if(!pageStatus) return;
       if(totalVisible === 0){ pageStatus.textContent = ""; return; }
       if(!hasPager || pageSize === 0){ pageStatus.textContent = ""; return; }
-      pageStatus.textContent = "Page " + page + " of " + pages;
+      pageStatus.textContent = "Page " + page + " Of " + pages;
     }
 
     function renderPage(){
@@ -915,7 +915,6 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 ></iframe>"""
 
 def reset_widget_state_for_new_upload():
-    # Reset the “confirmed/html/publish” state so new uploads start clean
     keys_to_clear = [
         "bt_confirmed_cfg",
         "bt_confirmed_hash",
@@ -956,25 +955,25 @@ if default_brand not in brand_options:
     default_brand = "Action Network"
 
 st.selectbox(
-    "Choose a brand",
+    "Choose A Brand",
     options=brand_options,
     index=brand_options.index(default_brand),
     key="brand_table",
 )
 
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+uploaded_file = st.file_uploader("Upload Your CSV File", type=["csv"])
 if uploaded_file is None:
-    st.info("Upload a CSV to start.")
+    st.info("Upload A CSV To Start.")
     st.stop()
 
 try:
     df_uploaded_now = pd.read_csv(uploaded_file)
 except Exception as e:
-    st.error(f"Error reading CSV: {e}")
+    st.error(f"Error Reading CSV: {e}")
     st.stop()
 
 if df_uploaded_now.empty:
-    st.error("Uploaded CSV has no rows.")
+    st.error("Uploaded CSV Has No Rows.")
     st.stop()
 
 # ===================== NEW: DF state (uploaded / draft / confirmed) =====================
@@ -987,8 +986,8 @@ if prev_name != uploaded_name:
 
     st.session_state["bt_uploaded_name"] = uploaded_name
     st.session_state["bt_df_uploaded"] = df_uploaded_now.copy()
-    st.session_state["bt_df_draft"] = df_uploaded_now.copy()       # editable
-    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()   # used for preview/html
+    st.session_state["bt_df_draft"] = df_uploaded_now.copy()
+    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()
 
 df_draft = st.session_state["bt_df_draft"]
 df_confirmed = st.session_state["bt_df_confirmed"]
@@ -1001,8 +1000,8 @@ left_col, right_col = st.columns([1, 3], gap="large")
 
 # Right: editor + always-on preview (CONFIRMED)
 with right_col:
-    st.markdown("### Edit data (draft)")
-    with st.expander("Open editor", expanded=False):
+    # ✅ Removed: "Edit Data (Draft)" Heading
+    with st.expander("Open Editor", expanded=False):
         edited_df = st.data_editor(
             df_draft,
             use_container_width=True,
@@ -1013,100 +1012,105 @@ with right_col:
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("↩️ Reset draft to uploaded CSV", use_container_width=True):
+            if st.button("↩️ Reset Draft To Uploaded CSV", use_container_width=True):
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits apply to the draft. Click **Confirm and save** to update preview/HTML.")
+            st.caption("Edits Apply To The Draft. Click **Confirm And Save** To Update Preview/HTML.")
 
-    st.markdown("### Preview (confirmed)")
+    st.markdown("### Preview (Confirmed)")
     preview_html = st.session_state.get("bt_confirmed_html_preview", "")
     components.html(preview_html, height=820, scrolling=True)
 
 # Left sidebar tabs: Configure / HTML / Iframe
 with left_col:
-    tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "Iframe"])
+    tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
 
     # ---------- CONFIGURE TAB ----------
     with tab_config:
-        st.markdown("#### Table setup")
+        st.markdown("#### Table Setup")
 
         confirm_clicked = st.button(
-            "✅ Confirm and save table contents",
+            "✅ Confirm And Save Table Contents",
             key="bt_confirm_btn",
             use_container_width=True,
         )
 
-        sub_head, sub_content = st.tabs(["Header / Footer", "Content"])
+        # ✅ Rename "Content" -> "Body"
+        sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
         with sub_head:
-            st.text_input(
-                "Table title",
-                value=st.session_state.get("bt_widget_title", "Table 1"),
-                key="bt_widget_title",
-            )
-            st.text_input(
-                "Table subtitle",
-                value=st.session_state.get("bt_widget_subtitle", "Subheading"),
-                key="bt_widget_subtitle",
-            )
-
+            # ✅ Reordered Exactly As Requested
             show_header = st.checkbox(
-                "Show header box",
+                "Show Header Box",
                 value=st.session_state.get("bt_show_header", True),
                 key="bt_show_header",
             )
+
+            st.text_input(
+                "Table Title",
+                value=st.session_state.get("bt_widget_title", "Table 1"),
+                key="bt_widget_title",
+                disabled=not show_header,
+            )
+            st.text_input(
+                "Table Subtitle",
+                value=st.session_state.get("bt_widget_subtitle", "Subheading"),
+                key="bt_widget_subtitle",
+                disabled=not show_header,
+            )
+
             st.checkbox(
-                "Center title & subtitle",
+                "Center Title And Subtitle",
                 value=st.session_state.get("bt_center_titles", False),
                 key="bt_center_titles",
                 disabled=not show_header,
             )
             st.checkbox(
-                "Branded title color",
+                "Branded Title Colour",
                 value=st.session_state.get("bt_branded_title_color", True),
                 key="bt_branded_title_color",
                 disabled=not show_header,
             )
 
             show_footer = st.checkbox(
-                "Show footer (logo)",
+                "Show Footer (Logo)",
                 value=st.session_state.get("bt_show_footer", True),
                 key="bt_show_footer",
             )
             st.selectbox(
-                "Footer logo alignment",
+                "Footer Logo Alignment",
                 options=["Right", "Center", "Left"],
                 index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Right")),
                 key="bt_footer_logo_align",
                 disabled=not show_footer,
             )
 
-        with sub_content:
+        with sub_body:
             st.checkbox(
-                "Striped rows",
+                "Striped Rows",
                 value=st.session_state.get("bt_striped_rows", True),
                 key="bt_striped_rows",
             )
             st.selectbox(
-                "Table content alignment",
+                "Table Content Alignment",
                 options=["Center", "Left", "Right"],
                 index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                 key="bt_cell_align",
             )
             st.checkbox(
-                "Show search",
+                "Show Search",
                 value=st.session_state.get("bt_show_search", True),
                 key="bt_show_search",
             )
             show_pager = st.checkbox(
-                "Show pager (rows/page + prev/next)",
+                "Show Pager (Rows/Page + Prev/Next)",
                 value=st.session_state.get("bt_show_pager", True),
                 key="bt_show_pager",
-                help="If off, the table will show ALL rows by default.",
+                help="If Off, The Table Will Show All Rows By Default.",
             )
             st.checkbox(
-                "Show page numbers (Page X of Y)",
+                "Show Page Numbers (Page X Of Y)",
                 value=st.session_state.get("bt_show_page_numbers", True),
                 key="bt_show_page_numbers",
                 disabled=not show_pager,
@@ -1117,29 +1121,25 @@ with left_col:
         unconfirmed_changes = (draft_hash != confirmed_hash)
 
         if confirm_clicked:
-            simulate_progress("Saving table settings & data…", total_sleep=0.45)
+            simulate_progress("Saving Table Settings And Data…", total_sleep=0.45)
 
-            # ✅ confirm DATA: draft -> confirmed
             st.session_state["bt_df_confirmed"] = st.session_state["bt_df_draft"].copy()
-
-            # ✅ confirm CONFIG + rebuild confirmed preview using confirmed df
             confirm_table(st.session_state["bt_df_confirmed"])
 
-            # if HTML exists, mark stale if mismatch
             if st.session_state.get("bt_html_generated", False):
                 st.session_state["bt_html_stale"] = (
                     st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", "")
                 )
-            st.success("Saved. Preview updated (confirmed).")
+            st.success("Saved. Preview Updated (Confirmed).")
         else:
             if unconfirmed_changes:
-                st.warning("You have unconfirmed changes. Click **Confirm and save** to update the preview.")
+                st.warning("You Have Unconfirmed Changes. Click **Confirm And Save** To Update The Preview.")
             else:
-                st.caption("All changes are confirmed.")
+                st.caption("All Changes Are Confirmed.")
 
     # ---------- HTML TAB ----------
     with tab_html:
-        st.markdown("#### HTML generation")
+        st.markdown("#### HTML Generation")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         html_hash = st.session_state.get("bt_html_hash", "")
@@ -1151,7 +1151,7 @@ with left_col:
         col_a, col_b = st.columns([1, 1])
         with col_a:
             get_html_clicked = st.button(
-                "📄 Get HTML code",
+                "📄 Get HTML Code",
                 key="bt_get_html_code",
                 use_container_width=True,
             )
@@ -1164,43 +1164,42 @@ with left_col:
             )
 
         if unconfirmed_changes:
-            st.info("HTML is generated from **confirmed** settings. Confirm changes first, or click **Update HTML** to auto-confirm + regenerate.")
+            st.info("HTML Is Generated From **Confirmed** Settings. Confirm Changes First, Or Click **Update HTML** To Auto-Confirm + Regenerate.")
         elif confirmed_vs_html_stale:
-            st.warning("HTML is out of date vs confirmed settings. Click **Update HTML**.")
+            st.warning("HTML Is Out Of Date Vs Confirmed Settings. Click **Update HTML**.")
         elif html_generated:
-            st.success("HTML is up to date with confirmed settings.")
+            st.success("HTML Is Up To Date With Confirmed Settings.")
         else:
-            st.caption("Click **Get HTML code** after confirming your table settings.")
+            st.caption("Click **Get HTML Code** After Confirming Your Table Settings.")
 
         if get_html_clicked:
             if unconfirmed_changes:
-                st.warning("Confirm your changes first (or use Update HTML).")
+                st.warning("Confirm Your Changes First (Or Use Update HTML).")
             else:
                 simulate_progress("Generating HTML…", total_sleep=0.40)
                 generate_html_code_from_confirmed(st.session_state["bt_df_confirmed"])
-                st.success("HTML generated from confirmed settings + confirmed data.")
+                st.success("HTML Generated From Confirmed Settings + Confirmed Data.")
 
         if update_html_clicked:
-            # auto-confirm any draft changes first (SETTINGS) + regenerate
             if stable_config_hash(draft_config_from_state()) != st.session_state.get("bt_confirmed_hash", ""):
-                simulate_progress("Confirming latest settings…", total_sleep=0.30)
+                simulate_progress("Confirming Latest Settings…", total_sleep=0.30)
                 confirm_table(st.session_state["bt_df_confirmed"])
 
             simulate_progress("Updating HTML…", total_sleep=0.40)
             generate_html_code_from_confirmed(st.session_state["bt_df_confirmed"])
-            st.success("HTML updated from the latest confirmed settings + confirmed data.")
+            st.success("HTML Updated From The Latest Confirmed Settings + Confirmed Data.")
 
         html_code = st.session_state.get("bt_html_code", "")
         st.text_area(
-            "HTML code",
+            "HTML Code",
             value=html_code,
             height=420,
-            placeholder="Generate HTML to see the code here.",
+            placeholder="Generate HTML To See The Code Here.",
         )
 
     # ---------- IFRAME TAB ----------
     with tab_iframe:
-        st.markdown("#### Publish + Iframe")
+        st.markdown("#### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         html_hash = st.session_state.get("bt_html_hash", "")
@@ -1211,9 +1210,9 @@ with left_col:
         html_stale = (html_generated and (html_hash != confirmed_hash))
 
         if not html_generated:
-            st.warning("Generate HTML first (HTML tab).")
+            st.warning("Generate HTML First (HTML Tab).")
         elif unconfirmed_changes or html_stale:
-            st.warning("Your HTML is not up to date. Go to HTML tab → **Update HTML**.")
+            st.warning("Your HTML Is Not Up To Date. Go To HTML Tab → **Update HTML**.")
 
         saved_gh_user = st.session_state.get("bt_gh_user", "")
         saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
@@ -1224,7 +1223,7 @@ with left_col:
 
         default_idx = username_options.index(saved_gh_user) if saved_gh_user in username_options else 0
         github_username_input = st.selectbox(
-            "Username (GitHub username)",
+            "Username (GitHub Username)",
             options=username_options,
             index=default_idx,
             key="bt_gh_user",
@@ -1233,7 +1232,7 @@ with left_col:
         effective_github_user = (github_username_input or "").strip()
 
         repo_name = st.text_input(
-            "Widget hosting repository name",
+            "Widget Hosting Repository Name",
             value=saved_gh_repo,
             key="bt_gh_repo",
             disabled=not html_generated,
@@ -1243,7 +1242,7 @@ with left_col:
         st.session_state.setdefault("bt_widget_file_name", base_filename)
         widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
 
-        st.caption(f"Target file in repo: `{widget_file_name}`")
+        st.caption(f"Target File In Repo: `{widget_file_name}`")
 
         can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
         can_publish = bool(can_run_github and html_generated and (not unconfirmed_changes) and (not html_stale))
@@ -1251,7 +1250,7 @@ with left_col:
         col_check, col_pub = st.columns([1, 1])
         with col_check:
             page_check_clicked = st.button(
-                "Page availability check",
+                "Page Availability Check",
                 key="bt_page_check",
                 disabled=not can_run_github or not html_generated,
                 use_container_width=True,
@@ -1262,11 +1261,11 @@ with left_col:
                 key="bt_publish_html",
                 disabled=not can_publish,
                 use_container_width=True,
-                help="Disabled until HTML is generated and up-to-date.",
+                help="Disabled Until HTML Is Generated And Up-To-Date.",
             )
 
         if not GITHUB_TOKEN:
-            st.info("Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
+            st.info("Set `GITHUB_TOKEN` In `.streamlit/secrets.toml` (With `repo` Scope) To Enable GitHub Publishing.")
 
         if page_check_clicked:
             try:
@@ -1284,9 +1283,9 @@ with left_col:
                     "checked_filename": base_filename,
                     "suggested_new_filename": next_fname,
                 }
-                st.success("Availability check complete.")
+                st.success("Availability Check Complete.")
             except Exception as e:
-                st.error(f"Availability check failed: {e}")
+                st.error(f"Availability Check Failed: {e}")
 
         availability = st.session_state.get("bt_availability")
         if html_generated and can_run_github and availability:
@@ -1296,37 +1295,37 @@ with left_col:
             suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
 
             if not repo_exists:
-                st.info("No existing repo found. Publishing will create it.")
+                st.info("No Existing Repo Found. Publishing Will Create It.")
                 st.session_state["bt_widget_file_name"] = checked_filename
             elif repo_exists and not file_exists:
-                st.success(f"Repo exists and `{checked_filename}` is available.")
+                st.success(f"Repo Exists And `{checked_filename}` Is Available.")
                 st.session_state["bt_widget_file_name"] = checked_filename
             else:
-                st.warning(f"`{checked_filename}` already exists.")
+                st.warning(f"`{checked_filename}` Already Exists.")
                 choice = st.radio(
-                    "Choose what to do",
+                    "Choose What To Do",
                     options=[
-                        "Replace existing widget (overwrite file)",
-                        f"Create additional widget file in same repo (use {suggested_new_filename})",
-                        "Change campaign name instead",
+                        "Replace Existing Widget (Overwrite File)",
+                        f"Create Additional Widget File In Same Repo (Use {suggested_new_filename})",
+                        "Change Campaign Name Instead",
                     ],
                     key="bt_file_conflict_choice",
                     disabled=not html_generated,
                 )
                 if choice.startswith("Replace"):
                     st.session_state["bt_widget_file_name"] = checked_filename
-                elif choice.startswith("Create additional"):
+                elif choice.startswith("Create Additional"):
                     st.session_state["bt_widget_file_name"] = suggested_new_filename
 
         if publish_clicked:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
-                    raise RuntimeError("No generated HTML found. Go to HTML tab and generate it first.")
+                    raise RuntimeError("No Generated HTML Found. Go To The HTML Tab And Generate It First.")
 
                 ph = st.empty()
                 prog = st.progress(0)
-                ph.caption("Publishing to GitHub…")
+                ph.caption("Publishing To GitHub…")
                 for pct in (10, 30, 55):
                     time.sleep(0.10)
                     prog.progress(pct)
@@ -1347,7 +1346,7 @@ with left_col:
                     GITHUB_TOKEN,
                     widget_file_name,
                     html_final,
-                    f"Add/update {widget_file_name} from Branded Table app",
+                    f"Add/Update {widget_file_name} From Branded Table App",
                     branch="main",
                 )
                 trigger_pages_build(effective_github_user, repo_name, GITHUB_TOKEN)
@@ -1359,13 +1358,13 @@ with left_col:
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.success("Published. GitHub Pages may take a minute to update.")
+                st.success("Published. GitHub Pages May Take A Minute To Update.")
 
             except Exception as e:
-                st.error(f"GitHub publish failed: {e}")
+                st.error(f"GitHub Publish Failed: {e}")
 
         st.markdown("---")
-        st.markdown("#### Iframe embed")
+        st.markdown("#### IFrame Embed")
 
         pages_url = st.session_state.get("bt_last_published_url", "")
         default_url = ""
@@ -1377,14 +1376,14 @@ with left_col:
             )
 
         url_to_use = st.text_input(
-            "Page URL used for iframe",
+            "Page URL Used For IFrame",
             value=pages_url or default_url,
             key="bt_iframe_url",
             disabled=not html_generated,
         )
 
         iframe_height = st.number_input(
-            "Iframe height (px)",
+            "IFrame Height (Px)",
             min_value=300,
             max_value=2000,
             value=int(st.session_state.get("bt_iframe_height", 800)),
@@ -1394,22 +1393,22 @@ with left_col:
         )
 
         get_iframe_clicked = st.button(
-            "🧩 Get iframe code",
+            "🧩 Get IFrame Code",
             key="bt_get_iframe",
             disabled=not html_generated or not bool(url_to_use.strip()),
             use_container_width=True,
-            help="Disabled until HTML is generated.",
+            help="Disabled Until HTML Is Generated.",
         )
 
         if get_iframe_clicked:
-            simulate_progress("Generating iframe…", total_sleep=0.25)
+            simulate_progress("Generating IFrame…", total_sleep=0.25)
             st.session_state["bt_iframe_code"] = build_iframe_snippet(url_to_use, height=int(iframe_height))
-            st.success("Iframe code generated.")
+            st.success("IFrame Code Generated.")
 
         iframe_code = st.session_state.get("bt_iframe_code", "")
         st.text_area(
-            "Iframe code",
+            "IFrame Code",
             value=iframe_code,
             height=200,
-            placeholder="Generate HTML first, then generate iframe code here.",
+            placeholder="Generate HTML First, Then Generate IFrame Code Here.",
         )
