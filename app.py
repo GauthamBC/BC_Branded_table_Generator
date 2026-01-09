@@ -1,16 +1,8 @@
-# branded_table_generator.py
-# Streamlit app: Branded Table Generator (HTML widget + GitHub Pages publish + High-res image export)
-# Fix included: removes ALL `color-mix(in oklab, ...)` usage (html2canvas export-safe)
-
-from __future__ import annotations
-
 import base64
-import io
-import re
 import time
+import re
+import io
 import html as html_mod
-from typing import Dict, Optional
-
 import requests
 import pandas as pd
 import streamlit as st
@@ -18,7 +10,6 @@ import streamlit.components.v1 as components
 
 from PIL import Image
 import matplotlib.pyplot as plt
-
 
 # ===================== 0) Secrets =====================
 
@@ -34,10 +25,9 @@ def get_secret(key: str, default: str = "") -> str:
 GITHUB_TOKEN = get_secret("GITHUB_TOKEN", "")
 GITHUB_USER_DEFAULT = get_secret("GITHUB_USER", "")
 
-
 # ===================== GitHub Helpers =====================
 
-def github_headers(token: str) -> dict:
+def github_headers(token: str):
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -49,7 +39,7 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers, timeout=15)
+    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers)
     if r.status_code == 200:
         return False
     if r.status_code != 404:
@@ -61,7 +51,7 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
         "private": False,
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
-    r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload, timeout=20)
+    r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Creating Repo: {r.status_code} {r.text}")
     return True
@@ -71,22 +61,16 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, timeout=15)
+    r = requests.get(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers)
     if r.status_code == 200:
         return
     if r.status_code not in (404, 403):
         raise RuntimeError(f"Error Checking GitHub Pages: {r.status_code} {r.text}")
     if r.status_code == 403:
-        # org policy might block Pages
         return
 
     payload = {"source": {"branch": branch, "path": "/"}}
-    r = requests.post(
-        f"{api_base}/repos/{owner}/{repo}/pages",
-        headers=headers,
-        json=payload,
-        timeout=20,
-    )
+    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, json=payload)
     if r.status_code not in (201, 202):
         raise RuntimeError(f"Error Enabling GitHub Pages: {r.status_code} {r.text}")
 
@@ -105,8 +89,7 @@ def upload_file_to_github(
 
     get_url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
     params = {"ref": branch}
-
-    r = requests.get(get_url, headers=headers, params=params, timeout=15)
+    r = requests.get(get_url, headers=headers, params=params)
     sha = None
     if r.status_code == 200:
         sha = r.json().get("sha")
@@ -118,7 +101,7 @@ def upload_file_to_github(
     if sha:
         payload["sha"] = sha
 
-    r = requests.put(get_url, headers=headers, json=payload, timeout=25)
+    r = requests.put(get_url, headers=headers, json=payload)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Uploading File: {r.status_code} {r.text}")
 
@@ -126,7 +109,7 @@ def upload_file_to_github(
 def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
-    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers, timeout=20)
+    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers)
     return r.status_code in (201, 202)
 
 
@@ -135,7 +118,7 @@ def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
 def check_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers, timeout=15)
+    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers)
     if r.status_code == 200:
         return True
     if r.status_code == 404:
@@ -150,7 +133,6 @@ def check_file_exists(owner: str, repo: str, token: str, path: str, branch: str 
         f"{api_base}/repos/{owner}/{repo}/contents/{path}",
         headers=headers,
         params={"ref": branch},
-        timeout=15,
     )
     if r.status_code == 200:
         return True
@@ -166,7 +148,6 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
         f"{api_base}/repos/{owner}/{repo}/contents",
         headers=headers,
         params={"ref": branch},
-        timeout=15,
     )
     if r.status_code != 200:
         return "t1.html"
@@ -218,7 +199,28 @@ def get_brand_meta(brand: str) -> dict:
     return meta
 
 
-# ===================== Image Export Helpers =====================
+def inline_image_as_data_uri(url: str, timeout: int = 10) -> str:
+    """
+    Inlines image URL to a data URI to avoid CORS issues with html2canvas.
+    If fetch fails, returns the original URL.
+    """
+    url = (url or "").strip()
+    if not url or not url.lower().startswith(("http://", "https://")):
+        return url
+    try:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+        if content_type not in ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/svg+xml"):
+            # Guess as png if unknown (still usually works)
+            content_type = "image/png"
+        b64 = base64.b64encode(resp.content).decode("utf-8")
+        return f"data:{content_type};base64,{b64}"
+    except Exception:
+        return url
+
+
+# ===================== Image Export Helpers (Matplotlib fallback) =====================
 
 def brand_palette(brand: str) -> dict:
     b = (brand or "").strip()
@@ -228,7 +230,6 @@ def brand_palette(brand: str) -> dict:
         return {"header_bg": "#DC2626", "stripe": "#FEF2F2"}
     if b == "RotoGrinders":
         return {"header_bg": "#0141A1", "stripe": "#E8F1FF"}
-    # Action Network default
     return {"header_bg": "#56C257", "stripe": "#DCF2EB"}
 
 
@@ -242,8 +243,14 @@ def dataframe_to_image_bytes(
     footer_logo_url: str = "",
     brand_name: str = "Action Network",
     fmt: str = "png",
-    dpi: int = 300,
+    dpi: int = 350,
 ) -> bytes:
+    """
+    Matplotlib fallback export (improved):
+    - Column widths based on content length (URLs get more width)
+    - More padding
+    - Better wrapping and linespacing
+    """
     import textwrap
 
     df = df.copy().fillna("")
@@ -253,41 +260,32 @@ def dataframe_to_image_bytes(
 
     n_rows, n_cols = df.shape
 
-    # ---- sizing ----
-    col_w = 2.15 if n_cols >= 7 else 1.75
-    row_h = 0.45
-    fig_w = max(10.0, n_cols * col_w)
-    fig_h = max(3.2, (n_rows + 1) * row_h)
+    # ---- column weights -> colWidths ----
+    col_weights = []
+    for col in df.columns:
+        name = str(col).lower()
+        # compute max length among a sample (avoid huge cost)
+        sample_vals = df[col].astype(str).head(200).tolist()
+        max_len = max([len(str(col))] + [len(v) for v in sample_vals]) if sample_vals else len(str(col))
+        max_len = min(max_len, 80)
 
-    font_size = 11
-    if n_cols >= 8:
-        font_size = 9
-    if n_cols >= 10:
-        font_size = 8
+        w = max_len
+        if "url" in name:
+            w *= 1.8
+        elif "email" in name:
+            w *= 1.5
+        elif "title" in name:
+            w *= 1.25
+        elif "outlet" in name:
+            w *= 1.15
+        elif "angle" in name:
+            w *= 1.15
+        col_weights.append(max(8.0, float(w)))
 
-    top_pad = 0.9 if include_header_block else 0.25
-    bot_pad = 0.9 if (include_footer and footer_logo_url) else 0.25
-    fig_h = fig_h + top_pad + bot_pad
+    total_w = sum(col_weights) if col_weights else 1.0
+    col_widths = [w / total_w for w in col_weights]
 
     # ---- wrap widths per column (characters) ----
-    base_wrap = 28
-    if n_cols >= 7:
-        base_wrap = 22
-    if n_cols >= 9:
-        base_wrap = 18
-
-    wrap_map: Dict[str, int] = {}
-    for c in df.columns:
-        name = str(c).lower()
-        if "url" in name:
-            wrap_map[c] = max(14, base_wrap - 6)
-        elif "email" in name:
-            wrap_map[c] = max(14, base_wrap - 6)
-        elif "title" in name:
-            wrap_map[c] = base_wrap
-        else:
-            wrap_map[c] = base_wrap
-
     def soft_break_long_tokens(s: str) -> str:
         return (
             str(s)
@@ -295,43 +293,74 @@ def dataframe_to_image_bytes(
             .replace(".", ".\u200b")
             .replace("@", "@\u200b")
             .replace("-", "-\u200b")
+            .replace("_", "_\u200b")
         )
+
+    # Use column width to pick wrap width (bigger column => more chars)
+    base_wrap = 28
+    wrap_map = {}
+    avg_weight = sum(col_weights) / max(1, len(col_weights))
+    for c, w in zip(df.columns, col_weights):
+        name = str(c).lower()
+        factor = max(0.7, min(1.6, w / max(1.0, avg_weight)))
+        width = int(base_wrap * factor)
+
+        if "url" in name:
+            width = max(18, width)
+        if "email" in name:
+            width = max(18, width)
+
+        wrap_map[c] = max(14, min(52, width))
 
     def wrap_cell(text: str, width: int) -> str:
         t = soft_break_long_tokens(text)
         return "\n".join(textwrap.wrap(t, width=width, break_long_words=True, break_on_hyphens=True)) or ""
 
+    # Build wrapped values + line counts
     wrapped_values = []
     row_line_counts = []
     for _, row in df.iterrows():
         wrapped_row = []
         max_lines = 1
         for c in df.columns:
-            w = wrap_map[c]
-            v = wrap_cell(row[c], w)
+            v = wrap_cell(str(row[c]), wrap_map[c])
             wrapped_row.append(v)
             max_lines = max(max_lines, (v.count("\n") + 1) if v else 1)
         wrapped_values.append(wrapped_row)
         row_line_counts.append(max_lines)
 
+    # ---- figure sizing ----
+    fig_w = max(12.0, 18.0 * sum(col_widths))  # stable minimum width
+    fig_h = max(3.6, 0.55 * (n_rows + 1))
+
+    top_pad = 1.0 if include_header_block else 0.25
+    bot_pad = 0.95 if (include_footer and footer_logo_url) else 0.25
+    fig_h = fig_h + top_pad + bot_pad
+
+    # font size heuristic
+    font_size = 11
+    if n_cols >= 8:
+        font_size = 10
+    if n_cols >= 10:
+        font_size = 9
+
     fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
     ax = fig.add_axes([0.02, 0.02, 0.96, 0.96])
     ax.axis("off")
 
-    # Header text
-    y_cursor = 0.98
+    y_cursor = 0.985
     if include_header_block:
         if title:
-            fig.text(0.5, y_cursor, title, ha="center", va="top", fontsize=18, fontweight="bold")
-            y_cursor -= 0.04
+            fig.text(0.5, y_cursor, title, ha="center", va="top", fontsize=20, fontweight="bold")
+            y_cursor -= 0.042
         if subtitle:
             fig.text(0.5, y_cursor, subtitle, ha="center", va="top", fontsize=12)
         y_table_top = 0.90
     else:
-        y_table_top = 0.96
+        y_table_top = 0.965
 
     y_table_bottom = 0.12 if (include_footer and footer_logo_url) else 0.04
-    table_bbox = [0.00, y_table_bottom, 1.00, y_table_top - y_table_bottom]
+    table_bbox = [0.0, y_table_bottom, 1.0, y_table_top - y_table_bottom]
 
     table = ax.table(
         cellText=wrapped_values,
@@ -339,41 +368,52 @@ def dataframe_to_image_bytes(
         cellLoc="left",
         colLoc="center",
         bbox=table_bbox,
+        colWidths=col_widths,
     )
-
-    # Padding + nicer vertical alignment
-    PADDING = 0.18
-    for (r, c), cell in table.get_celld().items():
-        cell.PAD = PADDING
-        cell.get_text().set_wrap(True)
-        cell.get_text().set_va("center")
-        cell.set_linewidth(0.4)
 
     table.auto_set_font_size(False)
     table.set_fontsize(font_size)
 
-    # Header styling (row 0)
+    # padding + alignment + linespacing
+    PADDING = 0.28  # more breathing room
+    for (r, c), cell in table.get_celld().items():
+        cell.PAD = PADDING
+        cell.get_text().set_wrap(True)
+        cell.get_text().set_va("center")
+        cell.get_text().set_linespacing(1.2)
+        cell.set_linewidth(0.35)
+        cell.set_edgecolor("white")
+
+    # Header styling
     for c in range(n_cols):
         cell = table[(0, c)]
         cell.set_facecolor(header_bg)
         cell.get_text().set_color("white")
         cell.get_text().set_weight("bold")
-        cell.set_edgecolor("white")
         cell.get_text().set_ha("center")
+        cell.set_edgecolor("white")
+        cell.set_height(cell.get_height() * 1.15)
 
-    # Body styling + zebra + row height adjustments
+    # Body styling + zebra + dynamic row height
     base_body_height = table[(1, 0)].get_height() if n_rows > 0 else 0.05
+
+    def col_font_adjust(col_name: str) -> int:
+        n = col_name.lower()
+        if "url" in n or "email" in n:
+            return max(8, font_size - 2)
+        return font_size
 
     for r in range(1, n_rows + 1):
         lines = row_line_counts[r - 1]
-        scale = 1.25 + (lines - 1) * 0.85
+        scale = 1.15 + (lines - 1) * 0.78
 
         for c in range(n_cols):
             cell = table[(r, c)]
             cell.set_facecolor(stripe_bg if (r % 2 == 1) else "white")
-            cell.set_edgecolor("white")
-            cell.get_text().set_ha("left")
             cell.set_height(base_body_height * scale)
+            cell.get_text().set_ha("left")
+            # per-column font tweak
+            cell.get_text().set_fontsize(col_font_adjust(str(df.columns[c])))
 
     # Footer logo
     if include_footer and footer_logo_url:
@@ -382,12 +422,12 @@ def dataframe_to_image_bytes(
             resp.raise_for_status()
             logo = Image.open(io.BytesIO(resp.content)).convert("RGBA")
 
-            target_h_px = int(dpi * 0.35)
-            scale = target_h_px / max(1, logo.size[1])
-            new_w = max(1, int(logo.size[0] * scale))
+            target_h_px = int(dpi * 0.34)
+            scale_logo = target_h_px / max(1, logo.size[1])
+            new_w = max(1, int(logo.size[0] * scale_logo))
             logo = logo.resize((new_w, target_h_px), Image.LANCZOS)
 
-            ax_logo = fig.add_axes([0.5 - 0.15, 0.03, 0.30, 0.08])
+            ax_logo = fig.add_axes([0.5 - 0.15, 0.028, 0.30, 0.085])
             ax_logo.axis("off")
             ax_logo.imshow(logo)
         except Exception:
@@ -399,13 +439,12 @@ def dataframe_to_image_bytes(
         fmt = "png"
     save_fmt = "jpeg" if fmt in ("jpeg", "jpg") else "png"
 
-    fig.savefig(buf, format=save_fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.15)
+    fig.savefig(buf, format=save_fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.18)
     plt.close(fig)
     return buf.getvalue()
 
 
-# ===================== HTML Template =====================
-# IMPORTANT FIX: no `color-mix(in oklab, ...)` anywhere (html2canvas-safe)
+# ===================== HTML Template (NO oklab / NO color-mix) =====================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -438,9 +477,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --hover:var(--brand-300);
       --scroll-thumb:var(--brand-500);
 
-      /* html2canvas-safe (no oklab / no color-mix) */
-      --footer-border: rgba(86, 194, 87, 0.35);
-      --focus-ring: rgba(86, 194, 87, 0.25);
+      /* Replace color-mix(in oklab, ...) with safe rgba */
+      --footer-border: rgba(86,194,87,0.35);
+      --focus-ring: rgba(86,194,87,0.25);
 
       --cell-align:center;
     }
@@ -460,10 +499,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-500);
-
-      /* html2canvas-safe */
-      --footer-border: rgba(242, 194, 58, 0.40);
-      --focus-ring: rgba(242, 194, 58, 0.25);
+      --footer-border: rgba(242,194,58,0.40);
+      --focus-ring: rgba(242,194,58,0.25);
     }
 
     .vi-table-embed.brand-canadasb{
@@ -478,10 +515,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-600);
-
-      /* html2canvas-safe */
-      --footer-border: rgba(220, 38, 38, 0.40);
-      --focus-ring: rgba(220, 38, 38, 0.25);
+      --footer-border: rgba(220,38,38,0.40);
+      --focus-ring: rgba(220,38,38,0.25);
     }
 
     .vi-table-embed.brand-rotogrinders{
@@ -496,10 +531,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-600);
-
-      /* html2canvas-safe */
-      --footer-border: rgba(1, 65, 161, 0.40);
-      --focus-ring: rgba(1, 65, 161, 0.25);
+      --footer-border: rgba(1,89,209,0.35);
+      --focus-ring: rgba(1,89,209,0.22);
     }
 
     /* Header block */
@@ -562,6 +595,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
 
+    #bt-block .dw-btn.secondary{
+      background:#fff; color:var(--brand-700); border:1px solid var(--brand-700);
+    }
+    #bt-block .dw-btn.secondary:hover{
+      background:var(--brand-50);
+      border-color:var(--brand-600);
+      color:var(--brand-600);
+    }
+
     /* Clear button */
     #bt-block .dw-clear{
       position:absolute; right:10px; top:50%; translate:0 -50%; width:22px; height:22px; border-radius:9999px; border:0;
@@ -604,9 +646,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* Alignment */
     #bt-block thead th,
     #bt-block tbody td {
-      padding: 12px 10px;
+      padding: 12px 12px;
       overflow: hidden;
       text-align: var(--cell-align, center);
+      vertical-align: middle;
     }
     #bt-block thead th { white-space: nowrap; }
 
@@ -706,11 +749,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         </select>
         <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
         <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
+        <button class="dw-btn secondary [[DOWNLOAD_VIS_CLASS]]" id="dw-download" type="button" title="Downloads a PNG screenshot of the rendered widget">Download PNG (DOM)</button>
       </div>
     </div>
 
     <div class="dw-card">
-      <div class="dw-scroll">
+      <div class="dw-scroll" id="dw-scroll">
         <table class="dw-table">
           <thead>
             <tr>
@@ -736,6 +780,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
     </div>
   </div>
+
+  <!-- html2canvas for DOM download -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
   (function(){
@@ -920,6 +967,48 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
+    // DOM Download (full table screenshot)
+    const dlBtn = document.getElementById('dw-download');
+    if (dlBtn && typeof html2canvas === 'function') {
+      dlBtn.addEventListener('click', async () => {
+        const widget = document.querySelector('section.vi-table-embed');
+        const scroll = document.getElementById('dw-scroll');
+        if (!widget || !scroll) return;
+
+        // Expand scroller to full height so capture includes all rows
+        const prevMaxH = scroll.style.maxHeight;
+        const prevOverflowY = scroll.style.overflowY;
+        scroll.style.maxHeight = 'none';
+        scroll.style.overflowY = 'visible';
+
+        // Give layout a tick
+        await new Promise(r => setTimeout(r, 50));
+
+        try {
+          const canvas = await html2canvas(widget, {
+            backgroundColor: "#ffffff",
+            scale: 3,            // HIGH RES (increase to 4 if you want)
+            useCORS: true,
+            allowTaint: false,
+            logging: false
+          });
+
+          const a = document.createElement('a');
+          const safeTitle = (document.title || 'table').replace(/[^\w\-]+/g,'_');
+          a.download = safeTitle + "_dom.png";
+          a.href = canvas.toDataURL('image/png');
+          a.click();
+        } catch (e) {
+          console.error("DOM screenshot failed:", e);
+          alert("DOM screenshot failed. Check console for details.");
+        } finally {
+          // Restore scroller
+          scroll.style.maxHeight = prevMaxH;
+          scroll.style.overflowY = prevOverflowY;
+        }
+      });
+    }
+
     renderPage();
   })();
   </script>
@@ -928,7 +1017,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </body>
 </html>
 """
-
 
 # ===================== Generator =====================
 
@@ -966,6 +1054,7 @@ def generate_table_html_from_df(
     show_footer: bool = True,
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
+    show_dom_download: bool = True,
 ) -> str:
     df = df.copy()
 
@@ -1025,6 +1114,8 @@ def generate_table_html_from_df(
     else:
         cell_align_class = "align-center"
 
+    download_vis = "" if show_dom_download else "vi-hide"
+
     html = (
         HTML_TEMPLATE_TABLE
         .replace("[[TABLE_HEAD]]", table_head_html)
@@ -1046,6 +1137,7 @@ def generate_table_html_from_df(
         .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
+        .replace("[[DOWNLOAD_VIS_CLASS]]", download_vis)
     )
     return html
 
@@ -1086,16 +1178,24 @@ def draft_config_from_state() -> dict:
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
+        "show_dom_download": st.session_state.get("bt_show_dom_download", True),
+        "inline_logo": st.session_state.get("bt_inline_logo", True),
     }
 
 
 def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
     meta = get_brand_meta(cfg["brand"])
+    logo_url = meta["logo_url"]
+
+    # Inline logo (prevents html2canvas blank logo due to CORS)
+    if cfg.get("inline_logo", True):
+        logo_url = inline_image_as_data_uri(logo_url)
+
     return generate_table_html_from_df(
         df=df,
         title=cfg["title"],
         subtitle=cfg["subtitle"],
-        brand_logo_url=meta["logo_url"],
+        brand_logo_url=logo_url,
         brand_logo_alt=meta["logo_alt"],
         brand_class=meta["brand_class"],
         striped=cfg["striped"],
@@ -1108,6 +1208,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
         cell_align=cfg["cell_align"],
+        show_dom_download=cfg.get("show_dom_download", True),
     )
 
 
@@ -1146,7 +1247,6 @@ def reset_widget_state_for_new_upload():
         "bt_iframe_url",
         "bt_html_stale",
         "bt_confirm_flash",
-        # image exports
         "bt_img_png",
         "bt_img_jpg",
     ]
@@ -1170,12 +1270,15 @@ def ensure_confirm_state_exists():
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
 
-    # image state
     st.session_state.setdefault("bt_img_png", b"")
     st.session_state.setdefault("bt_img_jpg", b"")
 
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
+
+    # defaults for new toggles
+    st.session_state.setdefault("bt_show_dom_download", True)
+    st.session_state.setdefault("bt_inline_logo", True)
 
 
 def do_confirm_snapshot():
@@ -1191,10 +1294,8 @@ def do_confirm_snapshot():
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
 
-    # Invalidate image exports because confirmed snapshot changed
     st.session_state["bt_img_png"] = b""
     st.session_state["bt_img_jpg"] = b""
-
     st.session_state["bt_confirm_flash"] = True
 
 
@@ -1247,7 +1348,6 @@ ensure_confirm_state_exists()
 
 left_col, right_col = st.columns([1, 3], gap="large")
 
-
 # ===================== Right: Editor + Live Preview (Draft) =====================
 
 with right_col:
@@ -1266,7 +1366,7 @@ with right_col:
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save To Finalize HTML/Publishing.")
+            st.caption("Edits apply to Draft immediately. Click Confirm And Save to regenerate HTML and Publishing output.")
 
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
@@ -1287,14 +1387,13 @@ with right_col:
         st.markdown("### Preview (Live Draft)")
     with h_right:
         if show_banner:
-            st.info("Preview Reflects Draft. HTML/Publishing Uses The Last Confirmed Snapshot.")
+            st.info("Preview reflects Draft. HTML/Publishing uses the last Confirmed snapshot.")
         else:
-            st.success("Draft Matches The Confirmed Snapshot.")
+            st.success("Draft matches the Confirmed snapshot.")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_draft"], live_cfg)
     components.html(live_preview_html, height=820, scrolling=True)
-
 
 # ===================== Left: Tabs =====================
 
@@ -1313,7 +1412,7 @@ with left_col:
         )
 
         if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
         sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
@@ -1328,6 +1427,12 @@ with left_col:
                 options=brand_options,
                 index=brand_options.index(current_brand),
                 key="brand_table",
+            )
+
+            st.checkbox(
+                "Inline Brand Logo In HTML (prevents CORS blank logo on DOM download)",
+                value=st.session_state.get("bt_inline_logo", True),
+                key="bt_inline_logo",
             )
 
         with sub_head:
@@ -1398,7 +1503,7 @@ with left_col:
                 "Show Pager (Rows/Page + Prev/Next)",
                 value=st.session_state.get("bt_show_pager", True),
                 key="bt_show_pager",
-                help="If Off, The Table Will Show All Rows By Default.",
+                help="If Off, the table shows all rows by default.",
             )
             st.checkbox(
                 "Show Page Numbers (Page X Of Y)",
@@ -1407,23 +1512,30 @@ with left_col:
                 disabled=not show_pager,
             )
 
+            st.checkbox(
+                "Show DOM Download Button In Widget",
+                value=st.session_state.get("bt_show_dom_download", True),
+                key="bt_show_dom_download",
+                help="Adds a Download PNG (DOM) button inside the widget controls. Captures the rendered widget exactly as-is.",
+            )
+
     # ---------- HTML TAB ----------
     with tab_html:
         st.markdown("#### HTML (From Confirmed Snapshot)")
-        st.caption("HTML Updates Automatically When You Click Confirm And Save Table Contents.")
+        st.caption("HTML updates when you click Confirm And Save Table Contents.")
 
         html_code = st.session_state.get("bt_html_code", "")
 
         if not html_code:
-            st.info("Click Confirm And Save Table Contents To Generate HTML.")
+            st.info("Click Confirm And Save Table Contents to generate HTML.")
         else:
-            st.success("HTML Is Ready (From The Latest Confirmed Snapshot).")
+            st.success("HTML is ready (from the latest Confirmed snapshot).")
 
         st.text_area(
             "HTML Code",
             value=html_code,
             height=520,
-            placeholder="Confirm And Save To Generate HTML Here.",
+            placeholder="Confirm And Save to generate HTML here.",
         )
 
     # ---------- IFRAME TAB ----------
@@ -1433,7 +1545,7 @@ with left_col:
         html_generated = bool(st.session_state.get("bt_html_generated", False))
 
         if not html_generated:
-            st.warning("Click Confirm And Save Table Contents To Generate HTML Before Publishing.")
+            st.warning("Click Confirm And Save Table Contents to generate HTML before publishing.")
 
         saved_gh_user = st.session_state.get("bt_gh_user", "")
         saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
@@ -1463,7 +1575,7 @@ with left_col:
         st.session_state.setdefault("bt_widget_file_name", base_filename)
         widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
 
-        st.caption(f"Target File In Repo: `{widget_file_name}`")
+        st.caption(f"Target file in repo: `{widget_file_name}`")
 
         can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
         can_publish = bool(can_run_github and html_generated)
@@ -1485,7 +1597,7 @@ with left_col:
             )
 
         if not GITHUB_TOKEN:
-            st.info("Set `GITHUB_TOKEN` In `.streamlit/secrets.toml` (With `repo` Scope) To Enable GitHub Publishing.")
+            st.info("Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
 
         if page_check_clicked:
             try:
@@ -1503,9 +1615,9 @@ with left_col:
                     "checked_filename": base_filename,
                     "suggested_new_filename": next_fname,
                 }
-                st.success("Availability Check Complete.")
+                st.success("Availability check complete.")
             except Exception as e:
-                st.error(f"Availability Check Failed: {e}")
+                st.error(f"Availability check failed: {e}")
 
         availability = st.session_state.get("bt_availability")
         if html_generated and can_run_github and availability:
@@ -1515,15 +1627,15 @@ with left_col:
             suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
 
             if not repo_exists:
-                st.info("No Existing Repo Found. Publishing Will Create It.")
+                st.info("No existing repo found. Publishing will create it.")
                 st.session_state["bt_widget_file_name"] = checked_filename
             elif repo_exists and not file_exists:
-                st.success(f"Repo Exists And `{checked_filename}` Is Available.")
+                st.success(f"Repo exists and `{checked_filename}` is available.")
                 st.session_state["bt_widget_file_name"] = checked_filename
             else:
-                st.warning(f"`{checked_filename}` Already Exists.")
+                st.warning(f"`{checked_filename}` already exists.")
                 choice = st.radio(
-                    "Choose What To Do",
+                    "Choose what to do",
                     options=[
                         "Replace Existing Widget (Overwrite File)",
                         f"Create Additional Widget File In Same Repo (Use {suggested_new_filename})",
@@ -1541,11 +1653,11 @@ with left_col:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
-                    raise RuntimeError("No Generated HTML Found. Click Confirm And Save First.")
+                    raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
 
                 ph = st.empty()
                 prog = st.progress(0)
-                ph.caption("Publishing To GitHub…")
+                ph.caption("Publishing to GitHub…")
                 for pct in (10, 30, 55):
                     time.sleep(0.10)
                     prog.progress(pct)
@@ -1578,10 +1690,10 @@ with left_col:
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.success("Published. GitHub Pages May Take A Minute To Update.")
+                st.success("Published. GitHub Pages may take a minute to update.")
 
             except Exception as e:
-                st.error(f"GitHub Publish Failed: {e}")
+                st.error(f"GitHub publish failed: {e}")
 
         st.markdown("---")
         st.markdown("#### IFrame Embed")
@@ -1622,28 +1734,40 @@ with left_col:
         if get_iframe_clicked:
             simulate_progress("Generating IFrame…", total_sleep=0.25)
             st.session_state["bt_iframe_code"] = build_iframe_snippet(url_to_use, height=int(iframe_height))
-            st.success("IFrame Code Generated.")
+            st.success("IFrame code generated.")
 
         st.text_area(
             "IFrame Code",
             value=st.session_state.get("bt_iframe_code", ""),
             height=200,
-            placeholder="Confirm And Save To Generate HTML, Then Generate IFrame Code Here.",
+            placeholder="Confirm + Save first, then generate IFrame code here.",
         )
 
     # ---------- IMAGE TAB ----------
     with tab_image:
-        st.markdown("#### Image Export (High-Res)")
+        st.markdown("#### Image Export")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
-            st.warning("Click Confirm And Save Table Contents first (Image export uses the confirmed snapshot).")
+            st.warning("Click Confirm And Save Table Contents first (exports use the Confirmed snapshot).")
 
         cfg = st.session_state.get("bt_confirmed_cfg", draft_config_from_state())
         df_base = st.session_state.get("bt_df_confirmed", st.session_state.get("bt_df_draft")).copy()
 
+        st.markdown("##### ✅ Best option: DOM screenshot (looks exactly like the widget)")
+        st.caption("Use the 'Download PNG (DOM)' button inside the widget below. It captures the full table at high resolution.")
+
+        dom_cfg = dict(cfg)
+        dom_cfg["show_dom_download"] = True  # force show in Image tab
+        dom_preview_html = html_from_config(df_base, dom_cfg)
+        components.html(dom_preview_html, height=860, scrolling=True)
+
+        st.markdown("---")
+        st.markdown("##### Fallback: Matplotlib export (improved, but not as realistic)")
+        st.caption("If you still want server-side PNG/JPEG downloads, use these. Layout is improved vs before, but DOM will look best.")
+
         mode = st.radio(
-            "Rows to export",
+            "Rows to export (Matplotlib)",
             options=["Full table", "Top 10", "Custom"],
             horizontal=True,
             index=0,
@@ -1680,14 +1804,12 @@ with left_col:
                 disabled=not html_generated,
             )
 
-        st.caption("Image export always hides Rows/Page, Search bar, and Page X of N.")
-
         meta = get_brand_meta(cfg.get("brand", "Action Network"))
 
         col_png, col_jpg = st.columns(2)
 
         with col_png:
-            if st.button("Generate PNG", use_container_width=True, disabled=not html_generated):
+            if st.button("Generate PNG (Matplotlib)", use_container_width=True, disabled=not html_generated):
                 simulate_progress("Rendering PNG…", total_sleep=0.25)
                 png_bytes = dataframe_to_image_bytes(
                     df_export,
@@ -1698,13 +1820,13 @@ with left_col:
                     footer_logo_url=meta["logo_url"],
                     brand_name=cfg.get("brand", "Action Network"),
                     fmt="png",
-                    dpi=300,
+                    dpi=350,
                 )
                 st.session_state["bt_img_png"] = png_bytes
                 st.success("PNG ready.")
 
             st.download_button(
-                "Download PNG (High-Res)",
+                "Download PNG (Matplotlib)",
                 data=st.session_state.get("bt_img_png", b""),
                 file_name="table_export.png",
                 mime="image/png",
@@ -1713,7 +1835,7 @@ with left_col:
             )
 
         with col_jpg:
-            if st.button("Generate JPEG", use_container_width=True, disabled=not html_generated):
+            if st.button("Generate JPEG (Matplotlib)", use_container_width=True, disabled=not html_generated):
                 simulate_progress("Rendering JPEG…", total_sleep=0.25)
                 jpg_bytes = dataframe_to_image_bytes(
                     df_export,
@@ -1724,13 +1846,13 @@ with left_col:
                     footer_logo_url=meta["logo_url"],
                     brand_name=cfg.get("brand", "Action Network"),
                     fmt="jpeg",
-                    dpi=300,
+                    dpi=350,
                 )
                 st.session_state["bt_img_jpg"] = jpg_bytes
                 st.success("JPEG ready.")
 
             st.download_button(
-                "Download JPEG (High-Res)",
+                "Download JPEG (Matplotlib)",
                 data=st.session_state.get("bt_img_jpg", b""),
                 file_name="table_export.jpg",
                 mime="image/jpeg",
@@ -1739,6 +1861,6 @@ with left_col:
             )
 
         st.markdown("---")
-        st.markdown("#### Preview (PNG)")
+        st.markdown("#### Preview (Matplotlib PNG)")
         if st.session_state.get("bt_img_png"):
             st.image(st.session_state["bt_img_png"])
