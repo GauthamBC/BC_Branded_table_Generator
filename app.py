@@ -419,7 +419,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
-    .vi-table-embed .vi-footer img{ height: 38px; width:auto; display:inline-block; }
+    .vi-table-embed .vi-footer img{ height: 68px; width:auto; display:inline-block; }
 
     /* Brand-specific logo recolor */
     .vi-table-embed.brand-actionnetwork .vi-footer img{
