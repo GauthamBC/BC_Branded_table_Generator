@@ -1,11 +1,15 @@
 import base64
 import time
 import re
+import io
 import html as html_mod
 import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+
+from PIL import Image
+import matplotlib.pyplot as plt
 
 # ===================== 0) Secrets =====================
 
@@ -185,6 +189,125 @@ def get_brand_meta(brand: str) -> dict:
 
     return meta
 
+# ===================== Image Export Helpers =====================
+
+def brand_palette(brand: str) -> dict:
+    b = (brand or "").strip()
+    if b == "VegasInsider":
+        return {"header_bg": "#F2C23A", "stripe": "#FFF7DC"}
+    if b == "Canada Sports Betting":
+        return {"header_bg": "#DC2626", "stripe": "#FEF2F2"}
+    if b == "RotoGrinders":
+        return {"header_bg": "#0141A1", "stripe": "#E8F1FF"}
+    # Action Network default
+    return {"header_bg": "#56C257", "stripe": "#DCF2EB"}
+
+def dataframe_to_image_bytes(
+    df: pd.DataFrame,
+    *,
+    title: str = "",
+    subtitle: str = "",
+    include_header_block: bool = True,
+    include_footer: bool = True,
+    footer_logo_url: str = "",
+    brand_name: str = "Action Network",
+    fmt: str = "png",
+    dpi: int = 300,
+) -> bytes:
+    """
+    High-res render of a dataframe to PNG/JPEG.
+    NOTE: search/pager/page numbers are not part of this export by design.
+    """
+    df = df.copy().fillna("")
+    palette = brand_palette(brand_name)
+    header_bg = palette["header_bg"]
+    stripe_bg = palette["stripe"]
+
+    n_rows, n_cols = df.shape
+
+    # dynamic sizing
+    row_h = 0.38
+    col_w = 1.35
+    fig_w = max(7.5, n_cols * col_w)
+    fig_h = max(3.0, (n_rows + 1) * row_h)
+
+    # header/footer padding
+    top_pad = 0.9 if include_header_block else 0.25
+    bot_pad = 0.9 if (include_footer and footer_logo_url) else 0.25
+    fig_h = fig_h + top_pad + bot_pad
+
+    fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
+    ax = fig.add_axes([0.02, 0.02, 0.96, 0.96])
+    ax.axis("off")
+
+    # Header text
+    y_cursor = 0.98
+    if include_header_block:
+        if title:
+            fig.text(0.5, y_cursor, title, ha="center", va="top", fontsize=18, fontweight="bold")
+            y_cursor -= 0.04
+        if subtitle:
+            fig.text(0.5, y_cursor, subtitle, ha="center", va="top", fontsize=12)
+        y_table_top = 0.90
+    else:
+        y_table_top = 0.96
+
+    y_table_bottom = 0.12 if (include_footer and footer_logo_url) else 0.04
+    table_bbox = [0.00, y_table_bottom, 1.00, y_table_top - y_table_bottom]
+
+    table = ax.table(
+        cellText=df.values.tolist(),
+        colLabels=[str(c) for c in df.columns],
+        cellLoc="center",
+        colLoc="center",
+        bbox=table_bbox,
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(11)
+
+    # Header row style
+    for c in range(n_cols):
+        cell = table[(0, c)]
+        cell.set_facecolor(header_bg)
+        cell.get_text().set_color("white")
+        cell.get_text().set_weight("bold")
+        cell.set_edgecolor("white")
+
+    # Body zebra stripes
+    for r in range(1, n_rows + 1):
+        for c in range(n_cols):
+            cell = table[(r, c)]
+            cell.set_facecolor(stripe_bg if (r % 2 == 1) else "white")
+            cell.set_edgecolor("white")
+
+    # Footer logo
+    if include_footer and footer_logo_url:
+        try:
+            resp = requests.get(footer_logo_url, timeout=10)
+            resp.raise_for_status()
+            logo = Image.open(io.BytesIO(resp.content)).convert("RGBA")
+
+            target_h_px = int(dpi * 0.35)  # ~0.35 inches
+            scale = target_h_px / max(1, logo.size[1])
+            new_w = max(1, int(logo.size[0] * scale))
+            logo = logo.resize((new_w, target_h_px), Image.LANCZOS)
+
+            ax_logo = fig.add_axes([0.5 - 0.15, 0.03, 0.30, 0.08])
+            ax_logo.axis("off")
+            ax_logo.imshow(logo)
+        except Exception:
+            pass
+
+    buf = io.BytesIO()
+    fmt = (fmt or "png").lower().strip()
+    if fmt not in ("png", "jpeg", "jpg"):
+        fmt = "png"
+    save_fmt = "jpeg" if fmt in ("jpeg", "jpg") else "png"
+
+    fig.savefig(buf, format=save_fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.15)
+    plt.close(fig)
+    return buf.getvalue()
+
 # ===================== HTML Template =====================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
@@ -236,7 +359,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --header-bg:var(--brand-500);
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
-      --scroll-thumb:var(--brand-500); /* ✅ exact same as header (#F2C23A) */
+      --scroll-thumb:var(--brand-500);
       --footer-border:color-mix(in oklab,var(--brand-500) 40%, transparent);
     }
 
@@ -368,7 +491,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
     #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
 
-    /* Alignment (applies to both th + td) */
+    /* Alignment */
     #bt-block thead th,
     #bt-block tbody td {
       padding: 12px 10px;
@@ -380,7 +503,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
 
-    /* Hover should win over stripes */
+    /* Hover should win */
     #bt-block tbody tr:hover td{ background:var(--hover) !important; }
     #bt-block tbody tr:hover{
       box-shadow:inset 3px 0 0 var(--brand-500);
@@ -421,33 +544,28 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
     .vi-table-embed .vi-footer img{ height: 36px; width:auto; display:inline-block; }
 
-    /* Brand-specific logo recolor */
+    /* Brand-specific logo recolor + sizes */
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
-    }
-    .vi-table-embed.brand-actionnetwork .vi-footer img{
-      height: 44px;   /* try 42–46px if you want to tweak */
+      height: 44px;
       width: auto;
       display: inline-block;
     }
-    
-    /* ✅ Updated VI filter to better match #F2C23A */
+
     .vi-table-embed.brand-vegasinsider .vi-footer img{
       filter: brightness(0) saturate(100%) invert(77%) sepia(62%) saturate(680%) hue-rotate(2deg) brightness(101%) contrast(98%);
-    }
-    .vi-table-embed.brand-canadasb .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
-    }
-    .vi-table-embed.brand-canadasb .vi-footer img{
-      height: 28px;  
-    }
-    .vi-table-embed.brand-rotogrinders .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
+      height:24px;
     }
 
-    /* ✅ Make VegasInsider logo smaller */
-    .vi-table-embed.brand-vegasinsider .vi-footer img{ height:24px; }
-    .vi-table-embed.brand-rotogrinders .vi-footer img{ height:32px; }
+    .vi-table-embed.brand-canadasb .vi-footer img{
+      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
+      height: 28px;
+    }
+
+    .vi-table-embed.brand-rotogrinders .vi-footer img{
+      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
+      height:32px;
+    }
 
     .vi-hide{ display:none !important; }
   </style>
@@ -549,7 +667,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    // ✅ If pager is OFF, show ALL rows by default
+    // If pager is OFF, show ALL rows by default
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
     let page = 1;
     let filter = '';
@@ -659,7 +777,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       shown.forEach(r=>{ r.style.display='table-row'; });
     }
 
-    // Search wiring (only if visible)
     if(hasSearch){
       const syncClearBtn = ()=> searchFieldWrap.classList.toggle('has-value', !!searchInput.value);
       let t=null;
@@ -683,7 +800,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       syncClearBtn();
     }
 
-    // Pager wiring (only if visible)
     if(hasPager){
       sizeSel.addEventListener('change', e=>{
         pageSize = parseInt(e.target.value,10) || 0;
@@ -736,7 +852,7 @@ def generate_table_html_from_df(
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
-    footer_logo_align: str = "Center",  # ✅ default now Center
+    footer_logo_align: str = "Center",
     cell_align: str = "Center",
 ) -> str:
     df = df.copy()
@@ -850,7 +966,7 @@ def draft_config_from_state() -> dict:
         "center_titles": st.session_state.get("bt_center_titles", False),
         "branded_title_color": st.session_state.get("bt_branded_title_color", True),
         "show_footer": st.session_state.get("bt_show_footer", True),
-        "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Center"),  # ✅ default Center
+        "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Center"),
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
@@ -911,6 +1027,9 @@ def reset_widget_state_for_new_upload():
         "bt_iframe_url",
         "bt_html_stale",
         "bt_confirm_flash",
+        # image exports
+        "bt_img_png",
+        "bt_img_jpg",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -929,8 +1048,11 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_iframe_code", "")
     st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
 
-    # ✅ ensure footer alignment defaults to Center if not already set
     st.session_state.setdefault("bt_footer_logo_align", "Center")
+
+    # image state
+    st.session_state.setdefault("bt_img_png", b"")
+    st.session_state.setdefault("bt_img_jpg", b"")
 
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
@@ -947,6 +1069,10 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
+
+    # Invalidate image exports because confirmed snapshot changed
+    st.session_state["bt_img_png"] = b""
+    st.session_state["bt_img_jpg"] = b""
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -965,7 +1091,6 @@ st.markdown(
 
 st.title("Branded Table Generator")
 
-# Ensure Brand State Exists (Brand Picker Now Lives Under Configure)
 brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
 st.session_state.setdefault("brand_table", "Action Network")
 if st.session_state["brand_table"] not in brand_options:
@@ -1050,7 +1175,7 @@ with right_col:
 # ===================== Left: Tabs =====================
 
 with left_col:
-    tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
+    tab_config, tab_html, tab_iframe, tab_image = st.tabs(["Configure", "HTML", "IFrame", "Image"])
 
     # ---------- CONFIGURE TAB ----------
     with tab_config:
@@ -1067,7 +1192,6 @@ with left_col:
             st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
-        # ✅ Brand Tab Added Before Header/Footer + Body
         sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
 
         with sub_brand:
@@ -1121,7 +1245,6 @@ with left_col:
                 key="bt_show_footer",
             )
 
-            # ✅ default selection now Center (driven by session_state default)
             st.selectbox(
                 "Footer Logo Alignment",
                 options=["Right", "Center", "Left"],
@@ -1383,3 +1506,115 @@ with left_col:
             height=200,
             placeholder="Confirm And Save To Generate HTML, Then Generate IFrame Code Here.",
         )
+
+    # ---------- IMAGE TAB ----------
+    with tab_image:
+        st.markdown("#### Image Export (High-Res)")
+
+        html_generated = bool(st.session_state.get("bt_html_generated", False))
+        if not html_generated:
+            st.warning("Click Confirm And Save Table Contents first (Image export uses the confirmed snapshot).")
+
+        cfg = st.session_state.get("bt_confirmed_cfg", draft_config_from_state())
+        df_base = st.session_state.get("bt_df_confirmed", st.session_state.get("bt_df_draft")).copy()
+
+        mode = st.radio(
+            "Rows to export",
+            options=["Full table", "Top 10", "Custom"],
+            horizontal=True,
+            index=0,
+            disabled=not html_generated,
+        )
+
+        n = None
+        if mode == "Top 10":
+            n = 10
+        elif mode == "Custom":
+            n = st.number_input(
+                "How many rows?",
+                min_value=1,
+                max_value=int(max(1, len(df_base))),
+                value=min(12, int(max(1, len(df_base)))),
+                step=1,
+                disabled=not html_generated,
+            )
+
+        df_export = df_base if (n is None) else df_base.head(int(n))
+
+        st.markdown("---")
+        copt1, copt2 = st.columns(2)
+        with copt1:
+            include_header_block = st.checkbox(
+                "Header (Title + Subtitle)",
+                value=True,
+                disabled=not html_generated,
+            )
+        with copt2:
+            include_footer = st.checkbox(
+                "Footer (Logo)",
+                value=True,
+                disabled=not html_generated,
+            )
+
+        st.caption("Image export always hides Rows/Page, Search bar, and Page X of N.")
+
+        meta = get_brand_meta(cfg.get("brand", "Action Network"))
+
+        col_png, col_jpg = st.columns(2)
+
+        with col_png:
+            if st.button("Generate PNG", use_container_width=True, disabled=not html_generated):
+                simulate_progress("Rendering PNG…", total_sleep=0.25)
+                png_bytes = dataframe_to_image_bytes(
+                    df_export,
+                    title=cfg.get("title", ""),
+                    subtitle=cfg.get("subtitle", ""),
+                    include_header_block=include_header_block,
+                    include_footer=include_footer,
+                    footer_logo_url=meta["logo_url"],
+                    brand_name=cfg.get("brand", "Action Network"),
+                    fmt="png",
+                    dpi=300,
+                )
+                st.session_state["bt_img_png"] = png_bytes
+                st.success("PNG ready.")
+
+            st.download_button(
+                "Download PNG (High-Res)",
+                data=st.session_state.get("bt_img_png", b""),
+                file_name="table_export.png",
+                mime="image/png",
+                use_container_width=True,
+                disabled=not bool(st.session_state.get("bt_img_png")),
+            )
+
+        with col_jpg:
+            if st.button("Generate JPEG", use_container_width=True, disabled=not html_generated):
+                simulate_progress("Rendering JPEG…", total_sleep=0.25)
+                jpg_bytes = dataframe_to_image_bytes(
+                    df_export,
+                    title=cfg.get("title", ""),
+                    subtitle=cfg.get("subtitle", ""),
+                    include_header_block=include_header_block,
+                    include_footer=include_footer,
+                    footer_logo_url=meta["logo_url"],
+                    brand_name=cfg.get("brand", "Action Network"),
+                    fmt="jpeg",
+                    dpi=300,
+                )
+                st.session_state["bt_img_jpg"] = jpg_bytes
+                st.success("JPEG ready.")
+
+            st.download_button(
+                "Download JPEG (High-Res)",
+                data=st.session_state.get("bt_img_jpg", b""),
+                file_name="table_export.jpg",
+                mime="image/jpeg",
+                use_container_width=True,
+                disabled=not bool(st.session_state.get("bt_img_jpg")),
+            )
+
+        st.markdown("---")
+        st.markdown("#### Preview (PNG)")
+        if st.session_state.get("bt_img_png"):
+            st.image(st.session_state["bt_img_png"])
