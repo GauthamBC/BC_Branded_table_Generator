@@ -205,12 +205,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
-      --brand-50:#F6FFF9; 
+      --brand-50:#F6FFF9;
       --brand-100:#DCF2EB;
       --brand-300:#BCE5D6;
-      --brand-500:#56C257; 
-      --brand-600:#3FA94B; 
-      --brand-700:#2E8538; 
+      --brand-500:#56C257;
+      --brand-600:#3FA94B;
+      --brand-700:#2E8538;
       --brand-900:#1F5D28;
 
       --header-bg:var(--brand-500);
@@ -927,24 +927,14 @@ def do_confirm_snapshot():
     st.session_state["bt_confirmed_cfg"] = cfg
     st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
 
-    # mark HTML stale if it exists
-    if st.session_state.get("bt_html_generated", False):
-        st.session_state["bt_html_stale"] = (
-            st.session_state.get("bt_html_hash", "") != st.session_state.get("bt_confirmed_hash", "")
-        )
-
-    st.session_state["bt_confirm_flash"] = True
-
-def generate_html_from_confirmed():
-    cfg = st.session_state.get("bt_confirmed_cfg")
-    dfc = st.session_state.get("bt_df_confirmed")
-    if cfg is None or dfc is None:
-        return
-    html = html_from_config(dfc, cfg)
+    # ✅ Immediately regenerate HTML from confirmed snapshot
+    html = html_from_config(st.session_state["bt_df_confirmed"], st.session_state["bt_confirmed_cfg"])
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
-    st.session_state["bt_html_hash"] = st.session_state.get("bt_confirmed_hash", "")
+    st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
+
+    st.session_state["bt_confirm_flash"] = True
 
 # ===================== Streamlit App =====================
 
@@ -1022,10 +1012,32 @@ with right_col:
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits Apply To The Draft Immediately. Confirm To Freeze A Snapshot For HTML/Publishing.")
+            st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save To Finalize HTML/Publishing.")
 
-    # ✅ Live Preview: Always Uses Draft Data + Draft Settings
-    st.markdown("### Preview (Live Draft)")
+    # ✅ Live Preview: 2-Column Header (Left Title, Right Status Message)
+    draft_cfg_hash = stable_config_hash(draft_config_from_state())
+    confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
+
+    draft_df = st.session_state.get("bt_df_draft")
+    confirmed_df = st.session_state.get("bt_df_confirmed")
+
+    df_diff = True
+    try:
+        df_diff = not draft_df.equals(confirmed_df)
+    except Exception:
+        df_diff = True
+
+    show_banner = (draft_cfg_hash != confirmed_cfg_hash) or df_diff
+
+    h_left, h_right = st.columns([2, 3], vertical_alignment="center")
+    with h_left:
+        st.markdown("### Preview (Live Draft)")
+    with h_right:
+        if show_banner:
+            st.info("Preview Reflects Draft. HTML/Publishing Uses The Last Confirmed Snapshot.")
+        else:
+            st.success("Draft Matches The Confirmed Snapshot.")
+
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_draft"], live_cfg)
     components.html(live_preview_html, height=820, scrolling=True)
@@ -1047,11 +1059,19 @@ with left_col:
         )
 
         if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed Snapshot Updated (HTML Uses This Snapshot).")
+            st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
         sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
+        # Header/Footer Order:
+        # Show Header Box
+        # Table Title
+        # Table Subtitle
+        # Center Title And Subtitle
+        # Branded Title Colour
+        # Show Footer (Logo)
+        # Footer Logo Alignment
         with sub_head:
             show_header = st.checkbox(
                 "Show Header Box",
@@ -1128,70 +1148,25 @@ with left_col:
                 disabled=not show_pager,
             )
 
-        # Info: Draft vs Confirmed Snapshot
-        draft_cfg_hash = stable_config_hash(draft_config_from_state())
-        confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
-        draft_df = st.session_state["bt_df_draft"]
-        confirmed_df = st.session_state["bt_df_confirmed"]
-
-        df_diff = True
-        try:
-            df_diff = not draft_df.equals(confirmed_df)
-        except Exception:
-            df_diff = True
-
-        if (draft_cfg_hash != confirmed_cfg_hash) or df_diff:
-            st.warning("Preview Reflects Draft. HTML/Publishing Uses The Last Confirmed Snapshot.")
-        else:
-            st.caption("Draft Matches Confirmed Snapshot.")
+        # (Optional cleanup applied): No extra warning here; the preview header carries the status.
 
     # ---------- HTML TAB ----------
     with tab_html:
-        st.markdown("#### HTML Generation (From Confirmed Snapshot)")
+        st.markdown("#### HTML (From Confirmed Snapshot)")
+        st.caption("HTML Updates Automatically When You Click Confirm And Save Table Contents.")
 
-        html_generated = bool(st.session_state.get("bt_html_generated", False))
-        html_hash = st.session_state.get("bt_html_hash", "")
-        confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
-        stale = bool(html_generated and (html_hash != confirmed_hash))
+        html_code = st.session_state.get("bt_html_code", "")
 
-        col_a, col_b = st.columns([1, 1])
-        with col_a:
-            get_html_clicked = st.button(
-                "📄 Get HTML Code",
-                key="bt_get_html_code",
-                use_container_width=True,
-            )
-        with col_b:
-            update_html_clicked = st.button(
-                "♻️ Update HTML (Auto-Confirm + Regenerate)",
-                key="bt_update_html",
-                use_container_width=True,
-            )
-
-        if html_generated and not stale:
-            st.success("HTML Is Up To Date With The Confirmed Snapshot.")
-        elif html_generated and stale:
-            st.warning("HTML Is Out Of Date Vs Confirmed Snapshot. Click Update HTML.")
+        if not html_code:
+            st.info("Click Confirm And Save Table Contents To Generate HTML.")
         else:
-            st.caption("Click Get HTML Code To Generate HTML From The Confirmed Snapshot.")
-
-        if get_html_clicked:
-            simulate_progress("Generating HTML From Confirmed Snapshot…", total_sleep=0.35)
-            generate_html_from_confirmed()
-            st.success("HTML Generated From Confirmed Snapshot.")
-
-        if update_html_clicked:
-            simulate_progress("Confirming Draft Snapshot…", total_sleep=0.25)
-            do_confirm_snapshot()
-            simulate_progress("Updating HTML…", total_sleep=0.35)
-            generate_html_from_confirmed()
-            st.success("Confirmed Snapshot Updated And HTML Regenerated.")
+            st.success("HTML Is Ready (From The Latest Confirmed Snapshot).")
 
         st.text_area(
             "HTML Code",
-            value=st.session_state.get("bt_html_code", ""),
-            height=420,
-            placeholder="Generate HTML To See The Code Here.",
+            value=html_code,
+            height=520,
+            placeholder="Confirm And Save To Generate HTML Here.",
         )
 
     # ---------- IFRAME TAB ----------
@@ -1199,14 +1174,9 @@ with left_col:
         st.markdown("#### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
-        html_hash = st.session_state.get("bt_html_hash", "")
-        confirmed_hash = st.session_state.get("bt_confirmed_hash", "")
-        html_stale = bool(html_generated and (html_hash != confirmed_hash))
 
         if not html_generated:
-            st.warning("Generate HTML First (HTML Tab).")
-        elif html_stale:
-            st.warning("Your HTML Is Not Up To Date With The Confirmed Snapshot. Go To HTML Tab → Update HTML.")
+            st.warning("Click Confirm And Save Table Contents To Generate HTML Before Publishing.")
 
         saved_gh_user = st.session_state.get("bt_gh_user", "")
         saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
@@ -1239,7 +1209,7 @@ with left_col:
         st.caption(f"Target File In Repo: `{widget_file_name}`")
 
         can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
-        can_publish = bool(can_run_github and html_generated and (not html_stale))
+        can_publish = bool(can_run_github and html_generated)
 
         col_check, col_pub = st.columns([1, 1])
         with col_check:
@@ -1255,7 +1225,6 @@ with left_col:
                 key="bt_publish_html",
                 disabled=not can_publish,
                 use_container_width=True,
-                help="Disabled Until HTML Is Generated And Up-To-Date With Confirmed Snapshot.",
             )
 
         if not GITHUB_TOKEN:
@@ -1315,7 +1284,7 @@ with left_col:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
-                    raise RuntimeError("No Generated HTML Found. Go To The HTML Tab And Generate It First.")
+                    raise RuntimeError("No Generated HTML Found. Click Confirm And Save First.")
 
                 ph = st.empty()
                 prog = st.progress(0)
@@ -1391,7 +1360,6 @@ with left_col:
             key="bt_get_iframe",
             disabled=not html_generated or not bool(url_to_use.strip()),
             use_container_width=True,
-            help="Disabled Until HTML Is Generated.",
         )
 
         if get_iframe_clicked:
@@ -1403,5 +1371,5 @@ with left_col:
             "IFrame Code",
             value=st.session_state.get("bt_iframe_code", ""),
             height=200,
-            placeholder="Generate HTML First, Then Generate IFrame Code Here.",
+            placeholder="Confirm And Save To Generate HTML, Then Generate IFrame Code Here.",
         )
