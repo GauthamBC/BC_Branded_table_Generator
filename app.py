@@ -425,12 +425,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
     }
-
+    .vi-table-embed.brand-actionnetwork .vi-footer img{ height: 38px; }
+    
     /* ✅ Updated VI filter to better match #F2C23A */
     .vi-table-embed.brand-vegasinsider .vi-footer img{
       filter: brightness(0) saturate(100%) invert(77%) sepia(62%) saturate(680%) hue-rotate(2deg) brightness(101%) contrast(98%);
     }
-
     .vi-table-embed.brand-canadasb .vi-footer img{
       filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
     }
