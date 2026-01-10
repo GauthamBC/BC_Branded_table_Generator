@@ -1,17 +1,16 @@
 import base64
-import time
-import re
-import io
 import html as html_mod
-import requests
+import re
+import time
+
 import pandas as pd
+import requests
 import streamlit as st
 import streamlit.components.v1 as components
 
-from PIL import Image
-import matplotlib.pyplot as plt
-
-# ===================== 0) Secrets =====================
+# =========================================================
+# 0) Secrets
+# =========================================================
 
 def get_secret(key: str, default: str = "") -> str:
     try:
@@ -25,9 +24,11 @@ def get_secret(key: str, default: str = "") -> str:
 GITHUB_TOKEN = get_secret("GITHUB_TOKEN", "")
 GITHUB_USER_DEFAULT = get_secret("GITHUB_USER", "")
 
-# ===================== GitHub Helpers =====================
+# =========================================================
+# GitHub Helpers
+# =========================================================
 
-def github_headers(token: str):
+def github_headers(token: str) -> dict:
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -39,7 +40,7 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers)
+    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers, timeout=20)
     if r.status_code == 200:
         return False
     if r.status_code != 404:
@@ -51,7 +52,7 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
         "private": False,
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
-    r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload)
+    r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload, timeout=20)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Creating Repo: {r.status_code} {r.text}")
     return True
@@ -61,16 +62,17 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers)
+    r = requests.get(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, timeout=20)
     if r.status_code == 200:
         return
     if r.status_code not in (404, 403):
         raise RuntimeError(f"Error Checking GitHub Pages: {r.status_code} {r.text}")
     if r.status_code == 403:
+        # No permission / not available for this repo/account plan
         return
 
     payload = {"source": {"branch": branch, "path": "/"}}
-    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, json=payload)
+    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, json=payload, timeout=20)
     if r.status_code not in (201, 202):
         raise RuntimeError(f"Error Enabling GitHub Pages: {r.status_code} {r.text}")
 
@@ -88,12 +90,12 @@ def upload_file_to_github(
     headers = github_headers(token)
 
     get_url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
-    params = {"ref": branch}
-    r = requests.get(get_url, headers=headers, params=params)
+    r = requests.get(get_url, headers=headers, params={"ref": branch}, timeout=20)
+
     sha = None
     if r.status_code == 200:
         sha = r.json().get("sha")
-    elif r.status_code not in (404,):
+    elif r.status_code != 404:
         raise RuntimeError(f"Error Checking File: {r.status_code} {r.text}")
 
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
@@ -101,7 +103,7 @@ def upload_file_to_github(
     if sha:
         payload["sha"] = sha
 
-    r = requests.put(get_url, headers=headers, json=payload)
+    r = requests.put(get_url, headers=headers, json=payload, timeout=20)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Uploading File: {r.status_code} {r.text}")
 
@@ -109,7 +111,7 @@ def upload_file_to_github(
 def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
-    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers)
+    r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers, timeout=20)
     return r.status_code in (201, 202)
 
 
@@ -118,7 +120,7 @@ def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
 def check_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers)
+    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers, timeout=20)
     if r.status_code == 200:
         return True
     if r.status_code == 404:
@@ -133,6 +135,7 @@ def check_file_exists(owner: str, repo: str, token: str, path: str, branch: str 
         f"{api_base}/repos/{owner}/{repo}/contents/{path}",
         headers=headers,
         params={"ref": branch},
+        timeout=20,
     )
     if r.status_code == 200:
         return True
@@ -148,6 +151,7 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
         f"{api_base}/repos/{owner}/{repo}/contents",
         headers=headers,
         params={"ref": branch},
+        timeout=20,
     )
     if r.status_code != 200:
         return "t1.html"
@@ -166,7 +170,9 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
     return f"t{max_n + 1}.html"
 
 
-# ===================== Brand Metadata =====================
+# =========================================================
+# Brand Metadata
+# =========================================================
 
 def get_brand_meta(brand: str) -> dict:
     default_logo = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
@@ -199,252 +205,9 @@ def get_brand_meta(brand: str) -> dict:
     return meta
 
 
-def inline_image_as_data_uri(url: str, timeout: int = 10) -> str:
-    """
-    Inlines image URL to a data URI to avoid CORS issues with html2canvas.
-    If fetch fails, returns the original URL.
-    """
-    url = (url or "").strip()
-    if not url or not url.lower().startswith(("http://", "https://")):
-        return url
-    try:
-        resp = requests.get(url, timeout=timeout)
-        resp.raise_for_status()
-        content_type = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
-        if content_type not in ("image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/svg+xml"):
-            # Guess as png if unknown (still usually works)
-            content_type = "image/png"
-        b64 = base64.b64encode(resp.content).decode("utf-8")
-        return f"data:{content_type};base64,{b64}"
-    except Exception:
-        return url
-
-
-# ===================== Image Export Helpers (Matplotlib fallback) =====================
-
-def brand_palette(brand: str) -> dict:
-    b = (brand or "").strip()
-    if b == "VegasInsider":
-        return {"header_bg": "#F2C23A", "stripe": "#FFF7DC"}
-    if b == "Canada Sports Betting":
-        return {"header_bg": "#DC2626", "stripe": "#FEF2F2"}
-    if b == "RotoGrinders":
-        return {"header_bg": "#0141A1", "stripe": "#E8F1FF"}
-    return {"header_bg": "#56C257", "stripe": "#DCF2EB"}
-
-
-def dataframe_to_image_bytes(
-    df: pd.DataFrame,
-    *,
-    title: str = "",
-    subtitle: str = "",
-    include_header_block: bool = True,
-    include_footer: bool = True,
-    footer_logo_url: str = "",
-    brand_name: str = "Action Network",
-    fmt: str = "png",
-    dpi: int = 350,
-) -> bytes:
-    """
-    Matplotlib fallback export (improved):
-    - Column widths based on content length (URLs get more width)
-    - More padding
-    - Better wrapping and linespacing
-    """
-    import textwrap
-
-    df = df.copy().fillna("")
-    palette = brand_palette(brand_name)
-    header_bg = palette["header_bg"]
-    stripe_bg = palette["stripe"]
-
-    n_rows, n_cols = df.shape
-
-    # ---- column weights -> colWidths ----
-    col_weights = []
-    for col in df.columns:
-        name = str(col).lower()
-        # compute max length among a sample (avoid huge cost)
-        sample_vals = df[col].astype(str).head(200).tolist()
-        max_len = max([len(str(col))] + [len(v) for v in sample_vals]) if sample_vals else len(str(col))
-        max_len = min(max_len, 80)
-
-        w = max_len
-        if "url" in name:
-            w *= 1.8
-        elif "email" in name:
-            w *= 1.5
-        elif "title" in name:
-            w *= 1.25
-        elif "outlet" in name:
-            w *= 1.15
-        elif "angle" in name:
-            w *= 1.15
-        col_weights.append(max(8.0, float(w)))
-
-    total_w = sum(col_weights) if col_weights else 1.0
-    col_widths = [w / total_w for w in col_weights]
-
-    # ---- wrap widths per column (characters) ----
-    def soft_break_long_tokens(s: str) -> str:
-        return (
-            str(s)
-            .replace("/", "/\u200b")
-            .replace(".", ".\u200b")
-            .replace("@", "@\u200b")
-            .replace("-", "-\u200b")
-            .replace("_", "_\u200b")
-        )
-
-    # Use column width to pick wrap width (bigger column => more chars)
-    base_wrap = 28
-    wrap_map = {}
-    avg_weight = sum(col_weights) / max(1, len(col_weights))
-    for c, w in zip(df.columns, col_weights):
-        name = str(c).lower()
-        factor = max(0.7, min(1.6, w / max(1.0, avg_weight)))
-        width = int(base_wrap * factor)
-
-        if "url" in name:
-            width = max(18, width)
-        if "email" in name:
-            width = max(18, width)
-
-        wrap_map[c] = max(14, min(52, width))
-
-    def wrap_cell(text: str, width: int) -> str:
-        t = soft_break_long_tokens(text)
-        return "\n".join(textwrap.wrap(t, width=width, break_long_words=True, break_on_hyphens=True)) or ""
-
-    # Build wrapped values + line counts
-    wrapped_values = []
-    row_line_counts = []
-    for _, row in df.iterrows():
-        wrapped_row = []
-        max_lines = 1
-        for c in df.columns:
-            v = wrap_cell(str(row[c]), wrap_map[c])
-            wrapped_row.append(v)
-            max_lines = max(max_lines, (v.count("\n") + 1) if v else 1)
-        wrapped_values.append(wrapped_row)
-        row_line_counts.append(max_lines)
-
-    # ---- figure sizing ----
-    fig_w = max(12.0, 18.0 * sum(col_widths))  # stable minimum width
-    fig_h = max(3.6, 0.55 * (n_rows + 1))
-
-    top_pad = 1.0 if include_header_block else 0.25
-    bot_pad = 0.95 if (include_footer and footer_logo_url) else 0.25
-    fig_h = fig_h + top_pad + bot_pad
-
-    # font size heuristic
-    font_size = 11
-    if n_cols >= 8:
-        font_size = 10
-    if n_cols >= 10:
-        font_size = 9
-
-    fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
-    ax = fig.add_axes([0.02, 0.02, 0.96, 0.96])
-    ax.axis("off")
-
-    y_cursor = 0.985
-    if include_header_block:
-        if title:
-            fig.text(0.5, y_cursor, title, ha="center", va="top", fontsize=20, fontweight="bold")
-            y_cursor -= 0.042
-        if subtitle:
-            fig.text(0.5, y_cursor, subtitle, ha="center", va="top", fontsize=12)
-        y_table_top = 0.90
-    else:
-        y_table_top = 0.965
-
-    y_table_bottom = 0.12 if (include_footer and footer_logo_url) else 0.04
-    table_bbox = [0.0, y_table_bottom, 1.0, y_table_top - y_table_bottom]
-
-    table = ax.table(
-        cellText=wrapped_values,
-        colLabels=[str(c) for c in df.columns],
-        cellLoc="left",
-        colLoc="center",
-        bbox=table_bbox,
-        colWidths=col_widths,
-    )
-
-    table.auto_set_font_size(False)
-    table.set_fontsize(font_size)
-
-    # padding + alignment + linespacing
-    PADDING = 0.28  # more breathing room
-    for (r, c), cell in table.get_celld().items():
-        cell.PAD = PADDING
-        cell.get_text().set_wrap(True)
-        cell.get_text().set_va("center")
-        cell.get_text().set_linespacing(1.2)
-        cell.set_linewidth(0.35)
-        cell.set_edgecolor("white")
-
-    # Header styling
-    for c in range(n_cols):
-        cell = table[(0, c)]
-        cell.set_facecolor(header_bg)
-        cell.get_text().set_color("white")
-        cell.get_text().set_weight("bold")
-        cell.get_text().set_ha("center")
-        cell.set_edgecolor("white")
-        cell.set_height(cell.get_height() * 1.15)
-
-    # Body styling + zebra + dynamic row height
-    base_body_height = table[(1, 0)].get_height() if n_rows > 0 else 0.05
-
-    def col_font_adjust(col_name: str) -> int:
-        n = col_name.lower()
-        if "url" in n or "email" in n:
-            return max(8, font_size - 2)
-        return font_size
-
-    for r in range(1, n_rows + 1):
-        lines = row_line_counts[r - 1]
-        scale = 1.15 + (lines - 1) * 0.78
-
-        for c in range(n_cols):
-            cell = table[(r, c)]
-            cell.set_facecolor(stripe_bg if (r % 2 == 1) else "white")
-            cell.set_height(base_body_height * scale)
-            cell.get_text().set_ha("left")
-            # per-column font tweak
-            cell.get_text().set_fontsize(col_font_adjust(str(df.columns[c])))
-
-    # Footer logo
-    if include_footer and footer_logo_url:
-        try:
-            resp = requests.get(footer_logo_url, timeout=10)
-            resp.raise_for_status()
-            logo = Image.open(io.BytesIO(resp.content)).convert("RGBA")
-
-            target_h_px = int(dpi * 0.34)
-            scale_logo = target_h_px / max(1, logo.size[1])
-            new_w = max(1, int(logo.size[0] * scale_logo))
-            logo = logo.resize((new_w, target_h_px), Image.LANCZOS)
-
-            ax_logo = fig.add_axes([0.5 - 0.15, 0.028, 0.30, 0.085])
-            ax_logo.axis("off")
-            ax_logo.imshow(logo)
-        except Exception:
-            pass
-
-    buf = io.BytesIO()
-    fmt = (fmt or "png").lower().strip()
-    if fmt not in ("png", "jpeg", "jpg"):
-        fmt = "png"
-    save_fmt = "jpeg" if fmt in ("jpeg", "jpg") else "png"
-
-    fig.savefig(buf, format=save_fmt, dpi=dpi, bbox_inches="tight", pad_inches=0.18)
-    plt.close(fig)
-    return buf.getvalue()
-
-
-# ===================== HTML Template (NO oklab / NO color-mix) =====================
+# =========================================================
+# HTML Template (DOM PNG Export included + NO oklab/color-mix)
+# =========================================================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -452,6 +215,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>[[TITLE]]</title>
+
+<!-- html2canvas for DOM export -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
 </head>
 <body style="margin:0;">
 
@@ -463,6 +230,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
   <style>
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
+    /* -----------------------------------------------------
+       IMPORTANT: html2canvas does NOT support oklab/color-mix.
+       We use RGB vars + rgba() only.
+       ----------------------------------------------------- */
+
     .vi-table-embed{
       --brand-50:#F6FFF9;
       --brand-100:#DCF2EB;
@@ -472,14 +244,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-700:#2E8538;
       --brand-900:#1F5D28;
 
+      /* RGB tuple used for shadows/borders (NO oklab) */
+      --brand-500-rgb: 86, 194, 87;
+
       --header-bg:var(--brand-500);
       --stripe:var(--brand-100);
       --hover:var(--brand-300);
       --scroll-thumb:var(--brand-500);
-
-      /* Replace color-mix(in oklab, ...) with safe rgba */
-      --footer-border: rgba(86,194,87,0.35);
-      --focus-ring: rgba(86,194,87,0.25);
+      --footer-border: rgba(var(--brand-500-rgb), 0.35);
 
       --cell-align:center;
     }
@@ -490,17 +262,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-vegasinsider{
       --brand-50:#FFF7DC;
       --brand-100:#FFE8AA;
-      --brand-300:#FFE8AA;
+      --brand-300:#FFE08A;
       --brand-500:#F2C23A;
       --brand-600:#D9A72A;
       --brand-700:#B9851A;
       --brand-900:#111111;
+
+      --brand-500-rgb: 242, 194, 58;
+
       --header-bg:var(--brand-500);
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-500);
-      --footer-border: rgba(242,194,58,0.40);
-      --focus-ring: rgba(242,194,58,0.25);
+      --footer-border: rgba(var(--brand-500-rgb), 0.40);
     }
 
     .vi-table-embed.brand-canadasb{
@@ -511,12 +285,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-600:#DC2626;
       --brand-700:#B91C1C;
       --brand-900:#7F1D1D;
+
+      --brand-500-rgb: 239, 68, 68;
+
       --header-bg:var(--brand-600);
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-600);
-      --footer-border: rgba(220,38,38,0.40);
-      --focus-ring: rgba(220,38,38,0.25);
+      --footer-border: rgba(220, 38, 38, 0.40);
     }
 
     .vi-table-embed.brand-rotogrinders{
@@ -527,12 +303,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-600:#0159D1;
       --brand-700:#0141A1;
       --brand-900:#011F54;
+
+      --brand-500-rgb: 47, 125, 243;
+
       --header-bg:var(--brand-700);
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-600);
-      --footer-border: rgba(1,89,209,0.35);
-      --focus-ring: rgba(1,89,209,0.22);
+      --footer-border: rgba(1, 89, 209, 0.40);
     }
 
     /* Header block */
@@ -564,41 +342,60 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     #bt-block .dw-controls{
-      display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center;
-      gap:12px; margin:4px 0 10px 0;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:12px;
+      margin:4px 0 10px 0;
     }
     #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
 
     #bt-block .dw-field{position:relative}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
-      font:14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; border-radius:10px; padding:8px 10px; transition:.15s ease;
+      font:14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      border-radius:10px;
+      padding:8px 10px;
+      transition:.15s ease;
     }
     #bt-block .dw-input,#bt-block .dw-select{
       background:#fff;
       border:1px solid var(--brand-700);
-      color:var(--text); box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
+      color:var(--text);
+      box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
     }
     #bt-block .dw-input{width:min(320px,100%); padding-right:36px}
     #bt-block .dw-input::placeholder{color:#9AA4B2}
     #bt-block .dw-input:focus,#bt-block .dw-select:focus{
-      outline:none; border-color:var(--brand-500);
-      box-shadow:0 0 0 3px var(--focus-ring);
+      outline:none;
+      border-color:var(--brand-500);
+      box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .25);
       background:#fff;
     }
-    #bt-block .dw-select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; padding-right:26px; background:#fff; background-image:none; }
+    #bt-block .dw-select{
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      padding-right:26px; background:#fff; background-image:none;
+    }
 
     #bt-block .dw-btn{
-      background:var(--brand-500); color:#fff; border:1px solid var(--brand-500); padding-inline:12px; cursor:pointer
+      background:var(--brand-500);
+      color:#fff;
+      border:1px solid var(--brand-500);
+      padding-inline:12px;
+      cursor:pointer;
+      white-space:nowrap;
     }
     #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
 
-    #bt-block .dw-btn.secondary{
-      background:#fff; color:var(--brand-700); border:1px solid var(--brand-700);
+    /* Download button */
+    #bt-block .dw-btn.dw-download{
+      background:#ffffff;
+      color:var(--brand-700);
+      border:1px solid var(--brand-700);
     }
-    #bt-block .dw-btn.secondary:hover{
+    #bt-block .dw-btn.dw-download:hover{
       background:var(--brand-50);
       border-color:var(--brand-600);
       color:var(--brand-600);
@@ -606,8 +403,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Clear button */
     #bt-block .dw-clear{
-      position:absolute; right:10px; top:50%; translate:0 -50%; width:22px; height:22px; border-radius:9999px; border:0;
-      background:transparent; color:var(--brand-700); cursor:pointer; display:none; align-items:center; justify-content:center;
+      position:absolute; right:10px; top:50%; translate:0 -50%;
+      width:22px; height:22px; border-radius:9999px; border:0;
+      background:transparent; color:var(--brand-700);
+      cursor:pointer; display:none; align-items:center; justify-content:center;
     }
     #bt-block .dw-field.has-value .dw-clear{display:flex}
     #bt-block .dw-clear:hover{background:var(--brand-100)}
@@ -631,8 +430,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Header row */
     #bt-block thead th{
-      background:var(--header-bg); color:#ffffff; font-weight:700; vertical-align:middle; border:0;
-      padding:12px 14px; white-space:nowrap;
+      background:var(--header-bg);
+      color:#ffffff;
+      font-weight:700;
+      vertical-align:middle;
+      border:0;
+      padding:14px 14px;
+      white-space:nowrap;
       transition:background-color .15s, color .15s, box-shadow .15s, transform .05s;
     }
     #bt-block thead th.sortable{cursor:pointer; user-select:none}
@@ -643,15 +447,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
     #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
 
-    /* Alignment */
+    /* Alignment + nicer wrapping */
     #bt-block thead th,
     #bt-block tbody td {
-      padding: 12px 12px;
+      padding: 16px 14px;
       overflow: hidden;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
-    #bt-block thead th { white-space: nowrap; }
+    #bt-block tbody td{
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.35;
+    }
 
     /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
@@ -666,14 +475,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
     #bt-block .dw-scroll{
-      max-height:var(--table-max-h,360px); overflow-y:auto;
-      -ms-overflow-style:auto; scrollbar-width:thin; scrollbar-color:var(--scroll-thumb) transparent
+      max-height:var(--table-max-h,360px);
+      overflow-y:auto;
+      -ms-overflow-style:auto;
+      scrollbar-width:thin;
+      scrollbar-color:var(--scroll-thumb) transparent
     }
     #bt-block .dw-scroll::-webkit-scrollbar:horizontal{height:0; display:none}
     #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
     #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background:var(--scroll-thumb); border-radius:9999px; border:2px solid transparent; background-clip:content-box;
+      background:var(--scroll-thumb);
+      border-radius:9999px;
+      border:2px solid transparent;
+      background-clip:content-box;
     }
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
@@ -721,6 +536,25 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     .vi-hide{ display:none !important; }
+
+    /* -----------------------------------------------------
+       EXPORT MODE (used only in cloned DOM capture)
+       - hides controls/page status
+       - disables sticky header
+       - removes scroll limits (so full rows render)
+       ----------------------------------------------------- */
+    .vi-table-embed.export-mode #bt-block .dw-controls,
+    .vi-table-embed.export-mode #bt-block .dw-page-status{
+      display:none !important;
+    }
+    .vi-table-embed.export-mode #bt-block .dw-scroll{
+      max-height:none !important;
+      height:auto !important;
+      overflow:visible !important;
+    }
+    .vi-table-embed.export-mode #bt-block thead th{
+      position:static !important;
+    }
   </style>
 
   <!-- Header (optional) -->
@@ -749,12 +583,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         </select>
         <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
         <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
-        <button class="dw-btn secondary [[DOWNLOAD_VIS_CLASS]]" id="dw-download" type="button" title="Downloads a PNG screenshot of the rendered widget">Download PNG (DOM)</button>
+        <button class="dw-btn dw-download" id="dw-download-png" type="button">Download PNG (DOM)</button>
       </div>
     </div>
 
     <div class="dw-card">
-      <div class="dw-scroll" id="dw-scroll">
+      <div class="dw-scroll">
         <table class="dw-table">
           <thead>
             <tr>
@@ -781,9 +615,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     </div>
   </div>
 
-  <!-- html2canvas for DOM download -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-
   <script>
   (function(){
     const root = document.getElementById('bt-block');
@@ -806,6 +637,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const sizeSel = controls.querySelector('#bt-size');
     const prevBtn = controls.querySelector('[data-page="prev"]');
     const nextBtn = controls.querySelector('[data-page="next"]');
+    const downloadBtn = controls.querySelector('#dw-download-png');
 
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
@@ -967,46 +799,118 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    // DOM Download (full table screenshot)
-    const dlBtn = document.getElementById('dw-download');
-    if (dlBtn && typeof html2canvas === 'function') {
-      dlBtn.addEventListener('click', async () => {
-        const widget = document.querySelector('section.vi-table-embed');
-        const scroll = document.getElementById('dw-scroll');
-        if (!widget || !scroll) return;
-
-        // Expand scroller to full height so capture includes all rows
-        const prevMaxH = scroll.style.maxHeight;
-        const prevOverflowY = scroll.style.overflowY;
-        scroll.style.maxHeight = 'none';
-        scroll.style.overflowY = 'visible';
-
-        // Give layout a tick
-        await new Promise(r => setTimeout(r, 50));
-
-        try {
-          const canvas = await html2canvas(widget, {
-            backgroundColor: "#ffffff",
-            scale: 3,            // HIGH RES (increase to 4 if you want)
-            useCORS: true,
-            allowTaint: false,
-            logging: false
-          });
-
-          const a = document.createElement('a');
-          const safeTitle = (document.title || 'table').replace(/[^\w\-]+/g,'_');
-          a.download = safeTitle + "_dom.png";
-          a.href = canvas.toDataURL('image/png');
-          a.click();
-        } catch (e) {
-          console.error("DOM screenshot failed:", e);
-          alert("DOM screenshot failed. Check console for details.");
-        } finally {
-          // Restore scroller
-          scroll.style.maxHeight = prevMaxH;
-          scroll.style.overflowY = prevOverflowY;
+    // =====================================================
+    // DOM PNG EXPORT
+    // - Captures full width (all columns), not just visible
+    // - Captures full height (no vertical scroll)
+    // - Uses a cloned "export-mode" version offscreen
+    // =====================================================
+    async function downloadDomPng(){
+      try{
+        if(!window.html2canvas){
+          alert("html2canvas failed to load. Check network / CSP.");
+          return;
         }
-      });
+
+        const widget = document.querySelector('section.vi-table-embed');
+        if(!widget){
+          alert("Widget not found.");
+          return;
+        }
+
+        // Offscreen stage
+        const stage = document.createElement('div');
+        stage.style.position = 'fixed';
+        stage.style.left = '-100000px';
+        stage.style.top = '0';
+        stage.style.background = '#ffffff';
+        stage.style.padding = '0';
+        stage.style.margin = '0';
+        stage.style.zIndex = '-1';
+
+        const clone = widget.cloneNode(true);
+        clone.classList.add('export-mode');
+
+        // remove scripts inside clone (avoid re-init / duplicate ids side effects)
+        clone.querySelectorAll('script').forEach(s => s.remove());
+
+        // Put clone into DOM so layout/measurements work
+        stage.appendChild(clone);
+        document.body.appendChild(stage);
+
+        // Expand clone to full table width + full height
+        const cloneScroller = clone.querySelector('.dw-scroll');
+        const cloneTable = clone.querySelector('table.dw-table');
+
+        if(cloneScroller){
+          cloneScroller.style.maxHeight = 'none';
+          cloneScroller.style.height = 'auto';
+          cloneScroller.style.overflow = 'visible';
+          cloneScroller.style.overflowX = 'visible';
+          cloneScroller.style.overflowY = 'visible';
+        }
+
+        // Force layout, then measure scrollWidth
+        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+        let fullW = 0;
+        if(cloneTable){
+          fullW = Math.max(cloneTable.scrollWidth || 0, cloneTable.offsetWidth || 0);
+        }
+        fullW = Math.max(fullW, clone.scrollWidth || 0, 900);
+
+        clone.style.maxWidth = 'none';
+        clone.style.width = fullW + 'px';
+
+        if(cloneScroller) cloneScroller.style.width = fullW + 'px';
+        if(cloneTable) cloneTable.style.width = fullW + 'px';
+
+        // One more frame after width changes
+        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+        const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+
+        const canvas = await window.html2canvas(clone, {
+          backgroundColor: '#ffffff',
+          scale: scale,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          windowWidth: fullW,
+        });
+
+        // Download
+        const filenameBase =
+          (clone.querySelector('.vi-table-header .title')?.textContent || 'table')
+            .trim()
+            .replace(/\s+/g,'_')
+            .replace(/[^\w\-]+/g,'')
+            .slice(0,60) || 'table';
+
+        canvas.toBlob((blob)=>{
+          if(!blob){
+            alert("Failed to generate PNG blob.");
+            stage.remove();
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filenameBase + '.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(()=>URL.revokeObjectURL(url), 1500);
+          stage.remove();
+        }, 'image/png');
+      }catch(err){
+        console.error(err);
+        alert("PNG export failed. Check console for details.");
+      }
+    }
+
+    if(downloadBtn){
+      downloadBtn.addEventListener('click', downloadDomPng);
     }
 
     renderPage();
@@ -1018,7 +922,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </html>
 """
 
-# ===================== Generator =====================
+# =========================================================
+# Generator
+# =========================================================
 
 def guess_column_type(series: pd.Series) -> str:
     if pd.api.types.is_numeric_dtype(series):
@@ -1054,7 +960,6 @@ def generate_table_html_from_df(
     show_footer: bool = True,
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
-    show_dom_download: bool = True,
 ) -> str:
     df = df.copy()
 
@@ -1104,7 +1009,7 @@ def generate_table_html_from_df(
     elif footer_logo_align == "left":
         footer_align_class = "footer-left"
     else:
-        footer_align_class = ""
+        footer_align_class = ""  # default right
 
     cell_align = (cell_align or "Center").strip().lower()
     if cell_align == "left":
@@ -1113,8 +1018,6 @@ def generate_table_html_from_df(
         cell_align_class = "align-right"
     else:
         cell_align_class = "align-center"
-
-    download_vis = "" if show_dom_download else "vi-hide"
 
     html = (
         HTML_TEMPLATE_TABLE
@@ -1137,12 +1040,13 @@ def generate_table_html_from_df(
         .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
-        .replace("[[DOWNLOAD_VIS_CLASS]]", download_vis)
     )
     return html
 
 
-# ===================== UI Helpers =====================
+# =========================================================
+# UI Helpers
+# =========================================================
 
 def stable_config_hash(cfg: dict) -> str:
     keys = sorted(cfg.keys())
@@ -1178,24 +1082,16 @@ def draft_config_from_state() -> dict:
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
-        "show_dom_download": st.session_state.get("bt_show_dom_download", True),
-        "inline_logo": st.session_state.get("bt_inline_logo", True),
     }
 
 
 def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
     meta = get_brand_meta(cfg["brand"])
-    logo_url = meta["logo_url"]
-
-    # Inline logo (prevents html2canvas blank logo due to CORS)
-    if cfg.get("inline_logo", True):
-        logo_url = inline_image_as_data_uri(logo_url)
-
     return generate_table_html_from_df(
         df=df,
         title=cfg["title"],
         subtitle=cfg["subtitle"],
-        brand_logo_url=logo_url,
+        brand_logo_url=meta["logo_url"],
         brand_logo_alt=meta["logo_alt"],
         brand_class=meta["brand_class"],
         striped=cfg["striped"],
@@ -1208,7 +1104,6 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
         cell_align=cfg["cell_align"],
-        show_dom_download=cfg.get("show_dom_download", True),
     )
 
 
@@ -1247,8 +1142,6 @@ def reset_widget_state_for_new_upload():
         "bt_iframe_url",
         "bt_html_stale",
         "bt_confirm_flash",
-        "bt_img_png",
-        "bt_img_jpg",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -1270,15 +1163,8 @@ def ensure_confirm_state_exists():
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
 
-    st.session_state.setdefault("bt_img_png", b"")
-    st.session_state.setdefault("bt_img_jpg", b"")
-
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
-
-    # defaults for new toggles
-    st.session_state.setdefault("bt_show_dom_download", True)
-    st.session_state.setdefault("bt_inline_logo", True)
 
 
 def do_confirm_snapshot():
@@ -1294,12 +1180,12 @@ def do_confirm_snapshot():
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
 
-    st.session_state["bt_img_png"] = b""
-    st.session_state["bt_img_jpg"] = b""
     st.session_state["bt_confirm_flash"] = True
 
 
-# ===================== Streamlit App =====================
+# =========================================================
+# Streamlit App
+# =========================================================
 
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 st.markdown(
@@ -1366,7 +1252,7 @@ with right_col:
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits apply to Draft immediately. Click Confirm And Save to regenerate HTML and Publishing output.")
+            st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save To Finalize HTML/Publishing.")
 
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
@@ -1387,9 +1273,9 @@ with right_col:
         st.markdown("### Preview (Live Draft)")
     with h_right:
         if show_banner:
-            st.info("Preview reflects Draft. HTML/Publishing uses the last Confirmed snapshot.")
+            st.info("Preview Reflects Draft. HTML/Publishing Uses The Last Confirmed Snapshot.")
         else:
-            st.success("Draft matches the Confirmed snapshot.")
+            st.success("Draft Matches The Confirmed Snapshot.")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_draft"], live_cfg)
@@ -1398,7 +1284,7 @@ with right_col:
 # ===================== Left: Tabs =====================
 
 with left_col:
-    tab_config, tab_html, tab_iframe, tab_image = st.tabs(["Configure", "HTML", "IFrame", "Image"])
+    tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
 
     # ---------- CONFIGURE TAB ----------
     with tab_config:
@@ -1412,7 +1298,7 @@ with left_col:
         )
 
         if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+            st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
         sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
@@ -1427,12 +1313,6 @@ with left_col:
                 options=brand_options,
                 index=brand_options.index(current_brand),
                 key="brand_table",
-            )
-
-            st.checkbox(
-                "Inline Brand Logo In HTML (prevents CORS blank logo on DOM download)",
-                value=st.session_state.get("bt_inline_logo", True),
-                key="bt_inline_logo",
             )
 
         with sub_head:
@@ -1503,7 +1383,7 @@ with left_col:
                 "Show Pager (Rows/Page + Prev/Next)",
                 value=st.session_state.get("bt_show_pager", True),
                 key="bt_show_pager",
-                help="If Off, the table shows all rows by default.",
+                help="If Off, The Table Will Show All Rows By Default.",
             )
             st.checkbox(
                 "Show Page Numbers (Page X Of Y)",
@@ -1512,30 +1392,26 @@ with left_col:
                 disabled=not show_pager,
             )
 
-            st.checkbox(
-                "Show DOM Download Button In Widget",
-                value=st.session_state.get("bt_show_dom_download", True),
-                key="bt_show_dom_download",
-                help="Adds a Download PNG (DOM) button inside the widget controls. Captures the rendered widget exactly as-is.",
-            )
+        st.markdown("---")
+        st.caption("For images: use the **Download PNG (DOM)** button inside the preview/table widget.")
 
     # ---------- HTML TAB ----------
     with tab_html:
         st.markdown("#### HTML (From Confirmed Snapshot)")
-        st.caption("HTML updates when you click Confirm And Save Table Contents.")
+        st.caption("HTML Updates Automatically When You Click Confirm And Save Table Contents.")
 
         html_code = st.session_state.get("bt_html_code", "")
 
         if not html_code:
-            st.info("Click Confirm And Save Table Contents to generate HTML.")
+            st.info("Click Confirm And Save Table Contents To Generate HTML.")
         else:
-            st.success("HTML is ready (from the latest Confirmed snapshot).")
+            st.success("HTML Is Ready (From The Latest Confirmed Snapshot).")
 
         st.text_area(
             "HTML Code",
             value=html_code,
             height=520,
-            placeholder="Confirm And Save to generate HTML here.",
+            placeholder="Confirm And Save To Generate HTML Here.",
         )
 
     # ---------- IFRAME TAB ----------
@@ -1543,9 +1419,8 @@ with left_col:
         st.markdown("#### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
-
         if not html_generated:
-            st.warning("Click Confirm And Save Table Contents to generate HTML before publishing.")
+            st.warning("Click Confirm And Save Table Contents To Generate HTML Before Publishing.")
 
         saved_gh_user = st.session_state.get("bt_gh_user", "")
         saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
@@ -1575,7 +1450,7 @@ with left_col:
         st.session_state.setdefault("bt_widget_file_name", base_filename)
         widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
 
-        st.caption(f"Target file in repo: `{widget_file_name}`")
+        st.caption(f"Target File In Repo: `{widget_file_name}`")
 
         can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
         can_publish = bool(can_run_github and html_generated)
@@ -1597,7 +1472,7 @@ with left_col:
             )
 
         if not GITHUB_TOKEN:
-            st.info("Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
+            st.info("Set `GITHUB_TOKEN` In `.streamlit/secrets.toml` (With `repo` Scope) To Enable GitHub Publishing.")
 
         if page_check_clicked:
             try:
@@ -1615,9 +1490,9 @@ with left_col:
                     "checked_filename": base_filename,
                     "suggested_new_filename": next_fname,
                 }
-                st.success("Availability check complete.")
+                st.success("Availability Check Complete.")
             except Exception as e:
-                st.error(f"Availability check failed: {e}")
+                st.error(f"Availability Check Failed: {e}")
 
         availability = st.session_state.get("bt_availability")
         if html_generated and can_run_github and availability:
@@ -1627,15 +1502,15 @@ with left_col:
             suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
 
             if not repo_exists:
-                st.info("No existing repo found. Publishing will create it.")
+                st.info("No Existing Repo Found. Publishing Will Create It.")
                 st.session_state["bt_widget_file_name"] = checked_filename
             elif repo_exists and not file_exists:
-                st.success(f"Repo exists and `{checked_filename}` is available.")
+                st.success(f"Repo Exists And `{checked_filename}` Is Available.")
                 st.session_state["bt_widget_file_name"] = checked_filename
             else:
-                st.warning(f"`{checked_filename}` already exists.")
+                st.warning(f"`{checked_filename}` Already Exists.")
                 choice = st.radio(
-                    "Choose what to do",
+                    "Choose What To Do",
                     options=[
                         "Replace Existing Widget (Overwrite File)",
                         f"Create Additional Widget File In Same Repo (Use {suggested_new_filename})",
@@ -1653,11 +1528,11 @@ with left_col:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
-                    raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
+                    raise RuntimeError("No Generated HTML Found. Click Confirm And Save First.")
 
                 ph = st.empty()
                 prog = st.progress(0)
-                ph.caption("Publishing to GitHub…")
+                ph.caption("Publishing To GitHub…")
                 for pct in (10, 30, 55):
                     time.sleep(0.10)
                     prog.progress(pct)
@@ -1690,10 +1565,10 @@ with left_col:
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.success("Published. GitHub Pages may take a minute to update.")
+                st.success("Published. GitHub Pages May Take A Minute To Update.")
 
             except Exception as e:
-                st.error(f"GitHub publish failed: {e}")
+                st.error(f"GitHub Publish Failed: {e}")
 
         st.markdown("---")
         st.markdown("#### IFrame Embed")
@@ -1734,133 +1609,11 @@ with left_col:
         if get_iframe_clicked:
             simulate_progress("Generating IFrame…", total_sleep=0.25)
             st.session_state["bt_iframe_code"] = build_iframe_snippet(url_to_use, height=int(iframe_height))
-            st.success("IFrame code generated.")
+            st.success("IFrame Code Generated.")
 
         st.text_area(
             "IFrame Code",
             value=st.session_state.get("bt_iframe_code", ""),
             height=200,
-            placeholder="Confirm + Save first, then generate IFrame code here.",
+            placeholder="Confirm And Save To Generate HTML, Then Generate IFrame Code Here.",
         )
-
-    # ---------- IMAGE TAB ----------
-    with tab_image:
-        st.markdown("#### Image Export")
-
-        html_generated = bool(st.session_state.get("bt_html_generated", False))
-        if not html_generated:
-            st.warning("Click Confirm And Save Table Contents first (exports use the Confirmed snapshot).")
-
-        cfg = st.session_state.get("bt_confirmed_cfg", draft_config_from_state())
-        df_base = st.session_state.get("bt_df_confirmed", st.session_state.get("bt_df_draft")).copy()
-
-        st.markdown("##### ✅ Best option: DOM screenshot (looks exactly like the widget)")
-        st.caption("Use the 'Download PNG (DOM)' button inside the widget below. It captures the full table at high resolution.")
-
-        dom_cfg = dict(cfg)
-        dom_cfg["show_dom_download"] = True  # force show in Image tab
-        dom_preview_html = html_from_config(df_base, dom_cfg)
-        components.html(dom_preview_html, height=860, scrolling=True)
-
-        st.markdown("---")
-        st.markdown("##### Fallback: Matplotlib export (improved, but not as realistic)")
-        st.caption("If you still want server-side PNG/JPEG downloads, use these. Layout is improved vs before, but DOM will look best.")
-
-        mode = st.radio(
-            "Rows to export (Matplotlib)",
-            options=["Full table", "Top 10", "Custom"],
-            horizontal=True,
-            index=0,
-            disabled=not html_generated,
-        )
-
-        n = None
-        if mode == "Top 10":
-            n = 10
-        elif mode == "Custom":
-            n = st.number_input(
-                "How many rows?",
-                min_value=1,
-                max_value=int(max(1, len(df_base))),
-                value=min(12, int(max(1, len(df_base)))),
-                step=1,
-                disabled=not html_generated,
-            )
-
-        df_export = df_base if (n is None) else df_base.head(int(n))
-
-        st.markdown("---")
-        copt1, copt2 = st.columns(2)
-        with copt1:
-            include_header_block = st.checkbox(
-                "Header (Title + Subtitle)",
-                value=True,
-                disabled=not html_generated,
-            )
-        with copt2:
-            include_footer = st.checkbox(
-                "Footer (Logo)",
-                value=True,
-                disabled=not html_generated,
-            )
-
-        meta = get_brand_meta(cfg.get("brand", "Action Network"))
-
-        col_png, col_jpg = st.columns(2)
-
-        with col_png:
-            if st.button("Generate PNG (Matplotlib)", use_container_width=True, disabled=not html_generated):
-                simulate_progress("Rendering PNG…", total_sleep=0.25)
-                png_bytes = dataframe_to_image_bytes(
-                    df_export,
-                    title=cfg.get("title", ""),
-                    subtitle=cfg.get("subtitle", ""),
-                    include_header_block=include_header_block,
-                    include_footer=include_footer,
-                    footer_logo_url=meta["logo_url"],
-                    brand_name=cfg.get("brand", "Action Network"),
-                    fmt="png",
-                    dpi=350,
-                )
-                st.session_state["bt_img_png"] = png_bytes
-                st.success("PNG ready.")
-
-            st.download_button(
-                "Download PNG (Matplotlib)",
-                data=st.session_state.get("bt_img_png", b""),
-                file_name="table_export.png",
-                mime="image/png",
-                use_container_width=True,
-                disabled=not bool(st.session_state.get("bt_img_png")),
-            )
-
-        with col_jpg:
-            if st.button("Generate JPEG (Matplotlib)", use_container_width=True, disabled=not html_generated):
-                simulate_progress("Rendering JPEG…", total_sleep=0.25)
-                jpg_bytes = dataframe_to_image_bytes(
-                    df_export,
-                    title=cfg.get("title", ""),
-                    subtitle=cfg.get("subtitle", ""),
-                    include_header_block=include_header_block,
-                    include_footer=include_footer,
-                    footer_logo_url=meta["logo_url"],
-                    brand_name=cfg.get("brand", "Action Network"),
-                    fmt="jpeg",
-                    dpi=350,
-                )
-                st.session_state["bt_img_jpg"] = jpg_bytes
-                st.success("JPEG ready.")
-
-            st.download_button(
-                "Download JPEG (Matplotlib)",
-                data=st.session_state.get("bt_img_jpg", b""),
-                file_name="table_export.jpg",
-                mime="image/jpeg",
-                use_container_width=True,
-                disabled=not bool(st.session_state.get("bt_img_jpg")),
-            )
-
-        st.markdown("---")
-        st.markdown("#### Preview (Matplotlib PNG)")
-        if st.session_state.get("bt_img_png"):
-            st.image(st.session_state["bt_img_png"])
