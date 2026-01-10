@@ -1672,137 +1672,136 @@ with left_col:
     # ---------- IFRAME TAB ----------
 
 with tab_iframe:
-    st.markdown("#### Publish + IFrame")
+        st.markdown("### Publish + IFrame")
 
-    html_generated = bool(st.session_state.get("bt_html_generated", False))
-    if not html_generated:
-        st.warning("Click Confirm And Save Table Contents To Generate HTML Before Publishing.")
-        st.stop()
+        html_generated = bool(st.session_state.get("bt_html_generated", False))
+        if not html_generated:
+            st.warning("Click **Confirm And Save Table Contents** to generate HTML before publishing / embedding.")
 
-    # --- Username dropdown + User Key gate ---
-    saved_gh_user = st.session_state.get("bt_gh_user", "")
-    saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
-    saved_widget_file = st.session_state.get("bt_widget_file_name", "branded_table.html")
+        # ---------------------------------------------
+        # Access gate: Username + User Key (stacked)
+        # ---------------------------------------------
+        saved_gh_user = st.session_state.get("bt_gh_user", "")
+        saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
+        saved_widget_file = st.session_state.get("bt_widget_file_name", "branded_table.html")
 
-    username_options = ["GauthamBC", "ActionNetwork", "MoonWatcher", "SampleUser"]
-    if GITHUB_USER_DEFAULT and GITHUB_USER_DEFAULT not in username_options:
-        username_options.insert(0, GITHUB_USER_DEFAULT)
+        username_options = ["GauthamBC", "ActionNetwork", "MoonWatcher", "SampleUser"]
+        if GITHUB_USER_DEFAULT and GITHUB_USER_DEFAULT not in username_options:
+            username_options.insert(0, GITHUB_USER_DEFAULT)
 
-        # Username first (dropdown)
-    github_username = st.selectbox(
-        "Username (GitHub)",
-        options=username_options,
-        index=default_idx,
-        key="bt_gh_user",
-        disabled=not html_generated,
-    )
+        # Safe index (prevents Streamlit crash)
+        if saved_gh_user in username_options:
+            default_idx = username_options.index(saved_gh_user)
+        else:
+            default_idx = 0
+        default_idx = max(0, min(default_idx, len(username_options) - 1))
 
-    # User Key on the next line
-    user_key_input = st.text_input(
-        "User Key (6 digits)",
-        value=st.session_state.get("bt_user_key_input", ""),
-        key="bt_user_key_input",
-        type="password",
-        placeholder="6 digits",
-        disabled=not html_generated,
-        help="Ask the admin for the 6-digit key tied to your GitHub username.",
-    )
+        github_username_input = st.selectbox(
+            "Username (GitHub)",
+            options=username_options,
+            index=default_idx,
+            key="bt_gh_user",
+            disabled=not html_generated,
+        )
+        effective_github_user = (github_username_input or "").strip()
 
-    effective_github_user = (github_username or "").strip()
-    expected_key = expected_user_key(effective_github_user)
+        user_key_input = st.text_input(
+            "User Key (6 digits)",
+            value=st.session_state.get("bt_user_key", ""),
+            key="bt_user_key",
+            type="password",
+            disabled=not html_generated,
+            placeholder="e.g. 567979",
+        )
 
-    key_ok = is_user_key_valid(effective_github_user, user_key_input)
+        key_ok = is_user_key_valid(effective_github_user, user_key_input)
 
-    if not expected_key:
-        st.error("No User Key configured for this username. Add USER_KEYS in secrets.toml.")
-    elif not key_ok:
-        st.warning("User Key doesn’t match the selected Username. IFrame is locked until it matches.")
-    else:
-        st.success("User verified. You can generate the hosted URL + IFrame.")
+        if html_generated and effective_github_user and not key_ok:
+            st.warning("User Key doesn’t match the selected Username. IFrame is locked until it matches.")
 
-    # --- Repo / Widget fields ---
-    repo_name = st.text_input(
-        "Campaign Name (Repository)",
-        value=saved_gh_repo,
-        key="bt_gh_repo",
-        help="This will be the GitHub repo name used for hosting the widget via GitHub Pages.",
-    ).strip()
+        # ---------------------------------------------
+        # Minimal fields: Repo + File + Email
+        # ---------------------------------------------
+        repo_name = st.text_input(
+            "Campaign Name (Repository)",
+            value=saved_gh_repo,
+            key="bt_gh_repo",
+            disabled=not html_generated or not key_ok,
+        ).strip()
 
-    widget_file_name = st.text_input(
-        "Widget Name (File)",
-        value=saved_widget_file,
-        key="bt_widget_file_name",
-        help="Example: branded_table.html (or t1.html, t2.html, etc.)",
-    ).strip() or "branded_table.html"
+        widget_file_name = st.text_input(
+            "Widget Name (File)",
+            value=saved_widget_file,
+            key="bt_widget_file_name",
+            disabled=not html_generated or not key_ok,
+            help="Example: branded_table.html (must end with .html)",
+        ).strip() or "branded_table.html"
 
-    can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name and widget_file_name)
-    can_generate = bool(can_run_github and key_ok)
+        email_addr = st.text_input(
+            "Email address",
+            value=st.session_state.get("bt_email", ""),
+            key="bt_email",
+            disabled=not html_generated or not key_ok,
+            help="Used only for internal tracking (no email is sent).",
+        ).strip()
 
-    if not GITHUB_TOKEN:
-        st.info("Set GITHUB_TOKEN in .streamlit/secrets.toml (with repo scope) to enable publishing.")
+        can_run = bool(GITHUB_TOKEN and effective_github_user and repo_name and html_generated and key_ok)
 
-    get_iframe_clicked = st.button(
-        "🧩 Get IFrame",
-        disabled=not can_generate,
-        use_container_width=True,
-    )
+        get_iframe_clicked = st.button(
+            "🧩 Get IFrame",
+            use_container_width=True,
+            disabled=not can_run,
+        )
 
-    if get_iframe_clicked:
-        try:
-            html_final = st.session_state.get("bt_html_code", "")
-            if not html_final:
-                raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
+        if not GITHUB_TOKEN:
+            st.info("Set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
 
-            ph = st.empty()
-            prog = st.progress(0)
-            ph.caption("Publishing to GitHub + generating IFrame…")
-            for pct in (10, 35, 60):
-                time.sleep(0.08)
-                prog.progress(pct)
-
-            ensure_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
-            prog.progress(75)
-
+        if get_iframe_clicked:
             try:
-                ensure_pages_enabled(effective_github_user, repo_name, GITHUB_TOKEN, branch="main")
-            except Exception:
-                pass
-            prog.progress(85)
+                html_final = st.session_state.get("bt_html_code", "")
+                if not html_final:
+                    raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
 
-            upload_file_to_github(
-                effective_github_user,
-                repo_name,
-                GITHUB_TOKEN,
-                widget_file_name,
-                html_final,
-                f"Add/Update {widget_file_name} From Branded Table App",
-                branch="main",
-            )
-            trigger_pages_build(effective_github_user, repo_name, GITHUB_TOKEN)
-            prog.progress(100)
-            time.sleep(0.10)
-            ph.empty()
-            prog.empty()
+                simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
-            pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
-            st.session_state["bt_last_published_url"] = pages_url
-            st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
+                ensure_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
 
-            st.success("Done. Copy the hosted URL and IFrame code below.")
-        except Exception as e:
-            st.error(f"Publish / IFrame generation failed: {e}")
+                try:
+                    ensure_pages_enabled(effective_github_user, repo_name, GITHUB_TOKEN, branch="main")
+                except Exception:
+                    pass
 
-    st.markdown("#### Outputs")
+                upload_file_to_github(
+                    effective_github_user,
+                    repo_name,
+                    GITHUB_TOKEN,
+                    widget_file_name,
+                    html_final,
+                    f"Add/Update {widget_file_name} from Branded Table App",
+                    branch="main",
+                )
+                trigger_pages_build(effective_github_user, repo_name, GITHUB_TOKEN)
 
-    st.text_input(
-        "GitHub Hosted URL",
-        value=st.session_state.get("bt_last_published_url", ""),
-        disabled=True,
-    )
+                pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
+                st.session_state["bt_last_published_url"] = pages_url
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
 
-    st.text_area(
-        "IFrame Code",
-        value=st.session_state.get("bt_iframe_code", ""),
-        height=160,
-        disabled=True,
-    )
+                st.success("Done. URL + IFrame are ready below.")
+
+            except Exception as e:
+                st.error(f"Publish / IFrame generation failed: {e}")
+
+        st.markdown("#### Outputs")
+
+        st.text_input(
+            "GitHub Hosted URL",
+            value=st.session_state.get("bt_last_published_url", ""),
+            disabled=True,
+        )
+
+        st.text_area(
+            "IFrame Code",
+            value=st.session_state.get("bt_iframe_code", ""),
+            height=160,
+            disabled=True,
+        )
