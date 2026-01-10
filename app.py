@@ -213,7 +213,7 @@ def get_brand_meta(brand: str) -> dict:
 # HTML Template
 # - Fixes table rendering by clamping INSIDE a wrapper div
 # - Download button opens menu: Top 10 vs Bottom 10 (ONLY)
-# - Export PNG excludes Header/Subheading (table + logo only)
+# - EXPORT removes header/subtitle and controls: image shows ONLY table + logo
 # - NO alert() anywhere
 # =========================================================
 
@@ -432,10 +432,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:var(--brand-50);
       border-color: rgba(var(--brand-500-rgb), .35);
     }
-    #bt-block .dw-download-menu .dw-menu-btn[disabled]{
-      opacity:.55;
-      cursor:not-allowed;
-    }
 
     /* Clear button */
     #bt-block .dw-clear{
@@ -579,13 +575,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
-    /* EXPORT MODE for capture */
+    /* EXPORT MODE for capture: ONLY table + logo */
+    .vi-table-embed.export-mode .vi-table-header{ display:none !important; } /* removes title/subtitle from export */
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
-      display:none !important;
-    }
-    /* HIDE HEADER/SUBTITLE IN PNG EXPORT */
-    .vi-table-embed.export-mode .vi-table-header{
       display:none !important;
     }
     .vi-table-embed.export-mode #bt-block .dw-scroll{
@@ -704,7 +697,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const downloadBtn = controls.querySelector('#dw-download-png');
 
     const menu = controls.querySelector('#dw-download-menu');
-    const menuTitle = controls.querySelector('#dw-menu-title');
     const btnTop10 = controls.querySelector('#dw-dl-top10');
     const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
 
@@ -889,7 +881,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       downloadBtn.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
-        if(menuTitle) menuTitle.textContent = "Choose download";
         toggleMenu();
       });
     }
@@ -897,7 +888,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     // =============================
     // DOM PNG EXPORT (NO alert popups)
     // - Export-mode uses fixed table layout, so width doesn't explode
-    // - Export excludes header/subtitle via CSS
+    // - Export hides header/subtitle and controls: ONLY table + logo
     // =============================
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
@@ -914,31 +905,40 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     function getFilenameBase(clone){
-      return (clone.querySelector('.vi-table-header .title')?.textContent || 'table')
+      // Use TITLE if present; otherwise fallback to 'table'
+      const t = clone.querySelector('.vi-table-header .title')?.textContent || 'table';
+      return (t || 'table')
         .trim()
         .replace(/\s+/g,'_')
         .replace(/[^\w\-]+/g,'')
         .slice(0,60) || 'table';
     }
 
+    // IMPORTANT FIX:
+    // Select rows by POSITION (robust with sorting/filtering/paging),
+    // so Bottom 10 always matches correctly.
     function showRowsInClone(clone, mode){
       const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
       if(!cloneTb) return;
 
       const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const visibleOriginal = getVisibleRowsInOrder();
 
-      const keep = new Set();
-
-      if(mode === 'top10'){
-        visibleOriginal.slice(0, 10).forEach(r => keep.add(String(r.dataset.idx)));
-      } else if(mode === 'bottom10'){
-        visibleOriginal.slice(-10).forEach(r => keep.add(String(r.dataset.idx)));
+      // Row positions that are visible under current filter, in current DOM order (sorting applied)
+      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      const visiblePositions = [];
+      for(let i=0;i<ordered.length;i++){
+        if(matchesFilter(ordered[i])) visiblePositions.push(i);
       }
 
-      cloneRows.forEach(r=>{
-        const idx = String(r.dataset.idx || "");
-        r.style.display = keep.has(idx) ? 'table-row' : 'none';
+      const keep = new Set();
+      if(mode === 'top10'){
+        visiblePositions.slice(0, 10).forEach(i => keep.add(i));
+      }else if(mode === 'bottom10'){
+        visiblePositions.slice(-10).forEach(i => keep.add(i));
+      }
+
+      cloneRows.forEach((r, i)=>{
+        r.style.display = keep.has(i) ? 'table-row' : 'none';
       });
 
       const empty = cloneTb.querySelector('.dw-empty');
@@ -1586,7 +1586,7 @@ with left_col:
 
         default_idx = username_options.index(saved_gh_user) if saved_gh_user in username_options else 0
         github_username_input = st.selectbox(
-            "Username (GitHub Username)",
+            "Username (GitHub Username_toggle):\n",
             options=username_options,
             index=default_idx,
             key="bt_gh_user",
