@@ -1737,13 +1737,6 @@ with tab_iframe:
             help="Example: branded_table.html (must end with .html)",
         ).strip() or "branded_table.html"
 
-        email_addr = st.text_input(
-            "Email address",
-            value=st.session_state.get("bt_email", ""),
-            key="bt_email",
-            disabled=not html_generated or not key_ok,
-            help="Used only for internal tracking (no email is sent).",
-        ).strip()
 
         can_run = bool(GITHUB_TOKEN and effective_github_user and repo_name and html_generated and key_ok)
 
