@@ -207,6 +207,12 @@ def get_brand_meta(brand: str) -> dict:
 
 # =========================================================
 # HTML Template (DOM PNG Export included + NO oklab/color-mix)
+# - Adds:
+#   * Rows/Page options: 5,10,15,20,25,30,All
+#   * Download selector: Current Page vs Full Table
+#   * Safety guard: refuse full-table export if too big
+#   * 2-line clamp (no bleed)
+#   * Better html2canvas sizing (no cutoffs)
 # =========================================================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
@@ -455,11 +461,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
+
+    /* 2-line clamp (prevents bleeding / ultra-wide cells) */
     #bt-block tbody td{
       white-space: normal;
       overflow-wrap: anywhere;
       word-break: break-word;
       line-height: 1.35;
+
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     /* Body rows zebra (injected) */
@@ -542,6 +557,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
        - hides controls/page status
        - disables sticky header
        - removes scroll limits (so full rows render)
+       - disables hover transforms/shadows (avoid crop bugs)
+       - uses fixed layout for stability
        ----------------------------------------------------- */
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
@@ -554,6 +571,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed.export-mode #bt-block thead th{
       position:static !important;
+    }
+    .vi-table-embed.export-mode #bt-block tbody tr:hover,
+    .vi-table-embed.export-mode #bt-block tbody tr:hover td{
+      transform:none !important;
+      box-shadow:none !important;
+    }
+    .vi-table-embed.export-mode #bt-block table.dw-table{
+      table-layout:fixed !important;
     }
   </style>
 
@@ -576,14 +601,24 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       <div class="right [[PAGER_VIS_CLASS]]">
         <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
         <select id="bt-size" class="dw-select">
+          <option value="5">5</option>
           <option value="10" selected>10</option>
           <option value="15">15</option>
           <option value="20">20</option>
+          <option value="25">25</option>
+          <option value="30">30</option>
           <option value="0">All</option>
         </select>
+
+        <label class="dw-status" for="dw-download-mode" style="margin-left:6px;margin-right:4px;">Download</label>
+        <select id="dw-download-mode" class="dw-select" title="Download Mode">
+          <option value="page" selected>Current Page</option>
+          <option value="full">Full Table</option>
+        </select>
+
         <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
         <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
-        <button class="dw-btn dw-download" id="dw-download-png" type="button">Download PNG (DOM)</button>
+        <button class="dw-btn dw-download" id="dw-download-png" type="button">Download PNG</button>
       </div>
     </div>
 
@@ -635,6 +670,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     const pagerWrap = controls.querySelector('.right');
     const sizeSel = controls.querySelector('#bt-size');
+    const downloadModeSel = controls.querySelector('#dw-download-mode');
     const prevBtn = controls.querySelector('[data-page="prev"]');
     const nextBtn = controls.querySelector('[data-page="next"]');
     const downloadBtn = controls.querySelector('#dw-download-png');
@@ -729,6 +765,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       pageStatus.textContent = "Page " + page + " Of " + pages;
     }
 
+    function getVisibleRows(){
+      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      return ordered.filter(matchesFilter);
+    }
+
     function renderPage(){
       const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
       const visible = ordered.filter(matchesFilter);
@@ -800,11 +841,153 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     // =====================================================
-    // DOM PNG EXPORT
-    // - Captures full width (all columns), not just visible
-    // - Captures full height (no vertical scroll)
-    // - Uses a cloned "export-mode" version offscreen
+    // DOM PNG EXPORT (Current Page or Full Table)
+    // - Current Page: captures only currently displayed rows
+    // - Full Table: captures all rows (guarded by limits)
+    // - Offscreen clone, no user fullscreen needed
+    // - Better sizing to avoid cutoffs
     // =====================================================
+
+    // Safety thresholds (tune as needed)
+    const MAX_FULL_ROWS = 250;     // refuse full-table PNG above this
+    const MAX_CAPTURE_AREA = 28_000_000; // width*height px cap (prevents memory blowups)
+
+    function rowsForCurrentPage(){
+      // what is currently visible on screen after renderPage()
+      return Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty') && r.style.display !== 'none');
+    }
+
+    async function waitForFontsAndImages(el){
+      // fonts
+      if (document.fonts && document.fonts.ready){
+        try { await document.fonts.ready; } catch(e){}
+      }
+      // images inside el
+      const imgs = Array.from(el.querySelectorAll('img'));
+      await Promise.all(imgs.map(img=>{
+        if (img.complete) return Promise.resolve();
+        return new Promise(res=>{
+          img.addEventListener('load', res, { once:true });
+          img.addEventListener('error', res, { once:true });
+        });
+      }));
+    }
+
+    function showAllRowsInClone(clone){
+      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
+      if(!cloneTb) return;
+      const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      cloneRows.forEach(r=>{ r.style.display = 'table-row'; });
+      const empty = cloneTb.querySelector('.dw-empty');
+      if(empty) empty.style.display='none';
+    }
+
+    function showOnlyCurrentPageRowsInClone(clone){
+      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
+      if(!cloneTb) return;
+
+      // figure out which original rows are on screen (by dataset.idx)
+      const current = rowsForCurrentPage();
+      const keepIdx = new Set(current.map(r => String(r.dataset.idx)));
+
+      const cloneRows = Array.from(cloneTb.rows);
+      cloneRows.forEach(r=>{
+        if(r.classList.contains('dw-empty')) return;
+        const idx = String(r.dataset.idx || "");
+        r.style.display = keepIdx.has(idx) ? 'table-row' : 'none';
+      });
+
+      const empty = cloneTb.querySelector('.dw-empty');
+      if(empty) empty.style.display='none';
+    }
+
+    function getFilenameBase(clone){
+      return (clone.querySelector('.vi-table-header .title')?.textContent || 'table')
+        .trim()
+        .replace(/\s+/g,'_')
+        .replace(/[^\w\-]+/g,'')
+        .slice(0,60) || 'table';
+    }
+
+    async function captureCloneToPng(clone, stage, filename){
+      // Expand clone to full width + full height
+      const cloneScroller = clone.querySelector('.dw-scroll');
+      const cloneTable = clone.querySelector('table.dw-table');
+
+      if(cloneScroller){
+        cloneScroller.style.maxHeight = 'none';
+        cloneScroller.style.height = 'auto';
+        cloneScroller.style.overflow = 'visible';
+        cloneScroller.style.overflowX = 'visible';
+        cloneScroller.style.overflowY = 'visible';
+      }
+
+      await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+      await waitForFontsAndImages(clone);
+
+      // Set width to full table width
+      let fullW = 0;
+      if(cloneTable){
+        fullW = Math.max(cloneTable.scrollWidth || 0, cloneTable.offsetWidth || 0);
+      }
+      fullW = Math.max(fullW, clone.scrollWidth || 0, 900);
+
+      clone.style.maxWidth = 'none';
+      clone.style.width = fullW + 'px';
+      if(cloneScroller) cloneScroller.style.width = fullW + 'px';
+      if(cloneTable) cloneTable.style.width = fullW + 'px';
+
+      await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+      // Measure height after row visibility changes
+      const fullH = Math.ceil(Math.max(
+        clone.scrollHeight || 0,
+        clone.offsetHeight || 0,
+        clone.getBoundingClientRect().height || 0
+      ));
+
+      // Safety: prevent giant canvases
+      const area = Math.ceil(fullW) * Math.ceil(fullH);
+      if(area > MAX_CAPTURE_AREA){
+        stage.remove();
+        alert("Table is too big to download as a PNG. Try 'Current Page' or reduce rows/columns.");
+        return;
+      }
+
+      const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+
+      const canvas = await window.html2canvas(clone, {
+        backgroundColor: '#ffffff',
+        scale,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        width: Math.ceil(fullW),
+        height: Math.ceil(fullH),
+        windowWidth: Math.ceil(fullW),
+        windowHeight: Math.ceil(fullH),
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      canvas.toBlob((blob)=>{
+        if(!blob){
+          stage.remove();
+          alert("Failed to generate PNG blob.");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename + '.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1500);
+        stage.remove();
+      }, 'image/png');
+    }
+
     async function downloadDomPng(){
       try{
         if(!window.html2canvas){
@@ -815,6 +998,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         const widget = document.querySelector('section.vi-table-embed');
         if(!widget){
           alert("Widget not found.");
+          return;
+        }
+
+        const mode = (downloadModeSel?.value || "page").toLowerCase();
+
+        // Safety: refuse full export if too many rows (after filter)
+        const visibleRows = getVisibleRows();
+        if(mode === "full" && visibleRows.length > MAX_FULL_ROWS){
+          alert("Table is too big to download as a full PNG. Switch to 'Current Page' or reduce the table.");
           return;
         }
 
@@ -830,79 +1022,27 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
         const clone = widget.cloneNode(true);
         clone.classList.add('export-mode');
-
-        // remove scripts inside clone (avoid re-init / duplicate ids side effects)
         clone.querySelectorAll('script').forEach(s => s.remove());
 
-        // Put clone into DOM so layout/measurements work
         stage.appendChild(clone);
         document.body.appendChild(stage);
 
-        // Expand clone to full table width + full height
-        const cloneScroller = clone.querySelector('.dw-scroll');
-        const cloneTable = clone.querySelector('table.dw-table');
-
-        if(cloneScroller){
-          cloneScroller.style.maxHeight = 'none';
-          cloneScroller.style.height = 'auto';
-          cloneScroller.style.overflow = 'visible';
-          cloneScroller.style.overflowX = 'visible';
-          cloneScroller.style.overflowY = 'visible';
+        // Ensure dataset.idx exists in clone too (it should clone attributes)
+        // Apply row visibility based on mode
+        if(mode === "full"){
+          // show all rows (full table)
+          showAllRowsInClone(clone);
+        }else{
+          // current page only
+          showOnlyCurrentPageRowsInClone(clone);
         }
 
-        // Force layout, then measure scrollWidth
-        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+        const base = getFilenameBase(clone);
+        const suffix = mode === "full" ? "_full" : `_page_${page}`;
+        const filename = (base + suffix).slice(0, 70);
 
-        let fullW = 0;
-        if(cloneTable){
-          fullW = Math.max(cloneTable.scrollWidth || 0, cloneTable.offsetWidth || 0);
-        }
-        fullW = Math.max(fullW, clone.scrollWidth || 0, 900);
+        await captureCloneToPng(clone, stage, filename);
 
-        clone.style.maxWidth = 'none';
-        clone.style.width = fullW + 'px';
-
-        if(cloneScroller) cloneScroller.style.width = fullW + 'px';
-        if(cloneTable) cloneTable.style.width = fullW + 'px';
-
-        // One more frame after width changes
-        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
-
-        const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
-
-        const canvas = await window.html2canvas(clone, {
-          backgroundColor: '#ffffff',
-          scale: scale,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          windowWidth: fullW,
-        });
-
-        // Download
-        const filenameBase =
-          (clone.querySelector('.vi-table-header .title')?.textContent || 'table')
-            .trim()
-            .replace(/\s+/g,'_')
-            .replace(/[^\w\-]+/g,'')
-            .slice(0,60) || 'table';
-
-        canvas.toBlob((blob)=>{
-          if(!blob){
-            alert("Failed to generate PNG blob.");
-            stage.remove();
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filenameBase + '.png';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(()=>URL.revokeObjectURL(url), 1500);
-          stage.remove();
-        }, 'image/png');
       }catch(err){
         console.error(err);
         alert("PNG export failed. Check console for details.");
@@ -1393,7 +1533,7 @@ with left_col:
             )
 
         st.markdown("---")
-        st.caption("For images: use the **Download PNG (DOM)** button inside the preview/table widget.")
+        st.caption("For images: use the **Download PNG** button inside the preview/table widget. Choose Current Page or Full Table.")
 
     # ---------- HTML TAB ----------
     with tab_html:
