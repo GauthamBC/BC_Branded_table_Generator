@@ -1688,26 +1688,27 @@ with tab_iframe:
     if GITHUB_USER_DEFAULT and GITHUB_USER_DEFAULT not in username_options:
         username_options.insert(0, GITHUB_USER_DEFAULT)
 
-    ucol, kcol = st.columns([1, 1], gap="small")
-    with ucol:
-        default_idx = username_options.index(saved_gh_user) if saved_gh_user in username_options else 0
-        github_username = st.selectbox(
-            "Username (GitHub)",
-            options=username_options,
-            index=default_idx,
-            key="bt_gh_user",
-        )
-    with kcol:
-        user_key_input = st.text_input(
-            "User Key",
-            value=st.session_state.get("bt_user_key_input", ""),
-            key="bt_user_key_input",
-            type="password",
-            placeholder="6 digits",
-            help="Ask the admin for your User Key. It must match the selected Username.",
-        )
+        # Username first (dropdown)
+    github_username = st.selectbox(
+        "Username (GitHub)",
+        options=username_options,
+        index=default_idx,
+        key="bt_gh_user",
+        disabled=not html_generated,
+    )
 
-    effective_github_user = (github_username or "").strip()
+    # User Key on the next line
+    user_key_input = st.text_input(
+        "User Key (6 digits)",
+        value=st.session_state.get("bt_user_key_input", ""),
+        key="bt_user_key_input",
+        type="password",
+        placeholder="6 digits",
+        disabled=not html_generated,
+        help="Ask the admin for the 6-digit key tied to your GitHub username.",
+    )
+
+effective_github_user = (github_username or "").strip()
     expected_key = expected_user_key(effective_github_user)
 
     key_ok = is_user_key_valid(effective_github_user, user_key_input)
@@ -1718,8 +1719,6 @@ with tab_iframe:
         st.warning("User Key doesn’t match the selected Username. IFrame is locked until it matches.")
     else:
         st.success("User verified. You can generate the hosted URL + IFrame.")
-
-    st.markdown("---")
 
     # --- Repo / Widget fields ---
     repo_name = st.text_input(
