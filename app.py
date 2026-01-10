@@ -565,7 +565,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       display: inline-block;
     }
     .vi-table-embed.brand-vegasinsider .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(74%) sepia(87%) saturate(1400%) hue-rotate(6deg) brightness(98%) contrast(104%);
+      filter: none !important;
       height:24px;
     }
     .vi-table-embed.brand-canadasb .vi-footer img{
