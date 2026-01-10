@@ -634,12 +634,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
         <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
 
-        <button class="dw-btn dw-download" id="dw-download-png" type="button">Download PNG</button>
+        <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
         <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-          <div class="dw-menu-title" id="dw-menu-title">Choose download</div>
+          <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
           <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
           <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+          <button type="button" class="dw-menu-btn" id="dw-embed-script">Embed Script</button>
         </div>
       </div>
     </div>
@@ -699,8 +700,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const menu = controls.querySelector('#dw-download-menu');
     const btnTop10 = controls.querySelector('#dw-dl-top10');
     const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
-
-    const emptyRow = tb.querySelector('.dw-empty');
+    const btnEmbed = controls.querySelector('#dw-embed-script');
+const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
     const hasSearch = !controlsHidden
@@ -1059,10 +1060,57 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
+    function buildEmbedCode(){
+      const src = window.location.href;
+      const h = 800;
+      return `<iframe
+  src="${src}"
+  width="100%"
+  height="${h}"
+  style="border:0; border-radius:12px; overflow:hidden;"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade"
+></iframe>`;
+    }
+
+    async function copyToClipboard(text){
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      }catch(e){}
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly','');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch(e){
+        return false;
+      }
+    }
+
+    async function onEmbedClick(){
+      hideMenu();
+      const code = buildEmbedCode();
+      const ok = await copyToClipboard(code);
+      if(menuTitle){
+        const prev = menuTitle.textContent;
+        menuTitle.textContent = ok ? 'Embed code copied!' : 'Copy failed (try again)';
+        setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
+      }
+    }
+
     if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
     if(btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
-
-    renderPage();
+    if(btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
+renderPage();
   })();
   </script>
 
