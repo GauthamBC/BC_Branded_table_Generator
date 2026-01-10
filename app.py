@@ -1618,205 +1618,137 @@ with left_col:
         )
 
     # ---------- IFRAME TAB ----------
-    with tab_iframe:
-        st.markdown("#### Publish + IFrame")
+with tab_iframe:
+    st.markdown("#### Get GitHub URL + IFrame")
 
-        html_generated = bool(st.session_state.get("bt_html_generated", False))
-        if not html_generated:
-            st.warning("Click Confirm And Save Table Contents To Generate HTML Before Publishing.")
+    html_generated = bool(st.session_state.get("bt_html_generated", False))
+    if not html_generated:
+        st.warning("Click **Confirm And Save Table Contents** to generate HTML before hosting / embedding.")
 
-        saved_gh_user = st.session_state.get("bt_gh_user", "")
-        saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
+    # -------------------------
+    # Inputs (streamlined)
+    # -------------------------
+    default_user = st.session_state.get("bt_gh_user", "") or GITHUB_USER_DEFAULT or ""
+    github_user = st.text_input(
+        "Username (GitHub)",
+        value=default_user,
+        key="bt_gh_user",
+        disabled=not html_generated,
+    ).strip()
 
-        username_options = ["GauthamBC", "ActionNetwork", "MoonWatcher", "SampleUser"]
-        if GITHUB_USER_DEFAULT and GITHUB_USER_DEFAULT not in username_options:
-            username_options.insert(0, GITHUB_USER_DEFAULT)
+    default_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
+    repo_name = st.text_input(
+        "Campaign Name (Repo)",
+        value=default_repo,
+        key="bt_gh_repo",
+        disabled=not html_generated,
+    ).strip()
 
-        default_idx = username_options.index(saved_gh_user) if saved_gh_user in username_options else 0
-        github_username_input = st.selectbox(
-            "Username (GitHub Username_toggle):\n",
-            options=username_options,
-            index=default_idx,
-            key="bt_gh_user",
-            disabled=not html_generated,
+    default_file = st.session_state.get("bt_widget_file_name", "branded_table.html") or "branded_table.html"
+    widget_file = st.text_input(
+        "Widget Name (File)",
+        value=default_file,
+        key="bt_widget_file_name",
+        disabled=not html_generated,
+        help="Example: table_1.html",
+    ).strip()
+
+    email_address = st.text_input(
+        "Email Address",
+        value=st.session_state.get("bt_email_address", ""),
+        key="bt_email_address",
+        disabled=not html_generated,
+    ).strip()
+
+    st.caption("Tip: keep the widget filename ending with `.html` (e.g. `table_1.html`).")
+
+    # Normalize filename a bit (no spaces; ensure .html; no leading slash)
+    widget_file_norm = (widget_file or "branded_table.html").strip().lstrip("/").replace(" ", "_")
+    if not widget_file_norm.lower().endswith(".html"):
+        widget_file_norm = widget_file_norm + ".html"
+
+    can_run = bool(html_generated and github_user and repo_name and widget_file_norm)
+    get_iframe_clicked = st.button(
+        "🧩 Get IFrame",
+        key="bt_get_iframe",
+        disabled=not can_run,
+        use_container_width=True,
+    )
+
+    if not GITHUB_TOKEN:
+        st.info(
+            "Optional: set `GITHUB_TOKEN` in `.streamlit/secrets.toml` (with `repo` scope) to auto-publish "
+            "to GitHub Pages when you click **Get IFrame**."
         )
-        effective_github_user = (github_username_input or "").strip()
 
-        repo_name = st.text_input(
-            "Widget Hosting Repository Name",
-            value=saved_gh_repo,
-            key="bt_gh_repo",
-            disabled=not html_generated,
-        ).strip()
+    if get_iframe_clicked:
+        try:
+            html_final = st.session_state.get("bt_html_code", "")
+            if not html_final:
+                raise RuntimeError("No generated HTML found. Click Confirm And Save Table Contents first.")
 
-        base_filename = "branded_table.html"
-        st.session_state.setdefault("bt_widget_file_name", base_filename)
-        widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
-
-        st.caption(f"Target File In Repo: `{widget_file_name}`")
-
-        can_run_github = bool(GITHUB_TOKEN and effective_github_user and repo_name)
-        can_publish = bool(can_run_github and html_generated)
-
-        col_check, col_pub = st.columns([1, 1])
-        with col_check:
-            page_check_clicked = st.button(
-                "Page Availability Check",
-                key="bt_page_check",
-                disabled=not can_run_github or not html_generated,
-                use_container_width=True,
-            )
-        with col_pub:
-            publish_clicked = st.button(
-                "Publish HTML",
-                key="bt_publish_html",
-                disabled=not can_publish,
-                use_container_width=True,
-            )
-
-        if not GITHUB_TOKEN:
-            st.info("Set `GITHUB_TOKEN` In `.streamlit/secrets.toml` (With `repo` Scope) To Enable GitHub Publishing.")
-
-        if page_check_clicked:
-            try:
-                repo_exists = check_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
-                file_exists = False
-                next_fname = None
-                if repo_exists:
-                    file_exists = check_file_exists(effective_github_user, repo_name, GITHUB_TOKEN, base_filename)
-                    if file_exists:
-                        next_fname = find_next_widget_filename(effective_github_user, repo_name, GITHUB_TOKEN)
-
-                st.session_state["bt_availability"] = {
-                    "repo_exists": repo_exists,
-                    "file_exists": file_exists,
-                    "checked_filename": base_filename,
-                    "suggested_new_filename": next_fname,
-                }
-                st.success("Availability Check Complete.")
-            except Exception as e:
-                st.error(f"Availability Check Failed: {e}")
-
-        availability = st.session_state.get("bt_availability")
-        if html_generated and can_run_github and availability:
-            repo_exists = availability.get("repo_exists", False)
-            file_exists = availability.get("file_exists", False)
-            checked_filename = availability.get("checked_filename", base_filename)
-            suggested_new_filename = availability.get("suggested_new_filename") or "t1.html"
-
-            if not repo_exists:
-                st.info("No Existing Repo Found. Publishing Will Create It.")
-                st.session_state["bt_widget_file_name"] = checked_filename
-            elif repo_exists and not file_exists:
-                st.success(f"Repo Exists And `{checked_filename}` Is Available.")
-                st.session_state["bt_widget_file_name"] = checked_filename
-            else:
-                st.warning(f"`{checked_filename}` Already Exists.")
-                choice = st.radio(
-                    "Choose What To Do",
-                    options=[
-                        "Replace Existing Widget (Overwrite File)",
-                        f"Create Additional Widget File In Same Repo (Use {suggested_new_filename})",
-                        "Change Campaign Name Instead",
-                    ],
-                    key="bt_file_conflict_choice",
-                    disabled=not html_generated,
-                )
-                if choice.startswith("Replace"):
-                    st.session_state["bt_widget_file_name"] = checked_filename
-                elif choice.startswith("Create Additional"):
-                    st.session_state["bt_widget_file_name"] = suggested_new_filename
-
-        if publish_clicked:
-            try:
-                html_final = st.session_state.get("bt_html_code", "")
-                if not html_final:
-                    raise RuntimeError("No Generated HTML Found. Click Confirm And Save First.")
-
+            # Auto-publish (if token available). If not, still generate URL + iframe.
+            if GITHUB_TOKEN:
                 ph = st.empty()
                 prog = st.progress(0)
-                ph.caption("Publishing To GitHub…")
-                for pct in (10, 30, 55):
-                    time.sleep(0.10)
+                ph.caption("Publishing to GitHub Pages…")
+                for pct in (10, 35, 60):
+                    time.sleep(0.08)
                     prog.progress(pct)
 
-                ensure_repo_exists(effective_github_user, repo_name, GITHUB_TOKEN)
-                prog.progress(70)
+                ensure_repo_exists(github_user, repo_name, GITHUB_TOKEN)
+                prog.progress(75)
 
                 try:
-                    ensure_pages_enabled(effective_github_user, repo_name, GITHUB_TOKEN, branch="main")
+                    ensure_pages_enabled(github_user, repo_name, GITHUB_TOKEN, branch="main")
                 except Exception:
                     pass
                 prog.progress(85)
 
-                widget_file_name = st.session_state.get("bt_widget_file_name", base_filename)
+                msg_email = f" ({email_address})" if email_address else ""
                 upload_file_to_github(
-                    effective_github_user,
+                    github_user,
                     repo_name,
                     GITHUB_TOKEN,
-                    widget_file_name,
+                    widget_file_norm,
                     html_final,
-                    f"Add/Update {widget_file_name} From Branded Table App",
+                    f"Add/Update {widget_file_norm} from Branded Table App{msg_email}",
                     branch="main",
                 )
-                trigger_pages_build(effective_github_user, repo_name, GITHUB_TOKEN)
+                trigger_pages_build(github_user, repo_name, GITHUB_TOKEN)
 
                 prog.progress(100)
-                time.sleep(0.12)
+                time.sleep(0.10)
                 ph.empty()
                 prog.empty()
 
-                pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
-                st.session_state["bt_last_published_url"] = pages_url
-                st.success("Published. GitHub Pages May Take A Minute To Update.")
+                st.success("Published/Updated. GitHub Pages can take a minute to refresh.")
+            else:
+                st.warning(
+                    "No `GITHUB_TOKEN` found — I did not publish anything. The URL/IFrame below will work once "
+                    "the HTML is hosted in your GitHub Pages repo."
+                )
 
-            except Exception as e:
-                st.error(f"GitHub Publish Failed: {e}")
+            pages_url = compute_pages_url(github_user, repo_name, widget_file_norm)
+            st.session_state["bt_last_published_url"] = pages_url
+            st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=800)
 
-        st.markdown("---")
-        st.markdown("#### IFrame Embed")
+        except Exception as e:
+            st.error(f"Get IFrame failed: {e}")
 
-        pages_url = st.session_state.get("bt_last_published_url", "")
-        default_url = ""
-        if html_generated and effective_github_user and repo_name:
-            default_url = compute_pages_url(
-                effective_github_user,
-                repo_name,
-                st.session_state.get("bt_widget_file_name", base_filename),
-            )
+    # -------------------------
+    # Outputs
+    # -------------------------
+    st.markdown("---")
+    st.markdown("#### Output")
 
-        url_to_use = st.text_input(
-            "Page URL Used For IFrame",
-            value=pages_url or default_url,
-            key="bt_iframe_url",
-            disabled=not html_generated,
-        )
+    pages_url = st.session_state.get("bt_last_published_url", "")
+    iframe_code = st.session_state.get("bt_iframe_code", "")
 
-        iframe_height = st.number_input(
-            "IFrame Height (Px)",
-            min_value=300,
-            max_value=2000,
-            value=int(st.session_state.get("bt_iframe_height", 800)),
-            step=50,
-            key="bt_iframe_height",
-            disabled=not html_generated,
-        )
-
-        get_iframe_clicked = st.button(
-            "🧩 Get IFrame Code",
-            key="bt_get_iframe",
-            disabled=not html_generated or not bool(url_to_use.strip()),
-            use_container_width=True,
-        )
-
-        if get_iframe_clicked:
-            simulate_progress("Generating IFrame…", total_sleep=0.25)
-            st.session_state["bt_iframe_code"] = build_iframe_snippet(url_to_use, height=int(iframe_height))
-            st.success("IFrame Code Generated.")
-
-        st.text_area(
-            "IFrame Code",
-            value=st.session_state.get("bt_iframe_code", ""),
-            height=200,
-            placeholder="Confirm And Save To Generate HTML, Then Generate IFrame Code Here.",
-        )
+    st.text_input("GitHub Hosted URL", value=pages_url, disabled=True)
+    st.text_area(
+        "IFrame Code",
+        value=iframe_code,
+        height=220,
+        placeholder="Click Get IFrame to generate the embed code.",
+    )
