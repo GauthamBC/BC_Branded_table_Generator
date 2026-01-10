@@ -1709,7 +1709,7 @@ with tab_iframe:
     )
 
 effective_github_user = (github_username or "").strip()
-    expected_key = expected_user_key(effective_github_user)
+expected_key = expected_user_key(effective_github_user)
 
     key_ok = is_user_key_valid(effective_github_user, user_key_input)
 
