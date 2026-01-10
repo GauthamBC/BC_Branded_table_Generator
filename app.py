@@ -212,8 +212,8 @@ def get_brand_meta(brand: str) -> dict:
 # =========================================================
 # HTML Template
 # - Fixes table rendering by clamping INSIDE a wrapper div
-# - Download button opens menu: Top 10 vs Full Table
-# - Full table guarded by limits (DISABLE only; NO popups)
+# - Download button opens menu: Top 10 vs Bottom 10 (ONLY)
+# - Export PNG excludes Header/Subheading (table + logo only)
 # - NO alert() anywhere
 # =========================================================
 
@@ -584,6 +584,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.export-mode #bt-block .dw-page-status{
       display:none !important;
     }
+    /* HIDE HEADER/SUBTITLE IN PNG EXPORT */
+    .vi-table-embed.export-mode .vi-table-header{
+      display:none !important;
+    }
     .vi-table-embed.export-mode #bt-block .dw-scroll{
       max-height:none !important;
       height:auto !important;
@@ -642,7 +646,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
           <div class="dw-menu-title" id="dw-menu-title">Choose download</div>
           <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-dl-full">Download Full Table</button>
+          <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
         </div>
       </div>
     </div>
@@ -702,7 +706,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const menu = controls.querySelector('#dw-download-menu');
     const menuTitle = controls.querySelector('#dw-menu-title');
     const btnTop10 = controls.querySelector('#dw-dl-top10');
-    const btnFull = controls.querySelector('#dw-dl-full');
+    const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
 
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
@@ -881,25 +885,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       if(!inMenu && !inBtn) hideMenu();
     });
 
-    // Disable Full Table when huge (NO POPUP)
-    const MAX_FULL_ROWS = 250;
-
-    function syncFullButtonState(){
-      if(!btnFull) return;
-      const n = getVisibleRowsInOrder().length;
-      const tooBig = n > MAX_FULL_ROWS;
-      btnFull.disabled = tooBig;
-      if(menuTitle){
-        menuTitle.textContent = tooBig ? "Choose download (Full disabled for large tables)" : "Choose download";
-      }
-      btnFull.textContent = tooBig ? "Download Full Table (disabled)" : "Download Full Table";
-    }
-
     if(downloadBtn){
       downloadBtn.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
-        syncFullButtonState();
+        if(menuTitle) menuTitle.textContent = "Choose download";
         toggleMenu();
       });
     }
@@ -907,6 +897,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     // =============================
     // DOM PNG EXPORT (NO alert popups)
     // - Export-mode uses fixed table layout, so width doesn't explode
+    // - Export excludes header/subtitle via CSS
     // =============================
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
@@ -938,10 +929,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       const visibleOriginal = getVisibleRowsInOrder();
 
       const keep = new Set();
-      if(mode === 'full'){
-        visibleOriginal.forEach(r => keep.add(String(r.dataset.idx)));
-      }else if(mode === 'top10'){
+
+      if(mode === 'top10'){
         visibleOriginal.slice(0, 10).forEach(r => keep.add(String(r.dataset.idx)));
+      } else if(mode === 'bottom10'){
+        visibleOriginal.slice(-10).forEach(r => keep.add(String(r.dataset.idx)));
       }
 
       cloneRows.forEach(r=>{
@@ -1037,12 +1029,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           return;
         }
 
-        const visibleRows = getVisibleRowsInOrder();
-        if(mode === 'full' && visibleRows.length > MAX_FULL_ROWS){
-          // Silent bail: button should already be disabled
-          return;
-        }
-
         const stage = document.createElement('div');
         stage.style.position = 'fixed';
         stage.style.left = '-100000px';
@@ -1062,7 +1048,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         showRowsInClone(clone, mode);
 
         const base = getFilenameBase(clone);
-        const suffix = mode === 'full' ? "_full" : "_top10";
+        const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
         const targetWidth = widget.getBoundingClientRect()?.width || 1200;
@@ -1074,7 +1060,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
-    if(btnFull) btnFull.addEventListener('click', ()=> downloadDomPng('full'));
+    if(btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
 
     renderPage();
   })();
@@ -1562,7 +1548,7 @@ with left_col:
             )
 
         st.markdown("---")
-        st.caption("For images: use **Download PNG** in the table. It will show **Top 10** or **Full Table**.")
+        st.caption("For images: use **Download PNG** in the table. It will show **Top 10** or **Bottom 10**.")
 
     # ---------- HTML TAB ----------
     with tab_html:
