@@ -206,13 +206,10 @@ def get_brand_meta(brand: str) -> dict:
 
 
 # =========================================================
-# HTML Template (DOM PNG Export included + NO oklab/color-mix)
-# - Adds:
-#   * Rows/Page options: 5,10,15,20,25,30,All
-#   * Download selector: Current Page vs Full Table
-#   * Safety guard: refuse full-table export if too big
-#   * 2-line clamp (no bleed)
-#   * Better html2canvas sizing (no cutoffs)
+# HTML Template
+# - Fixes table rendering by clamping INSIDE a wrapper div
+# - Download button opens menu: Top 10 vs Full Table
+# - Full table guarded by limits (“too big to download”)
 # =========================================================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
@@ -222,10 +219,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>[[TITLE]]</title>
 
-<!-- html2canvas for DOM export -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-
 </head>
+
 <body style="margin:0;">
 
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
@@ -236,11 +232,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
   <style>
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
-    /* -----------------------------------------------------
-       IMPORTANT: html2canvas does NOT support oklab/color-mix.
-       We use RGB vars + rgba() only.
-       ----------------------------------------------------- */
-
     .vi-table-embed{
       --brand-50:#F6FFF9;
       --brand-100:#DCF2EB;
@@ -249,8 +240,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-600:#3FA94B;
       --brand-700:#2E8538;
       --brand-900:#1F5D28;
-
-      /* RGB tuple used for shadows/borders (NO oklab) */
       --brand-500-rgb: 86, 194, 87;
 
       --header-bg:var(--brand-500);
@@ -273,7 +262,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-600:#D9A72A;
       --brand-700:#B9851A;
       --brand-900:#111111;
-
       --brand-500-rgb: 242, 194, 58;
 
       --header-bg:var(--brand-500);
@@ -291,7 +279,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-600:#DC2626;
       --brand-700:#B91C1C;
       --brand-900:#7F1D1D;
-
       --brand-500-rgb: 239, 68, 68;
 
       --header-bg:var(--brand-600);
@@ -309,7 +296,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --brand-600:#0159D1;
       --brand-700:#0141A1;
       --brand-900:#011F54;
-
       --brand-500-rgb: 47, 125, 243;
 
       --header-bg:var(--brand-700);
@@ -355,7 +341,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       margin:4px 0 10px 0;
     }
     #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
 
     #bt-block .dw-field{position:relative}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
@@ -407,6 +393,41 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:var(--brand-600);
     }
 
+    /* Download menu (popover) */
+    #bt-block .dw-download-menu{
+      position:absolute;
+      right:0;
+      top:44px;
+      min-width: 220px;
+      background:#fff;
+      border:1px solid rgba(0,0,0,.10);
+      border-radius:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.18);
+      padding:10px;
+      z-index: 50;
+    }
+    #bt-block .dw-download-menu .dw-menu-title{
+      font: 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      color:#6b7280;
+      margin:0 0 8px 2px;
+    }
+    #bt-block .dw-download-menu .dw-menu-btn{
+      width:100%;
+      text-align:left;
+      border-radius:10px;
+      border:1px solid rgba(0,0,0,.10);
+      background:#fff;
+      color:#111827;
+      padding:10px 10px;
+      cursor:pointer;
+      margin:4px 0;
+      font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+    #bt-block .dw-download-menu .dw-menu-btn:hover{
+      background:var(--brand-50);
+      border-color: rgba(var(--brand-500-rgb), .35);
+    }
+
     /* Clear button */
     #bt-block .dw-clear{
       position:absolute; right:10px; top:50%; translate:0 -50%;
@@ -453,7 +474,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
     #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
 
-    /* Alignment + nicer wrapping */
+    /* TD stays a real table-cell (do NOT change display here) */
     #bt-block thead th,
     #bt-block tbody td {
       padding: 16px 14px;
@@ -462,8 +483,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       vertical-align: middle;
     }
 
-    /* 2-line clamp (prevents bleeding / ultra-wide cells) */
-    #bt-block tbody td{
+    /* Clamp INSIDE wrapper to prevent bleed without breaking layout */
+    #bt-block .dw-cell{
       white-space: normal;
       overflow-wrap: anywhere;
       word-break: break-word;
@@ -534,17 +555,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       width: auto;
       display: inline-block;
     }
-
     .vi-table-embed.brand-vegasinsider .vi-footer img{
       filter: brightness(0) saturate(100%) invert(77%) sepia(62%) saturate(680%) hue-rotate(2deg) brightness(101%) contrast(98%);
       height:24px;
     }
-
     .vi-table-embed.brand-canadasb .vi-footer img{
       filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
       height: 28px;
     }
-
     .vi-table-embed.brand-rotogrinders .vi-footer img{
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
       height:32px;
@@ -552,14 +570,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
-    /* -----------------------------------------------------
-       EXPORT MODE (used only in cloned DOM capture)
-       - hides controls/page status
-       - disables sticky header
-       - removes scroll limits (so full rows render)
-       - disables hover transforms/shadows (avoid crop bugs)
-       - uses fixed layout for stability
-       ----------------------------------------------------- */
+    /* EXPORT MODE for capture */
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
       display:none !important;
@@ -610,15 +621,16 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           <option value="0">All</option>
         </select>
 
-        <label class="dw-status" for="dw-download-mode" style="margin-left:6px;margin-right:4px;">Download</label>
-        <select id="dw-download-mode" class="dw-select" title="Download Mode">
-          <option value="page" selected>Current Page</option>
-          <option value="full">Full Table</option>
-        </select>
-
         <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
         <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
+
         <button class="dw-btn dw-download" id="dw-download-png" type="button">Download PNG</button>
+
+        <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
+          <div class="dw-menu-title">Choose download</div>
+          <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
+          <button type="button" class="dw-menu-btn" id="dw-dl-full">Download Full Table</button>
+        </div>
       </div>
     </div>
 
@@ -670,10 +682,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     const pagerWrap = controls.querySelector('.right');
     const sizeSel = controls.querySelector('#bt-size');
-    const downloadModeSel = controls.querySelector('#dw-download-mode');
     const prevBtn = controls.querySelector('[data-page="prev"]');
     const nextBtn = controls.querySelector('[data-page="next"]');
     const downloadBtn = controls.querySelector('#dw-download-png');
+
+    const menu = controls.querySelector('#dw-download-menu');
+    const btnTop10 = controls.querySelector('#dw-dl-top10');
+    const btnFull = controls.querySelector('#dw-dl-full');
 
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
@@ -692,7 +707,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    // If pager is OFF, show ALL rows by default
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
     let page = 1;
     let filter = '';
@@ -765,7 +779,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       pageStatus.textContent = "Page " + page + " Of " + pages;
     }
 
-    function getVisibleRows(){
+    function getVisibleRowsInOrder(){
       const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
       return ordered.filter(matchesFilter);
     }
@@ -840,29 +854,37 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    // =====================================================
-    // DOM PNG EXPORT (Current Page or Full Table)
-    // - Current Page: captures only currently displayed rows
-    // - Full Table: captures all rows (guarded by limits)
-    // - Offscreen clone, no user fullscreen needed
-    // - Better sizing to avoid cutoffs
-    // =====================================================
+    // =============================
+    // Download Menu Toggle
+    // =============================
+    function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
+    function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
-    // Safety thresholds (tune as needed)
-    const MAX_FULL_ROWS = 250;     // refuse full-table PNG above this
-    const MAX_CAPTURE_AREA = 28_000_000; // width*height px cap (prevents memory blowups)
+    document.addEventListener('click', (e)=>{
+      if(!menu || menu.classList.contains('vi-hide')) return;
+      const inMenu = menu.contains(e.target);
+      const inBtn = downloadBtn && downloadBtn.contains(e.target);
+      if(!inMenu && !inBtn) hideMenu();
+    });
 
-    function rowsForCurrentPage(){
-      // what is currently visible on screen after renderPage()
-      return Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty') && r.style.display !== 'none');
+    if(downloadBtn){
+      downloadBtn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        toggleMenu();
+      });
     }
 
+    // =============================
+    // DOM PNG EXPORT
+    // =============================
+    const MAX_FULL_ROWS = 250;
+    const MAX_CAPTURE_AREA = 28_000_000; // width*height safety cap
+
     async function waitForFontsAndImages(el){
-      // fonts
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
       }
-      // images inside el
       const imgs = Array.from(el.querySelectorAll('img'));
       await Promise.all(imgs.map(img=>{
         if (img.complete) return Promise.resolve();
@@ -873,34 +895,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }));
     }
 
-    function showAllRowsInClone(clone){
-      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
-      if(!cloneTb) return;
-      const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      cloneRows.forEach(r=>{ r.style.display = 'table-row'; });
-      const empty = cloneTb.querySelector('.dw-empty');
-      if(empty) empty.style.display='none';
-    }
-
-    function showOnlyCurrentPageRowsInClone(clone){
-      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
-      if(!cloneTb) return;
-
-      // figure out which original rows are on screen (by dataset.idx)
-      const current = rowsForCurrentPage();
-      const keepIdx = new Set(current.map(r => String(r.dataset.idx)));
-
-      const cloneRows = Array.from(cloneTb.rows);
-      cloneRows.forEach(r=>{
-        if(r.classList.contains('dw-empty')) return;
-        const idx = String(r.dataset.idx || "");
-        r.style.display = keepIdx.has(idx) ? 'table-row' : 'none';
-      });
-
-      const empty = cloneTb.querySelector('.dw-empty');
-      if(empty) empty.style.display='none';
-    }
-
     function getFilenameBase(clone){
       return (clone.querySelector('.vi-table-header .title')?.textContent || 'table')
         .trim()
@@ -909,8 +903,31 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         .slice(0,60) || 'table';
     }
 
+    function showRowsInClone(clone, mode){
+      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
+      if(!cloneTb) return;
+
+      const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      const visibleOriginal = getVisibleRowsInOrder();
+
+      // map order by dataset.idx (stable)
+      const keep = new Set();
+      if(mode === 'full'){
+        visibleOriginal.forEach(r => keep.add(String(r.dataset.idx)));
+      }else if(mode === 'top10'){
+        visibleOriginal.slice(0, 10).forEach(r => keep.add(String(r.dataset.idx)));
+      }
+
+      cloneRows.forEach(r=>{
+        const idx = String(r.dataset.idx || "");
+        r.style.display = keep.has(idx) ? 'table-row' : 'none';
+      });
+
+      const empty = cloneTb.querySelector('.dw-empty');
+      if(empty) empty.style.display='none';
+    }
+
     async function captureCloneToPng(clone, stage, filename){
-      // Expand clone to full width + full height
       const cloneScroller = clone.querySelector('.dw-scroll');
       const cloneTable = clone.querySelector('table.dw-table');
 
@@ -925,7 +942,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
       await waitForFontsAndImages(clone);
 
-      // Set width to full table width
+      // full width
       let fullW = 0;
       if(cloneTable){
         fullW = Math.max(cloneTable.scrollWidth || 0, cloneTable.offsetWidth || 0);
@@ -939,18 +956,16 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
 
-      // Measure height after row visibility changes
       const fullH = Math.ceil(Math.max(
         clone.scrollHeight || 0,
         clone.offsetHeight || 0,
         clone.getBoundingClientRect().height || 0
       ));
 
-      // Safety: prevent giant canvases
       const area = Math.ceil(fullW) * Math.ceil(fullH);
       if(area > MAX_CAPTURE_AREA){
         stage.remove();
-        alert("Table is too big to download as a PNG. Try 'Current Page' or reduce rows/columns.");
+        alert("Table is too big to download as a PNG. Try Top 10 or reduce the table.");
         return;
       }
 
@@ -988,8 +1003,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }, 'image/png');
     }
 
-    async function downloadDomPng(){
+    async function downloadDomPng(mode){
       try{
+        hideMenu();
+
         if(!window.html2canvas){
           alert("html2canvas failed to load. Check network / CSP.");
           return;
@@ -1001,16 +1018,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           return;
         }
 
-        const mode = (downloadModeSel?.value || "page").toLowerCase();
-
-        // Safety: refuse full export if too many rows (after filter)
-        const visibleRows = getVisibleRows();
-        if(mode === "full" && visibleRows.length > MAX_FULL_ROWS){
-          alert("Table is too big to download as a full PNG. Switch to 'Current Page' or reduce the table.");
+        const visibleRows = getVisibleRowsInOrder();
+        if(mode === 'full' && visibleRows.length > MAX_FULL_ROWS){
+          alert("Table is too big to download as a full PNG. Please use Top 10 or reduce the table.");
           return;
         }
 
-        // Offscreen stage
         const stage = document.createElement('div');
         stage.style.position = 'fixed';
         stage.style.left = '-100000px';
@@ -1027,18 +1040,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         stage.appendChild(clone);
         document.body.appendChild(stage);
 
-        // Ensure dataset.idx exists in clone too (it should clone attributes)
-        // Apply row visibility based on mode
-        if(mode === "full"){
-          // show all rows (full table)
-          showAllRowsInClone(clone);
-        }else{
-          // current page only
-          showOnlyCurrentPageRowsInClone(clone);
-        }
+        showRowsInClone(clone, mode);
 
         const base = getFilenameBase(clone);
-        const suffix = mode === "full" ? "_full" : `_page_${page}`;
+        const suffix = mode === 'full' ? "_full" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
         await captureCloneToPng(clone, stage, filename);
@@ -1049,9 +1054,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
-    if(downloadBtn){
-      downloadBtn.addEventListener('click', downloadDomPng);
-    }
+    if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
+    if(btnFull) btnFull.addEventListener('click', ()=> downloadDomPng('full'));
 
     renderPage();
   })();
@@ -1110,12 +1114,16 @@ def generate_table_html_from_df(
         head_cells.append(f'<th scope="col" data-type="{col_type}">{safe_label}</th>')
     table_head_html = "\n              ".join(head_cells)
 
+    # IMPORTANT FIX:
+    # keep TD as table-cell; clamp inside a wrapper div
     row_html_snippets = []
     for _, row in df.iterrows():
         cells = []
         for col in df.columns:
             val = "" if pd.isna(row[col]) else str(row[col])
-            cells.append(f"<td>{html_mod.escape(val)}</td>")
+            safe_val = html_mod.escape(val)
+            safe_title = html_mod.escape(val, quote=True)
+            cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
         row_html_snippets.append("            <tr>" + "".join(cells) + "</tr>")
 
     table_rows_html = "\n".join(row_html_snippets)
@@ -1533,7 +1541,7 @@ with left_col:
             )
 
         st.markdown("---")
-        st.caption("For images: use the **Download PNG** button inside the preview/table widget. Choose Current Page or Full Table.")
+        st.caption("For images: use **Download PNG** in the table. It will prompt **Top 10** or **Full Table**.")
 
     # ---------- HTML TAB ----------
     with tab_html:
