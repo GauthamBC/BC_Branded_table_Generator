@@ -1708,8 +1708,8 @@ with tab_iframe:
         help="Ask the admin for the 6-digit key tied to your GitHub username.",
     )
 
-effective_github_user = (github_username or "").strip()
-expected_key = expected_user_key(effective_github_user)
+    effective_github_user = (github_username or "").strip()
+    expected_key = expected_user_key(effective_github_user)
 
     key_ok = is_user_key_valid(effective_github_user, user_key_input)
 
