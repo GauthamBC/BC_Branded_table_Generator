@@ -12,6 +12,7 @@ import streamlit.components.v1 as components
 # 0) Secrets
 # =========================================================
 
+
 def get_secret(key: str, default: str = "") -> str:
     try:
         if hasattr(st, "secrets") and key in st.secrets:
@@ -27,6 +28,7 @@ GITHUB_USER_DEFAULT = get_secret("GITHUB_USER", "")
 # =========================================================
 # GitHub Helpers
 # =========================================================
+
 
 def github_headers(token: str) -> dict:
     headers = {"Accept": "application/vnd.github+json"}
@@ -117,6 +119,7 @@ def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
 
 # --- Availability Check Helpers ---
 
+
 def check_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
@@ -174,6 +177,7 @@ def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "
 # Brand Metadata
 # =========================================================
 
+
 def get_brand_meta(brand: str) -> dict:
     default_logo = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
     brand_clean = (brand or "").strip() or "Action Network"
@@ -209,7 +213,8 @@ def get_brand_meta(brand: str) -> dict:
 # HTML Template
 # - Fixes table rendering by clamping INSIDE a wrapper div
 # - Download button opens menu: Top 10 vs Full Table
-# - Full table guarded by limits (“too big to download”)
+# - Full table guarded by limits (DISABLE only; NO popups)
+# - NO alert() anywhere
 # =========================================================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
@@ -427,6 +432,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:var(--brand-50);
       border-color: rgba(var(--brand-500-rgb), .35);
     }
+    #bt-block .dw-download-menu .dw-menu-btn[disabled]{
+      opacity:.55;
+      cursor:not-allowed;
+    }
 
     /* Clear button */
     #bt-block .dw-clear{
@@ -589,7 +598,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:none !important;
     }
     .vi-table-embed.export-mode #bt-block table.dw-table{
-      table-layout:fixed !important;
+      table-layout:fixed !important; /* prevents huge width from long URLs */
+      width:100% !important;
+    }
+    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{
+      overflow-x:hidden !important;
     }
   </style>
 
@@ -627,7 +640,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         <button class="dw-btn dw-download" id="dw-download-png" type="button">Download PNG</button>
 
         <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-          <div class="dw-menu-title">Choose download</div>
+          <div class="dw-menu-title" id="dw-menu-title">Choose download</div>
           <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
           <button type="button" class="dw-menu-btn" id="dw-dl-full">Download Full Table</button>
         </div>
@@ -687,6 +700,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const downloadBtn = controls.querySelector('#dw-download-png');
 
     const menu = controls.querySelector('#dw-download-menu');
+    const menuTitle = controls.querySelector('#dw-menu-title');
     const btnTop10 = controls.querySelector('#dw-dl-top10');
     const btnFull = controls.querySelector('#dw-dl-full');
 
@@ -867,20 +881,33 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       if(!inMenu && !inBtn) hideMenu();
     });
 
+    // Disable Full Table when huge (NO POPUP)
+    const MAX_FULL_ROWS = 250;
+
+    function syncFullButtonState(){
+      if(!btnFull) return;
+      const n = getVisibleRowsInOrder().length;
+      const tooBig = n > MAX_FULL_ROWS;
+      btnFull.disabled = tooBig;
+      if(menuTitle){
+        menuTitle.textContent = tooBig ? "Choose download (Full disabled for large tables)" : "Choose download";
+      }
+      btnFull.textContent = tooBig ? "Download Full Table (disabled)" : "Download Full Table";
+    }
+
     if(downloadBtn){
       downloadBtn.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
+        syncFullButtonState();
         toggleMenu();
       });
     }
 
     // =============================
-    // DOM PNG EXPORT
+    // DOM PNG EXPORT (NO alert popups)
+    // - Export-mode uses fixed table layout, so width doesn't explode
     // =============================
-    const MAX_FULL_ROWS = 250;
-    const MAX_CAPTURE_AREA = 28_000_000; // width*height safety cap
-
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -910,7 +937,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
       const visibleOriginal = getVisibleRowsInOrder();
 
-      // map order by dataset.idx (stable)
       const keep = new Set();
       if(mode === 'full'){
         visibleOriginal.forEach(r => keep.add(String(r.dataset.idx)));
@@ -927,9 +953,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       if(empty) empty.style.display='none';
     }
 
-    async function captureCloneToPng(clone, stage, filename){
+    async function captureCloneToPng(clone, stage, filename, targetWidth){
       const cloneScroller = clone.querySelector('.dw-scroll');
-      const cloneTable = clone.querySelector('table.dw-table');
 
       if(cloneScroller){
         cloneScroller.style.maxHeight = 'none';
@@ -937,24 +962,16 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         cloneScroller.style.overflow = 'visible';
         cloneScroller.style.overflowX = 'visible';
         cloneScroller.style.overflowY = 'visible';
+        cloneScroller.classList.add('no-scroll');
       }
+
+      // Force clone width to match the on-screen widget width (prevents giant images)
+      const w = Math.max(900, Math.ceil(targetWidth || 1200));
+      clone.style.maxWidth = 'none';
+      clone.style.width = w + 'px';
 
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
       await waitForFontsAndImages(clone);
-
-      // full width
-      let fullW = 0;
-      if(cloneTable){
-        fullW = Math.max(cloneTable.scrollWidth || 0, cloneTable.offsetWidth || 0);
-      }
-      fullW = Math.max(fullW, clone.scrollWidth || 0, 900);
-
-      clone.style.maxWidth = 'none';
-      clone.style.width = fullW + 'px';
-      if(cloneScroller) cloneScroller.style.width = fullW + 'px';
-      if(cloneTable) cloneTable.style.width = fullW + 'px';
-
-      await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
 
       const fullH = Math.ceil(Math.max(
         clone.scrollHeight || 0,
@@ -962,10 +979,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         clone.getBoundingClientRect().height || 0
       ));
 
-      const area = Math.ceil(fullW) * Math.ceil(fullH);
+      // If height is still insane, just bail silently (no popup)
+      const MAX_CAPTURE_AREA = 28_000_000;
+      const area = Math.ceil(w) * Math.ceil(fullH);
       if(area > MAX_CAPTURE_AREA){
         stage.remove();
-        alert("Table is too big to download as a PNG. Try Top 10 or reduce the table.");
+        console.warn("PNG export skipped: capture area too large.", { w, fullH, area });
         return;
       }
 
@@ -977,9 +996,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         useCORS: true,
         allowTaint: true,
         logging: false,
-        width: Math.ceil(fullW),
+        width: Math.ceil(w),
         height: Math.ceil(fullH),
-        windowWidth: Math.ceil(fullW),
+        windowWidth: Math.ceil(w),
         windowHeight: Math.ceil(fullH),
         scrollX: 0,
         scrollY: 0,
@@ -988,7 +1007,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       canvas.toBlob((blob)=>{
         if(!blob){
           stage.remove();
-          alert("Failed to generate PNG blob.");
+          console.warn("PNG export failed: no blob returned.");
           return;
         }
         const url = URL.createObjectURL(blob);
@@ -1008,19 +1027,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         hideMenu();
 
         if(!window.html2canvas){
-          alert("html2canvas failed to load. Check network / CSP.");
+          console.warn("html2canvas failed to load.");
           return;
         }
 
         const widget = document.querySelector('section.vi-table-embed');
         if(!widget){
-          alert("Widget not found.");
+          console.warn("Widget not found.");
           return;
         }
 
         const visibleRows = getVisibleRowsInOrder();
         if(mode === 'full' && visibleRows.length > MAX_FULL_ROWS){
-          alert("Table is too big to download as a full PNG. Please use Top 10 or reduce the table.");
+          // Silent bail: button should already be disabled
           return;
         }
 
@@ -1046,11 +1065,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         const suffix = mode === 'full' ? "_full" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
-        await captureCloneToPng(clone, stage, filename);
+        const targetWidth = widget.getBoundingClientRect()?.width || 1200;
+        await captureCloneToPng(clone, stage, filename, targetWidth);
 
       }catch(err){
-        console.error(err);
-        alert("PNG export failed. Check console for details.");
+        console.error("PNG export failed:", err);
       }
     }
 
@@ -1069,6 +1088,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 # =========================================================
 # Generator
 # =========================================================
+
 
 def guess_column_type(series: pd.Series) -> str:
     if pd.api.types.is_numeric_dtype(series):
@@ -1195,6 +1215,7 @@ def generate_table_html_from_df(
 # =========================================================
 # UI Helpers
 # =========================================================
+
 
 def stable_config_hash(cfg: dict) -> str:
     keys = sorted(cfg.keys())
@@ -1541,7 +1562,7 @@ with left_col:
             )
 
         st.markdown("---")
-        st.caption("For images: use **Download PNG** in the table. It will prompt **Top 10** or **Full Table**.")
+        st.caption("For images: use **Download PNG** in the table. It will show **Top 10** or **Full Table**.")
 
     # ---------- HTML TAB ----------
     with tab_html:
