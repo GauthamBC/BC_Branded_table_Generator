@@ -57,24 +57,25 @@ def get_github_tokens_map() -> dict:
 
 
 # =========================================================
-# Repo Auto-Naming (Brand + Month + Year)
+# Repo Auto-Naming (Full Brand Name + Month + Year)
 # =========================================================
-# Repo name fixed automatically to reduce user work.
 # Example outputs (UTC-based):
-#   Action Network (Jan 2026) -> anj26
-#   VegasInsider (Oct 2026)   -> vio26
-#   Canada SB (Feb 2026)      -> csbf26
-#   RotoGrinders (Dec 2026)   -> rgd26
+#   Action Network (Jan 2026) -> ActionNetworkj26
+#   VegasInsider (Oct 2026)   -> VegasInsidero26
+#   Canada SB (Feb 2026)      -> CanadaSportsBettingf26
+#   RotoGrinders (Dec 2026)   -> RotoGrindersd26
+#
+# Month letters chosen to be short + stable:
+# Jan=j, Feb=f, Mar=m, Apr=a, May=y, Jun=u, Jul=l, Aug=g, Sep=s, Oct=o, Nov=n, Dec=d
 # =========================================================
 
-BRAND_REPO_PREFIX = {
-    "Action Network": "an",
-    "Canada Sports Betting": "csb",
-    "VegasInsider": "vi",
-    "RotoGrinders": "rg",
+BRAND_REPO_PREFIX_FULL = {
+    "Action Network": "ActionNetwork",
+    "Canada Sports Betting": "CanadaSportsBetting",
+    "VegasInsider": "VegasInsider",
+    "RotoGrinders": "RotoGrinders",
 }
 
-# Short month codes (unique + consistent). You can change these anytime.
 MONTH_CODE = {
     1: "j",   # Jan
     2: "f",   # Feb
@@ -91,17 +92,14 @@ MONTH_CODE = {
 }
 
 
-def suggested_repo_name(brand: str, include_year: bool = True) -> str:
+def suggested_repo_name(brand: str) -> str:
     b = (brand or "").strip()
-    prefix = BRAND_REPO_PREFIX.get(b, "an")
-
+    prefix = BRAND_REPO_PREFIX_FULL.get(b, "ActionNetwork")
     now = datetime.datetime.utcnow()
     mm = MONTH_CODE.get(now.month, "x")
-
-    if include_year:
-        yy = str(now.year)[-2:]
-        return f"{prefix}{mm}{yy}"
-    return f"{prefix}{mm}"
+    yy = str(now.year)[-2:]
+    # GitHub repo names are case-insensitive but we keep branding casing for readability.
+    return f"{prefix}{mm}{yy}"
 
 
 # =========================================================
@@ -160,7 +158,6 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     if r.status_code not in (404, 403):
         raise RuntimeError(f"Error Checking GitHub Pages: {r.status_code} {r.text}")
     if r.status_code == 403:
-        # No permission / not available for this repo/account plan
         return
 
     payload = {"source": {"branch": branch, "path": "/"}}
@@ -205,6 +202,21 @@ def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     headers = github_headers(token)
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers, timeout=20)
     return r.status_code in (201, 202)
+
+
+def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str = "main") -> bool:
+    """True if a file exists at path in repo."""
+    try:
+        api_base = "https://api.github.com"
+        headers = github_headers(token)
+        path = (path or "").lstrip("/").strip()
+        if not path:
+            return False
+        url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
+        r = requests.get(url, headers=headers, params={"ref": branch}, timeout=20)
+        return r.status_code == 200
+    except Exception:
+        return False
 
 
 # =========================================================
@@ -1353,6 +1365,8 @@ def reset_widget_state_for_new_upload():
         "bt_gh_repo",
         "bt_html_stale",
         "bt_confirm_flash",
+        "bt_widget_exists_locked",
+        "bt_widget_name_locked_value",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -1374,15 +1388,14 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_footer_logo_align", "Center")
 
     st.session_state.setdefault("bt_gh_user", "Select a user...")
-
-    # Default repo is auto-generated from current brand + month (+year)
-    current_brand = st.session_state.get("brand_table", "Action Network")
-    st.session_state.setdefault("bt_gh_repo", suggested_repo_name(current_brand, include_year=True))
-
     st.session_state.setdefault("bt_widget_file_name", "table.html")
 
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
+
+    # Widget locking state (set during Publish tab checks)
+    st.session_state.setdefault("bt_widget_exists_locked", False)
+    st.session_state.setdefault("bt_widget_name_locked_value", "")
 
 
 def do_confirm_snapshot():
@@ -1631,7 +1644,7 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- IFRAME TAB (SUPER SIMPLE + AUTO REPO) ----------
+    # ---------- IFRAME TAB (SUPER SIMPLE + AUTO REPO + NO SWAP IF EXISTS) ----------
     with tab_iframe:
         st.markdown("### Publish + IFrame")
 
@@ -1641,7 +1654,6 @@ with left_col:
 
         tokens_map = get_github_tokens_map()
 
-        # Always show the allowed users (even if tokens are not set yet)
         allowed_users = list(PUBLISH_USERS)
         username_options = ["Select a user..."] + allowed_users
 
@@ -1654,7 +1666,7 @@ with left_col:
             options=username_options,
             index=username_options.index(saved_user),
             key="bt_gh_user",
-            disabled=False,  # ✅ never disable
+            disabled=False,
         )
 
         effective_github_user = ""
@@ -1663,37 +1675,84 @@ with left_col:
 
         token_for_user = tokens_map.get(effective_github_user, "").strip()
 
-        # Friendly (non-blocking) token status
         if effective_github_user:
             if token_for_user:
                 st.caption("✅ Token found in Streamlit secrets for this user.")
             else:
                 st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
 
-        # Auto repo based on brand + month (+year) and LOCK it
+        # Auto repo based on brand + month + year and LOCK it
         current_brand = st.session_state.get("brand_table", "Action Network")
-        auto_repo = suggested_repo_name(current_brand, include_year=True)
+        auto_repo = suggested_repo_name(current_brand)
         st.session_state["bt_gh_repo"] = auto_repo
         repo_name = auto_repo
 
         st.text_input(
             "Campaign Name (repo)",
             value=repo_name,
-            disabled=True,  # ✅ locked
-            help="Auto-generated from Brand + current month (+ year).",
+            disabled=True,
+            help="Auto-generated from Brand + current month + year.",
         )
+
+        # -----------------------------------------------------
+        # Widget Name (file) with "no swapping if already exists"
+        # -----------------------------------------------------
+        # Rule:
+        # - If selected user has a valid token and the file already exists in the repo,
+        #   then lock the widget name to that existing value (user can only change it by typing a NEW name).
+        #
+        # Implementation:
+        # - We check existence only when we have token + user + repo + a filename candidate.
+        # - If it exists, we set a lock flag and store the locked filename in session_state.
+        # - While locked, we DISABLE any programmatic swapping: we keep the value stable unless user edits it.
+        #
+        # Note: since this UI is just a text_input (not a select/dropdown), "swapping" typically happens
+        # when other state changes overwrite the input value. We prevent overwrites by only auto-setting
+        # the value if not locked.
+        # -----------------------------------------------------
+
+        # If locked, keep showing the locked value unless user changes it.
+        locked = bool(st.session_state.get("bt_widget_exists_locked", False))
+        locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
+
+        # If not locked, use the normal session default
+        default_widget_value = st.session_state.get("bt_widget_file_name", "table.html")
+
+        # Decide what to show in the input:
+        input_value = locked_value if (locked and locked_value) else default_widget_value
 
         widget_file_name = st.text_input(
             "Widget Name (file)",
-            value=st.session_state.get("bt_widget_file_name", "table.html"),
+            value=input_value,
             key="bt_widget_file_name",
-            disabled=False,  # ✅ never disable
+            disabled=False,
             help="Example: top10-supermoon-states.html",
         ).strip()
 
         if widget_file_name and not widget_file_name.lower().endswith(".html"):
             widget_file_name = widget_file_name + ".html"
-            st.session_state["bt_widget_file_name"] = widget_file_name  # keep UI consistent
+            st.session_state["bt_widget_file_name"] = widget_file_name
+
+        # If we are locked and user changed the name away from the locked one,
+        # then unlock (because they explicitly want a new filename).
+        if locked and locked_value and widget_file_name and widget_file_name != locked_value:
+            st.session_state["bt_widget_exists_locked"] = False
+            st.session_state["bt_widget_name_locked_value"] = ""
+
+        # Recompute after possible unlock
+        locked = bool(st.session_state.get("bt_widget_exists_locked", False))
+        locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
+
+        # Only check "exists" when we have enough info (and NOT already locked)
+        if (not locked) and effective_github_user and token_for_user and repo_name and widget_file_name:
+            if github_file_exists(effective_github_user, repo_name, token_for_user, widget_file_name, branch="main"):
+                st.session_state["bt_widget_exists_locked"] = True
+                st.session_state["bt_widget_name_locked_value"] = widget_file_name
+                locked = True
+                locked_value = widget_file_name
+
+        if locked and locked_value:
+            st.caption("🔒 This widget file already exists in the repo. To publish a new one, type a NEW file name.")
 
         # ✅ ONLY the button is gated
         can_publish = bool(
@@ -1707,10 +1766,9 @@ with left_col:
         publish_clicked = st.button(
             "🧩 Publish + Get IFrame",
             use_container_width=True,
-            disabled=not can_publish,  # ✅ only this is disabled
+            disabled=not can_publish,
         )
 
-        # Helpful hint if button disabled
         if not can_publish:
             missing = []
             if not html_generated:
@@ -1762,6 +1820,10 @@ with left_col:
                 st.session_state["bt_iframe_code"] = build_iframe_snippet(
                     pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
                 )
+
+                # If it now exists (it does), lock to prevent any "swap" overrides later
+                st.session_state["bt_widget_exists_locked"] = True
+                st.session_state["bt_widget_name_locked_value"] = widget_file_name
 
                 st.success("Done. URL + IFrame are ready below.")
 
