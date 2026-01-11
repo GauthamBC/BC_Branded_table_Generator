@@ -1,4 +1,5 @@
 import base64
+import datetime
 import html as html_mod
 import re
 import time
@@ -53,6 +54,54 @@ def get_github_tokens_map() -> dict:
     except Exception:
         pass
     return {}
+
+
+# =========================================================
+# Repo Auto-Naming (Brand + Month + Year)
+# =========================================================
+# Repo name fixed automatically to reduce user work.
+# Example outputs (UTC-based):
+#   Action Network (Jan 2026) -> anj26
+#   VegasInsider (Oct 2026)   -> vio26
+#   Canada SB (Feb 2026)      -> csbf26
+#   RotoGrinders (Dec 2026)   -> rgd26
+# =========================================================
+
+BRAND_REPO_PREFIX = {
+    "Action Network": "an",
+    "Canada Sports Betting": "csb",
+    "VegasInsider": "vi",
+    "RotoGrinders": "rg",
+}
+
+# Short month codes (unique + consistent). You can change these anytime.
+MONTH_CODE = {
+    1: "j",   # Jan
+    2: "f",   # Feb
+    3: "m",   # Mar
+    4: "a",   # Apr
+    5: "y",   # May
+    6: "u",   # Jun
+    7: "l",   # Jul
+    8: "g",   # Aug
+    9: "s",   # Sep
+    10: "o",  # Oct
+    11: "n",  # Nov
+    12: "d",  # Dec
+}
+
+
+def suggested_repo_name(brand: str, include_year: bool = True) -> str:
+    b = (brand or "").strip()
+    prefix = BRAND_REPO_PREFIX.get(b, "an")
+
+    now = datetime.datetime.utcnow()
+    mm = MONTH_CODE.get(now.month, "x")
+
+    if include_year:
+        yy = str(now.year)[-2:]
+        return f"{prefix}{mm}{yy}"
+    return f"{prefix}{mm}"
 
 
 # =========================================================
@@ -1325,7 +1374,11 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_footer_logo_align", "Center")
 
     st.session_state.setdefault("bt_gh_user", "Select a user...")
-    st.session_state.setdefault("bt_gh_repo", "ActionNetwork")
+
+    # Default repo is auto-generated from current brand + month (+year)
+    current_brand = st.session_state.get("brand_table", "Action Network")
+    st.session_state.setdefault("bt_gh_repo", suggested_repo_name(current_brand, include_year=True))
+
     st.session_state.setdefault("bt_widget_file_name", "table.html")
 
     st.session_state.setdefault("bt_confirm_flash", False)
@@ -1415,7 +1468,9 @@ with right_col:
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save Table Contents To Finalize HTML/Publishing.")
+            st.caption(
+                "Edits Apply To The Draft Immediately. Click Confirm And Save Table Contents To Finalize HTML/Publishing."
+            )
 
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
@@ -1576,24 +1631,24 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- IFRAME TAB (SUPER SIMPLE) ----------
+    # ---------- IFRAME TAB (SUPER SIMPLE + AUTO REPO) ----------
     with tab_iframe:
         st.markdown("### Publish + IFrame")
-    
+
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
             st.warning("Click **Confirm And Save Table Contents** to generate HTML before publishing / embedding.")
-    
+
         tokens_map = get_github_tokens_map()
-    
+
         # Always show the allowed users (even if tokens are not set yet)
         allowed_users = list(PUBLISH_USERS)
         username_options = ["Select a user..."] + allowed_users
-    
+
         saved_user = st.session_state.get("bt_gh_user", "Select a user...")
         if saved_user not in username_options:
             saved_user = "Select a user..."
-    
+
         github_username_input = st.selectbox(
             "User name",
             options=username_options,
@@ -1601,27 +1656,33 @@ with left_col:
             key="bt_gh_user",
             disabled=False,  # ✅ never disable
         )
-    
+
         effective_github_user = ""
         if github_username_input and github_username_input != "Select a user...":
             effective_github_user = github_username_input.strip().lower()
-    
+
         token_for_user = tokens_map.get(effective_github_user, "").strip()
-    
+
         # Friendly (non-blocking) token status
         if effective_github_user:
             if token_for_user:
                 st.caption("✅ Token found in Streamlit secrets for this user.")
             else:
-                st.caption("ℹ️ No token found for this user yet. You can still fill repo/file, but publishing is disabled.")
-    
-        repo_name = st.text_input(
+                st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
+
+        # Auto repo based on brand + month (+year) and LOCK it
+        current_brand = st.session_state.get("brand_table", "Action Network")
+        auto_repo = suggested_repo_name(current_brand, include_year=True)
+        st.session_state["bt_gh_repo"] = auto_repo
+        repo_name = auto_repo
+
+        st.text_input(
             "Campaign Name (repo)",
-            value=st.session_state.get("bt_gh_repo", "ActionNetwork"),
-            key="bt_gh_repo",
-            disabled=False,  # ✅ never disable
-        ).strip()
-    
+            value=repo_name,
+            disabled=True,  # ✅ locked
+            help="Auto-generated from Brand + current month (+ year).",
+        )
+
         widget_file_name = st.text_input(
             "Widget Name (file)",
             value=st.session_state.get("bt_widget_file_name", "table.html"),
@@ -1629,11 +1690,11 @@ with left_col:
             disabled=False,  # ✅ never disable
             help="Example: top10-supermoon-states.html",
         ).strip()
-    
+
         if widget_file_name and not widget_file_name.lower().endswith(".html"):
             widget_file_name = widget_file_name + ".html"
             st.session_state["bt_widget_file_name"] = widget_file_name  # keep UI consistent
-    
+
         # ✅ ONLY the button is gated
         can_publish = bool(
             html_generated
@@ -1642,51 +1703,49 @@ with left_col:
             and widget_file_name
             and token_for_user
         )
-    
+
         publish_clicked = st.button(
             "🧩 Publish + Get IFrame",
             use_container_width=True,
             disabled=not can_publish,  # ✅ only this is disabled
         )
-    
-        # Helpful hint if button disabled (optional but nice)
+
+        # Helpful hint if button disabled
         if not can_publish:
             missing = []
             if not html_generated:
                 missing.append("confirm+save (generate HTML)")
             if not effective_github_user:
                 missing.append("select a user")
-            if not repo_name:
-                missing.append("repo name")
             if not widget_file_name:
                 missing.append("file name")
             if effective_github_user and not token_for_user:
                 missing.append("GitHub token in secrets")
             if missing:
                 st.caption("To enable publishing: " + ", ".join(missing) + ".")
-    
+
         if publish_clicked:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
                     raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
-    
+
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
-    
+
                 token_login = get_authenticated_github_login(token_for_user)
                 if token_login and token_login.lower() != effective_github_user.lower():
                     raise RuntimeError(
                         f"Token user '{token_login}' does not match selected Username '{effective_github_user}'. "
                         "Fix the token in secrets."
                     )
-    
+
                 ensure_repo_exists(effective_github_user, repo_name, token_for_user)
-    
+
                 try:
                     ensure_pages_enabled(effective_github_user, repo_name, token_for_user, branch="main")
                 except Exception:
                     pass
-    
+
                 upload_file_to_github(
                     effective_github_user,
                     repo_name,
@@ -1697,26 +1756,26 @@ with left_col:
                     branch="main",
                 )
                 trigger_pages_build(effective_github_user, repo_name, token_for_user)
-    
+
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
                 st.session_state["bt_iframe_code"] = build_iframe_snippet(
                     pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
                 )
-    
+
                 st.success("Done. URL + IFrame are ready below.")
-    
+
             except Exception as e:
                 st.error(f"Publish / IFrame generation failed: {e}")
-    
+
         st.markdown("#### Outputs")
-    
+
         st.text_input(
             "GitHub Hosted URL",
             value=st.session_state.get("bt_last_published_url", ""),
             disabled=True,
         )
-    
+
         st.text_area(
             "IFrame Code",
             value=st.session_state.get("bt_iframe_code", ""),
