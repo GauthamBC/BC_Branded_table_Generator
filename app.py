@@ -85,17 +85,17 @@ def get_user_keys_map() -> dict:
                 m = {}
                 for part in raw.split(","):
                     part = part.strip()
-                    if not part:
-                        continue
-                    if ":" not in part:
+                    if not part or ":" not in part:
                         continue
                     u, k = part.split(":", 1)
-                    m[u.strip()] = k.strip()
+                    u = u.strip()
+                    if u:
+                        m[u] = k.strip()
                 return m
     except Exception:
         pass
+    return {}
 
-        return {}
 
 
 def expected_user_key(username: str) -> str:
