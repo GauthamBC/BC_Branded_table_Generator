@@ -2,7 +2,6 @@ import base64
 import html as html_mod
 import re
 import time
-import secrets
 
 import pandas as pd
 import requests
@@ -10,51 +9,36 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # =========================================================
-# 0) Publishing Users + Defaults (SIMPLIFIED)
+# 0) Publishing Users + Secrets (SIMPLIFIED)
 # =========================================================
-# ✅ Only 4 users in the dropdown
-# ✅ No user-key gate
-# ✅ URL changes by selected username:
-#    https://{username}.github.io/{DEFAULT_PAGES_REPO}/{filename}
+# ✅ Only usernames in dropdown (4 users)
+# ✅ No token input UI, no consent UI
+# ✅ Tokens must exist in Streamlit secrets:
 #
-# NOTE ABOUT TOKENS:
-# - Streamlit secrets are READ-ONLY at runtime.
-# - If a token is not present in secrets, the app can accept a token with consent and
-#   store it in st.session_state for the current session ONLY.
-# - For persistence, you must add it to .streamlit/secrets.toml (or Streamlit Cloud secrets).
+# [GITHUB_TOKENS]
+# gauthambc = "ghp_xxx_or_github_pat_xxx"
+# amybc     = "..."
+# benbc     = "..."
+# kathybc   = "..."
+#
+# URL becomes:
+# https://{username}.github.io/{repo}/{file}
+# =========================================================
 
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
-DEFAULT_PAGES_REPO = "ActionNetwork"
-
-
-# =========================================================
-# 0.1) Secrets Helpers
-# =========================================================
-def get_secret(key: str, default: str = "") -> str:
-    try:
-        if hasattr(st, "secrets") and key in st.secrets:
-            return str(st.secrets[key]).strip()
-    except Exception:
-        pass
-    return default
 
 
 def get_github_tokens_map() -> dict:
-    """
-    Return {username: token} from Streamlit secrets.
-
-    Recommended secrets.toml:
-    [GITHUB_TOKENS]
-    gauthambc = "ghp_xxx"
-    amybc     = "ghp_xxx"
-    benbc     = "ghp_xxx"
-    kathybc   = "ghp_xxx"
-    """
+    """Return {username_lower: token} from Streamlit secrets."""
     try:
         if hasattr(st, "secrets") and "GITHUB_TOKENS" in st.secrets:
             raw = st.secrets["GITHUB_TOKENS"]
             if isinstance(raw, dict):
-                return {str(k).strip().lower(): str(v).strip() for k, v in raw.items() if str(k).strip()}
+                return {
+                    str(k).strip().lower(): str(v).strip()
+                    for k, v in raw.items()
+                    if str(k).strip()
+                }
             if isinstance(raw, str):
                 m = {}
                 for part in raw.split(","):
@@ -62,37 +46,13 @@ def get_github_tokens_map() -> dict:
                     if not part or ":" not in part:
                         continue
                     u, t = part.split(":", 1)
-                    if u.strip():
-                        m[u.strip().lower()] = t.strip()
+                    u = u.strip().lower()
+                    if u:
+                        m[u] = t.strip()
                 return m
     except Exception:
         pass
     return {}
-
-
-def get_runtime_tokens_map() -> dict:
-    st.session_state.setdefault("bt_runtime_tokens", {})
-    m = st.session_state.get("bt_runtime_tokens", {})
-    if isinstance(m, dict):
-        # normalize keys
-        return {str(k).strip().lower(): str(v).strip() for k, v in m.items() if str(k).strip()}
-    return {}
-
-
-def set_runtime_token(username: str, token: str) -> None:
-    st.session_state.setdefault("bt_runtime_tokens", {})
-    st.session_state["bt_runtime_tokens"][str(username).strip().lower()] = str(token).strip()
-
-
-def get_token_for_user(username: str) -> str:
-    u = (username or "").strip().lower()
-    if not u:
-        return ""
-    secrets_map = get_github_tokens_map()
-    if u in secrets_map and secrets_map[u]:
-        return secrets_map[u].strip()
-    runtime_map = get_runtime_tokens_map()
-    return runtime_map.get(u, "").strip()
 
 
 # =========================================================
@@ -1330,22 +1290,6 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 ></iframe>"""
 
 
-def slugify_filename(title: str) -> str:
-    """
-    Title -> top10-supermoon-states.html style
-    Example: "Top 10 Supermoon States" -> "top10-supermoon-states.html"
-    """
-    t = (title or "").strip().lower()
-    # merge "top 10" -> "top10"
-    t = re.sub(r"\btop\s+(\d+)\b", r"top\1", t)
-    t = re.sub(r"\s+", "-", t)
-    t = re.sub(r"[^a-z0-9\-]+", "", t)
-    t = re.sub(r"\-+", "-", t).strip("-")
-    if not t:
-        t = "table"
-    return f"{t}.html"
-
-
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1356,11 +1300,10 @@ def reset_widget_state_for_new_upload():
         "bt_last_published_url",
         "bt_iframe_code",
         "bt_widget_file_name",
-        "bt_iframe_url",
+        "bt_gh_user",
+        "bt_gh_repo",
         "bt_html_stale",
         "bt_confirm_flash",
-        "bt_pages_filename",
-        "bt_selected_publisher",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -1379,12 +1322,12 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
 
-    # simplified publishing: repo fixed, file auto from title
-    st.session_state.setdefault("bt_pages_repo", DEFAULT_PAGES_REPO)
-    st.session_state.setdefault("bt_pages_filename", "table.html")
-    st.session_state.setdefault("bt_selected_publisher", "Select a user...")
-
     st.session_state.setdefault("bt_footer_logo_align", "Center")
+
+    st.session_state.setdefault("bt_gh_user", "Select a user...")
+    st.session_state.setdefault("bt_gh_repo", "ActionNetwork")
+    st.session_state.setdefault("bt_widget_file_name", "table.html")
+
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
 
@@ -1401,9 +1344,6 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
-
-    # auto filename from confirmed title (so it matches your example style)
-    st.session_state["bt_pages_filename"] = slugify_filename(cfg.get("title", "table"))
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -1636,75 +1576,80 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- IFRAME TAB (SIMPLIFIED) ----------
+    # ---------- IFRAME TAB (SUPER SIMPLE) ----------
     with tab_iframe:
-        st.markdown("### Publish + IFrame (Simple)")
+        st.markdown("### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
-            st.warning("Click **Confirm And Save Table Contents** first (to generate the HTML).")
+            st.warning("Click **Confirm And Save Table Contents** to generate HTML before publishing / embedding.")
 
-        st.markdown("#### 1) Select a publisher (4 users)")
-        username_options = ["Select a user..."] + PUBLISH_USERS
+        tokens_map = get_github_tokens_map()
 
-        saved_user = st.session_state.get("bt_selected_publisher", "Select a user...")
+        # Only show these 4 users (and only those that have tokens configured)
+        configured_users = [u for u in PUBLISH_USERS if tokens_map.get(u)]
+        if not configured_users:
+            st.error(
+                "No GitHub tokens configured for the allowed users.\n\n"
+                "Add to Streamlit secrets:\n"
+                "[GITHUB_TOKENS]\n"
+                "gauthambc = \"...\"\n"
+                "amybc = \"...\"\n"
+                "benbc = \"...\"\n"
+                "kathybc = \"...\""
+            )
+
+        username_options = ["Select a user..."] + configured_users
+
+        # Safe index
+        saved_user = st.session_state.get("bt_gh_user", "Select a user...")
         if saved_user not in username_options:
             saved_user = "Select a user..."
 
-        selected_user = st.selectbox(
-            "Publisher Username (GitHub)",
+        github_username_input = st.selectbox(
+            "User name",
             options=username_options,
             index=username_options.index(saved_user),
-            key="bt_selected_publisher",
-            disabled=not html_generated,
+            key="bt_gh_user",
+            disabled=not html_generated or not configured_users,
         )
 
-        effective_user = "" if selected_user == "Select a user..." else selected_user.strip().lower()
+        effective_github_user = ""
+        if github_username_input and github_username_input != "Select a user...":
+            effective_github_user = github_username_input.strip().lower()
 
-        token_for_user = get_token_for_user(effective_user)
+        token_for_user = tokens_map.get(effective_github_user, "").strip()
 
-        # If token missing, allow runtime token with consent
-        if html_generated and effective_user and not token_for_user:
-            st.warning(f"No token found in secrets for **{effective_user}**.")
-            st.caption("Paste a GitHub token below. With consent, it will be stored for this session only (not permanent).")
+        repo_name = st.text_input(
+            "Campaign Name (repo)",
+            value=st.session_state.get("bt_gh_repo", "ActionNetwork"),
+            key="bt_gh_repo",
+            disabled=not html_generated or not effective_github_user,
+        ).strip()
 
-            tmp_token = st.text_input(
-                "GitHub Token (session-only)",
-                value="",
-                type="password",
-                placeholder="ghp_... / github_pat_...",
-            )
-            consent = st.checkbox(
-                "I consent to store this token in this Streamlit session (cleared when the app restarts).",
-                value=False,
-            )
-            if consent and tmp_token.strip():
-                set_runtime_token(effective_user, tmp_token.strip())
-                token_for_user = get_token_for_user(effective_user)
-                st.success("Token stored for this session.")
+        widget_file_name = st.text_input(
+            "Widget Name (file)",
+            value=st.session_state.get("bt_widget_file_name", "table.html"),
+            key="bt_widget_file_name",
+            disabled=not html_generated or not effective_github_user,
+            help="Example: top10-supermoon-states.html",
+        ).strip()
 
-            st.info(
-                "To save permanently, add it to Streamlit secrets:\n\n"
-                "[GITHUB_TOKENS]\n"
-                f"{effective_user} = \"YOUR_TOKEN\""
-            )
+        if widget_file_name and not widget_file_name.lower().endswith(".html"):
+            widget_file_name = widget_file_name + ".html"
 
-        st.markdown("#### 2) Publish")
-        repo_name = st.session_state.get("bt_pages_repo", DEFAULT_PAGES_REPO)
-        filename = st.session_state.get("bt_pages_filename", "table.html")
+        can_run = bool(token_for_user and effective_github_user and repo_name and widget_file_name and html_generated)
 
-        st.text_input("Repo (fixed)", value=repo_name, disabled=True)
-        st.text_input("File (auto from title)", value=filename, disabled=True)
-
-        can_run = bool(token_for_user and effective_user and html_generated)
-
-        get_iframe_clicked = st.button(
+        publish_clicked = st.button(
             "🧩 Publish + Get IFrame",
             use_container_width=True,
             disabled=not can_run,
         )
 
-        if get_iframe_clicked:
+        if effective_github_user and not token_for_user:
+            st.error(f"Token missing in secrets for user: {effective_github_user}")
+
+        if publish_clicked:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
@@ -1713,34 +1658,35 @@ with left_col:
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
                 token_login = get_authenticated_github_login(token_for_user)
-                if token_login and token_login.lower() != effective_user.lower():
+                if token_login and token_login.lower() != effective_github_user.lower():
                     raise RuntimeError(
-                        f"Token user '{token_login}' does not match selected Username '{effective_user}'. "
-                        "Pick the matching user or update the token."
+                        f"Token user '{token_login}' does not match selected Username '{effective_github_user}'. "
+                        "Fix the token in secrets."
                     )
 
-                ensure_repo_exists(effective_user, repo_name, token_for_user)
+                ensure_repo_exists(effective_github_user, repo_name, token_for_user)
 
                 try:
-                    ensure_pages_enabled(effective_user, repo_name, token_for_user, branch="main")
+                    ensure_pages_enabled(effective_github_user, repo_name, token_for_user, branch="main")
                 except Exception:
                     pass
 
                 upload_file_to_github(
-                    effective_user,
+                    effective_github_user,
                     repo_name,
                     token_for_user,
-                    filename,
+                    widget_file_name,
                     html_final,
-                    f"Add/Update {filename} from Branded Table App",
+                    f"Add/Update {widget_file_name} from Branded Table App",
                     branch="main",
                 )
-                trigger_pages_build(effective_user, repo_name, token_for_user)
+                trigger_pages_build(effective_github_user, repo_name, token_for_user)
 
-                pages_url = compute_pages_url(effective_user, repo_name, filename)
+                pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=800)
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                    pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
+                )
 
                 st.success("Done. URL + IFrame are ready below.")
 
