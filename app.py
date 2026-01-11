@@ -10,10 +10,26 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # =========================================================
-# 0) Secrets
+# 0) Publishing Users + Defaults (SIMPLIFIED)
 # =========================================================
+# ✅ Only 4 users in the dropdown
+# ✅ No user-key gate
+# ✅ URL changes by selected username:
+#    https://{username}.github.io/{DEFAULT_PAGES_REPO}/{filename}
+#
+# NOTE ABOUT TOKENS:
+# - Streamlit secrets are READ-ONLY at runtime.
+# - If a token is not present in secrets, the app can accept a token with consent and
+#   store it in st.session_state for the current session ONLY.
+# - For persistence, you must add it to .streamlit/secrets.toml (or Streamlit Cloud secrets).
+
+PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
+DEFAULT_PAGES_REPO = "ActionNetwork"
 
 
+# =========================================================
+# 0.1) Secrets Helpers
+# =========================================================
 def get_secret(key: str, default: str = "") -> str:
     try:
         if hasattr(st, "secrets") and key in st.secrets:
@@ -23,31 +39,22 @@ def get_secret(key: str, default: str = "") -> str:
     return default
 
 
-# NOTE:
-# This app supports multiple GitHub accounts.
-# Configure tokens + user-keys in Streamlit secrets like:
-#
-# [GITHUB_TOKENS]
-# GauthamBC = "ghp_xxx"
-# AmyBC     = "ghp_xxx"
-# BenBC     = "ghp_xxx"
-# KathyBC   = "ghp_xxx"
-#
-# [USER_KEYS]
-# GauthamBC = "567979"
-# AmyBC     = "123456"
-# BenBC     = "654321"
-# KathyBC   = "111111"
-#
-# No "default user" is used; users must select a username and enter the matching 6-digit key.
-
 def get_github_tokens_map() -> dict:
-    """Return {username: token} from Streamlit secrets."""
+    """
+    Return {username: token} from Streamlit secrets.
+
+    Recommended secrets.toml:
+    [GITHUB_TOKENS]
+    gauthambc = "ghp_xxx"
+    amybc     = "ghp_xxx"
+    benbc     = "ghp_xxx"
+    kathybc   = "ghp_xxx"
+    """
     try:
         if hasattr(st, "secrets") and "GITHUB_TOKENS" in st.secrets:
             raw = st.secrets["GITHUB_TOKENS"]
             if isinstance(raw, dict):
-                return {str(k).strip(): str(v).strip() for k, v in raw.items() if str(k).strip()}
+                return {str(k).strip().lower(): str(v).strip() for k, v in raw.items() if str(k).strip()}
             if isinstance(raw, str):
                 m = {}
                 for part in raw.split(","):
@@ -56,63 +63,41 @@ def get_github_tokens_map() -> dict:
                         continue
                     u, t = part.split(":", 1)
                     if u.strip():
-                        m[u.strip()] = t.strip()
+                        m[u.strip().lower()] = t.strip()
                 return m
     except Exception:
         pass
     return {}
 
 
-
-# =========================================================
-# User Key Helpers (Simple verification for IFrame)
-# - Define USER_KEYS in secrets.toml (recommended):
-#     [USER_KEYS]
-#     GauthamBC = "567979"
-#     ActionNetwork = "123456"
-# - Or as a single string:
-#     USER_KEYS = "GauthamBC:567979,ActionNetwork:123456"
-# =========================================================
-
-def get_user_keys_map() -> dict:
-    """Return {username: key} from Streamlit secrets."""
-    try:
-        if hasattr(st, "secrets") and "USER_KEYS" in st.secrets:
-            raw = st.secrets["USER_KEYS"]
-            if isinstance(raw, dict):
-                return {str(k).strip(): str(v).strip() for k, v in raw.items() if str(k).strip()}
-            if isinstance(raw, str):
-                m = {}
-                for part in raw.split(","):
-                    part = part.strip()
-                    if not part or ":" not in part:
-                        continue
-                    u, k = part.split(":", 1)
-                    u = u.strip()
-                    if u:
-                        m[u] = k.strip()
-                return m
-    except Exception:
-        pass
+def get_runtime_tokens_map() -> dict:
+    st.session_state.setdefault("bt_runtime_tokens", {})
+    m = st.session_state.get("bt_runtime_tokens", {})
+    if isinstance(m, dict):
+        # normalize keys
+        return {str(k).strip().lower(): str(v).strip() for k, v in m.items() if str(k).strip()}
     return {}
 
 
+def set_runtime_token(username: str, token: str) -> None:
+    st.session_state.setdefault("bt_runtime_tokens", {})
+    st.session_state["bt_runtime_tokens"][str(username).strip().lower()] = str(token).strip()
 
-def expected_user_key(username: str) -> str:
-    username = (username or "").strip()
-    return get_user_keys_map().get(username, "")
+
+def get_token_for_user(username: str) -> str:
+    u = (username or "").strip().lower()
+    if not u:
+        return ""
+    secrets_map = get_github_tokens_map()
+    if u in secrets_map and secrets_map[u]:
+        return secrets_map[u].strip()
+    runtime_map = get_runtime_tokens_map()
+    return runtime_map.get(u, "").strip()
 
 
-def is_user_key_valid(username: str, provided_key: str) -> bool:
-    exp = expected_user_key(username)
-    if not exp:
-        return False
-    return (provided_key or "").strip() == str(exp).strip()
 # =========================================================
 # GitHub Helpers
 # =========================================================
-
-
 def github_headers(token: str) -> dict:
     headers = {"Accept": "application/vnd.github+json"}
     if token:
@@ -132,6 +117,7 @@ def get_authenticated_github_login(token: str) -> str:
     except Exception:
         pass
     return ""
+
 
 def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
@@ -212,67 +198,9 @@ def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     return r.status_code in (201, 202)
 
 
-# --- Availability Check Helpers ---
-
-
-def check_repo_exists(owner: str, repo: str, token: str) -> bool:
-    api_base = "https://api.github.com"
-    headers = github_headers(token)
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers, timeout=20)
-    if r.status_code == 200:
-        return True
-    if r.status_code == 404:
-        return False
-    raise RuntimeError(f"Error Checking Repo: {r.status_code} {r.text}")
-
-
-def check_file_exists(owner: str, repo: str, token: str, path: str, branch: str = "main") -> bool:
-    api_base = "https://api.github.com"
-    headers = github_headers(token)
-    r = requests.get(
-        f"{api_base}/repos/{owner}/{repo}/contents/{path}",
-        headers=headers,
-        params={"ref": branch},
-        timeout=20,
-    )
-    if r.status_code == 200:
-        return True
-    if r.status_code == 404:
-        return False
-    raise RuntimeError(f"Error Checking File: {r.status_code} {r.text}")
-
-
-def find_next_widget_filename(owner: str, repo: str, token: str, branch: str = "main") -> str:
-    api_base = "https://api.github.com"
-    headers = github_headers(token)
-    r = requests.get(
-        f"{api_base}/repos/{owner}/{repo}/contents",
-        headers=headers,
-        params={"ref": branch},
-        timeout=20,
-    )
-    if r.status_code != 200:
-        return "t1.html"
-
-    max_n = 0
-    try:
-        for item in r.json():
-            if item.get("type") == "file":
-                name = item.get("name", "")
-                m = re.fullmatch(r"t(\d+)\.html", name)
-                if m:
-                    max_n = max(max_n, int(m.group(1)))
-    except Exception:
-        return "t1.html"
-
-    return f"t{max_n + 1}.html"
-
-
 # =========================================================
 # Brand Metadata
 # =========================================================
-
-
 def get_brand_meta(brand: str) -> dict:
     default_logo = "https://i.postimg.cc/x1nG117r/AN-final2-logo.png"
     brand_clean = (brand or "").strip() or "Action Network"
@@ -306,12 +234,7 @@ def get_brand_meta(brand: str) -> dict:
 
 # =========================================================
 # HTML Template
-# - Fixes table rendering by clamping INSIDE a wrapper div
-# - Download button opens menu: Top 10 vs Bottom 10 (ONLY)
-# - EXPORT removes header/subtitle and controls: image shows ONLY table + logo
-# - NO alert() anywhere
 # =========================================================
-
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -796,7 +719,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const btnTop10 = controls.querySelector('#dw-dl-top10');
     const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
     const btnEmbed = controls.querySelector('#dw-embed-script');
-const emptyRow = tb.querySelector('.dw-empty');
+    const menuTitle = controls.querySelector('#dw-menu-title');
+
+    const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
     const hasSearch = !controlsHidden
@@ -883,11 +808,6 @@ const emptyRow = tb.querySelector('.dw-empty');
       if(totalVisible === 0){ pageStatus.textContent = ""; return; }
       if(!hasPager || pageSize === 0){ pageStatus.textContent = ""; return; }
       pageStatus.textContent = "Page " + page + " Of " + pages;
-    }
-
-    function getVisibleRowsInOrder(){
-      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      return ordered.filter(matchesFilter);
     }
 
     function renderPage(){
@@ -983,8 +903,6 @@ const emptyRow = tb.querySelector('.dw-empty');
 
     // =============================
     // DOM PNG EXPORT (NO alert popups)
-    // - Export-mode uses fixed table layout, so width doesn't explode
-    // - Export hides header/subtitle and controls: ONLY table + logo
     // =============================
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
@@ -1001,7 +919,6 @@ const emptyRow = tb.querySelector('.dw-empty');
     }
 
     function getFilenameBase(clone){
-      // Use TITLE if present; otherwise fallback to 'table'
       const t = clone.querySelector('.vi-table-header .title')?.textContent || 'table';
       return (t || 'table')
         .trim()
@@ -1010,16 +927,11 @@ const emptyRow = tb.querySelector('.dw-empty');
         .slice(0,60) || 'table';
     }
 
-    // IMPORTANT FIX:
-    // Select rows by POSITION (robust with sorting/filtering/paging),
-    // so Bottom 10 always matches correctly.
     function showRowsInClone(clone, mode){
       const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
       if(!cloneTb) return;
 
       const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
-
-      // Row positions that are visible under current filter, in current DOM order (sorting applied)
       const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
       const visiblePositions = [];
       for(let i=0;i<ordered.length;i++){
@@ -1053,7 +965,6 @@ const emptyRow = tb.querySelector('.dw-empty');
         cloneScroller.classList.add('no-scroll');
       }
 
-      // Force clone width to match the on-screen widget width (prevents giant images)
       const w = Math.max(900, Math.ceil(targetWidth || 1200));
       clone.style.maxWidth = 'none';
       clone.style.width = w + 'px';
@@ -1067,7 +978,6 @@ const emptyRow = tb.querySelector('.dw-empty');
         clone.getBoundingClientRect().height || 0
       ));
 
-      // If height is still insane, just bail silently (no popup)
       const MAX_CAPTURE_AREA = 28_000_000;
       const area = Math.ceil(w) * Math.ceil(fullH);
       if(area > MAX_CAPTURE_AREA){
@@ -1196,7 +1106,6 @@ const emptyRow = tb.querySelector('.dw-empty');
       const code = buildEmbedCode();
       const ok = await copyToClipboard(code);
       if(menuTitle){
-        const prev = menuTitle.textContent;
         menuTitle.textContent = ok ? 'Embed code copied!' : 'Copy failed (try again)';
         setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
       }
@@ -1205,7 +1114,8 @@ const emptyRow = tb.querySelector('.dw-empty');
     if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
     if(btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
     if(btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
-renderPage();
+
+    renderPage();
   })();
   </script>
 
@@ -1214,11 +1124,10 @@ renderPage();
 </html>
 """
 
+
 # =========================================================
 # Generator
 # =========================================================
-
-
 def guess_column_type(series: pd.Series) -> str:
     if pd.api.types.is_numeric_dtype(series):
         return "num"
@@ -1263,8 +1172,6 @@ def generate_table_html_from_df(
         head_cells.append(f'<th scope="col" data-type="{col_type}">{safe_label}</th>')
     table_head_html = "\n              ".join(head_cells)
 
-    # IMPORTANT FIX:
-    # keep TD as table-cell; clamp inside a wrapper div
     row_html_snippets = []
     for _, row in df.iterrows():
         cells = []
@@ -1344,8 +1251,6 @@ def generate_table_html_from_df(
 # =========================================================
 # UI Helpers
 # =========================================================
-
-
 def stable_config_hash(cfg: dict) -> str:
     keys = sorted(cfg.keys())
     return "|".join([f"{k}={repr(cfg.get(k))}" for k in keys])
@@ -1425,6 +1330,22 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 ></iframe>"""
 
 
+def slugify_filename(title: str) -> str:
+    """
+    Title -> top10-supermoon-states.html style
+    Example: "Top 10 Supermoon States" -> "top10-supermoon-states.html"
+    """
+    t = (title or "").strip().lower()
+    # merge "top 10" -> "top10"
+    t = re.sub(r"\btop\s+(\d+)\b", r"top\1", t)
+    t = re.sub(r"\s+", "-", t)
+    t = re.sub(r"[^a-z0-9\-]+", "", t)
+    t = re.sub(r"\-+", "-", t).strip("-")
+    if not t:
+        t = "table"
+    return f"{t}.html"
+
+
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1435,11 +1356,11 @@ def reset_widget_state_for_new_upload():
         "bt_last_published_url",
         "bt_iframe_code",
         "bt_widget_file_name",
-        "bt_availability",
-        "bt_file_conflict_choice",
         "bt_iframe_url",
         "bt_html_stale",
         "bt_confirm_flash",
+        "bt_pages_filename",
+        "bt_selected_publisher",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -1457,10 +1378,13 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
-    st.session_state.setdefault("bt_widget_file_name", "branded_table.html")
+
+    # simplified publishing: repo fixed, file auto from title
+    st.session_state.setdefault("bt_pages_repo", DEFAULT_PAGES_REPO)
+    st.session_state.setdefault("bt_pages_filename", "table.html")
+    st.session_state.setdefault("bt_selected_publisher", "Select a user...")
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
-
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
 
@@ -1478,13 +1402,15 @@ def do_confirm_snapshot():
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
 
+    # auto filename from confirmed title (so it matches your example style)
+    st.session_state["bt_pages_filename"] = slugify_filename(cfg.get("title", "table"))
+
     st.session_state["bt_confirm_flash"] = True
 
 
 # =========================================================
 # Streamlit App
 # =========================================================
-
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 st.markdown(
     """
@@ -1533,7 +1459,6 @@ ensure_confirm_state_exists()
 left_col, right_col = st.columns([1, 3], gap="large")
 
 # ===================== Right: Editor + Live Preview (Draft) =====================
-
 with right_col:
     with st.expander("Open Editor", expanded=False):
         edited_df = st.data_editor(
@@ -1550,7 +1475,7 @@ with right_col:
                 st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
                 st.rerun()
         with c2:
-            st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save To Finalize HTML/Publishing.")
+            st.caption("Edits Apply To The Draft Immediately. Click Confirm And Save Table Contents To Finalize HTML/Publishing.")
 
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
@@ -1580,7 +1505,6 @@ with right_col:
     components.html(live_preview_html, height=820, scrolling=True)
 
 # ===================== Left: Tabs =====================
-
 with left_col:
     tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
 
@@ -1691,7 +1615,7 @@ with left_col:
             )
 
         st.markdown("---")
-        st.caption("For images: use **Download PNG** in the table. It will show **Top 10** or **Bottom 10**.")
+        st.caption("For images: use **Embed / Download** in the table. It will show **Top 10** or **Bottom 10**.")
 
     # ---------- HTML TAB ----------
     with tab_html:
@@ -1712,95 +1636,73 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- IFRAME TAB ----------
-
-with tab_iframe:
-        st.markdown("### Publish + IFrame")
+    # ---------- IFRAME TAB (SIMPLIFIED) ----------
+    with tab_iframe:
+        st.markdown("### Publish + IFrame (Simple)")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
-            st.warning("Click **Confirm And Save Table Contents** to generate HTML before publishing / embedding.")
+            st.warning("Click **Confirm And Save Table Contents** first (to generate the HTML).")
 
-        # ---------------------------------------------
-        # Access gate: Username + User Key (stacked)
-        # ---------------------------------------------
-        saved_gh_user = st.session_state.get("bt_gh_user", "")
-        saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
-        saved_widget_file = st.session_state.get("bt_widget_file_name", "branded_table.html")
+        st.markdown("#### 1) Select a publisher (4 users)")
+        username_options = ["Select a user..."] + PUBLISH_USERS
 
-        tokens_map = get_github_tokens_map()
-        user_keys_map = get_user_keys_map()
+        saved_user = st.session_state.get("bt_selected_publisher", "Select a user...")
+        if saved_user not in username_options:
+            saved_user = "Select a user..."
 
-        configured_users = sorted(set(tokens_map.keys()) & set(user_keys_map.keys()))
-        if not configured_users:
-            st.error(
-                "No users configured for publishing yet. Add **both** `[GITHUB_TOKENS]` and `[USER_KEYS]` in Streamlit secrets."
+        selected_user = st.selectbox(
+            "Publisher Username (GitHub)",
+            options=username_options,
+            index=username_options.index(saved_user),
+            key="bt_selected_publisher",
+            disabled=not html_generated,
+        )
+
+        effective_user = "" if selected_user == "Select a user..." else selected_user.strip().lower()
+
+        token_for_user = get_token_for_user(effective_user)
+
+        # If token missing, allow runtime token with consent
+        if html_generated and effective_user and not token_for_user:
+            st.warning(f"No token found in secrets for **{effective_user}**.")
+            st.caption("Paste a GitHub token below. With consent, it will be stored for this session only (not permanent).")
+
+            tmp_token = st.text_input(
+                "GitHub Token (session-only)",
+                value="",
+                type="password",
+                placeholder="ghp_... / github_pat_...",
+            )
+            consent = st.checkbox(
+                "I consent to store this token in this Streamlit session (cleared when the app restarts).",
+                value=False,
+            )
+            if consent and tmp_token.strip():
+                set_runtime_token(effective_user, tmp_token.strip())
+                token_for_user = get_token_for_user(effective_user)
+                st.success("Token stored for this session.")
+
+            st.info(
+                "To save permanently, add it to Streamlit secrets:\n\n"
+                "[GITHUB_TOKENS]\n"
+                f"{effective_user} = \"YOUR_TOKEN\""
             )
 
-        username_options = ["Select a user..."] + configured_users
+        st.markdown("#### 2) Publish")
+        repo_name = st.session_state.get("bt_pages_repo", DEFAULT_PAGES_REPO)
+        filename = st.session_state.get("bt_pages_filename", "table.html")
 
-        # Safe index (prevents Streamlit crash)
-        default_idx = 0
-        if saved_gh_user in username_options:
-            default_idx = username_options.index(saved_gh_user)
-        default_idx = max(0, min(default_idx, len(username_options) - 1))
+        st.text_input("Repo (fixed)", value=repo_name, disabled=True)
+        st.text_input("File (auto from title)", value=filename, disabled=True)
 
-        github_username_input = st.selectbox(
-            "Username (GitHub)",
-            options=username_options,
-            index=default_idx,
-            key="bt_gh_user",
-            disabled=not html_generated or not configured_users,
-        )
-
-        effective_github_user = ""
-        if github_username_input and github_username_input != "Select a user...":
-            effective_github_user = github_username_input.strip()
-
-        token_for_user = tokens_map.get(effective_github_user, "").strip()
-
-        user_key_input = st.text_input(
-            "User Key (6 digits)",
-            value=st.session_state.get("bt_user_key", ""),
-            key="bt_user_key",
-            type="password",
-            disabled=not html_generated or not effective_github_user,
-            placeholder="e.g. 567979",
-        )
-
-        key_ok = bool(effective_github_user) and is_user_key_valid(effective_github_user, user_key_input)
-
-        if html_generated and effective_github_user and user_key_input and not key_ok:
-            st.warning("User Key doesn’t match the selected Username. IFrame is locked until it matches.")
-# ---------------------------------------------
-        # Minimal fields: Repo + File + Email
-        # ---------------------------------------------
-        repo_name = st.text_input(
-            "Campaign Name (Repository)",
-            value=saved_gh_repo,
-            key="bt_gh_repo",
-            disabled=not html_generated or not key_ok,
-        ).strip()
-
-        widget_file_name = st.text_input(
-            "Widget Name (File)",
-            value=saved_widget_file,
-            key="bt_widget_file_name",
-            disabled=not html_generated or not key_ok,
-            help="Example: branded_table.html (must end with .html)",
-        ).strip() or "branded_table.html"
-
-
-        can_run = bool(token_for_user and effective_github_user and repo_name and html_generated and key_ok)
+        can_run = bool(token_for_user and effective_user and html_generated)
 
         get_iframe_clicked = st.button(
-            "🧩 Get IFrame",
+            "🧩 Publish + Get IFrame",
             use_container_width=True,
             disabled=not can_run,
         )
-
-        if not token_for_user:
-            st.info("Set `token_for_user` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
 
         if get_iframe_clicked:
             try:
@@ -1811,33 +1713,34 @@ with tab_iframe:
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
                 token_login = get_authenticated_github_login(token_for_user)
-                if token_login and token_login.lower() != effective_github_user.lower():
+                if token_login and token_login.lower() != effective_user.lower():
                     raise RuntimeError(
-                        f"Token user '{token_login}' does not match selected Username '{effective_github_user}'. "
-                        "Select the matching user or update secrets."
+                        f"Token user '{token_login}' does not match selected Username '{effective_user}'. "
+                        "Pick the matching user or update the token."
                     )
 
-                ensure_repo_exists(effective_github_user, repo_name, token_for_user)
+                ensure_repo_exists(effective_user, repo_name, token_for_user)
 
                 try:
-                    ensure_pages_enabled(effective_github_user, repo_name, token_for_user, branch="main")
+                    ensure_pages_enabled(effective_user, repo_name, token_for_user, branch="main")
                 except Exception:
                     pass
 
                 upload_file_to_github(
-                    effective_github_user,
+                    effective_user,
                     repo_name,
                     token_for_user,
-                    widget_file_name,
+                    filename,
                     html_final,
-                    f"Add/Update {widget_file_name} from Branded Table App",
+                    f"Add/Update {filename} from Branded Table App",
                     branch="main",
                 )
-                trigger_pages_build(effective_github_user, repo_name, token_for_user)
+                trigger_pages_build(effective_user, repo_name, token_for_user)
 
-                pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
+                pages_url = compute_pages_url(effective_user, repo_name, filename)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
+
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=800)
 
                 st.success("Done. URL + IFrame are ready below.")
 
