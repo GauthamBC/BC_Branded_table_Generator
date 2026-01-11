@@ -24,26 +24,22 @@ def get_secret(key: str, default: str = "") -> str:
 
 
 # NOTE:
-# We keep these for backwards compatibility, but the app below uses PER-USER tokens via [GITHUB_TOKENS].
-GITHUB_TOKEN = get_secret("GITHUB_TOKEN", "")
-GITHUB_USER_DEFAULT = get_secret("GITHUB_USER", "")
-
-# =========================================================
-# GitHub Token Helpers (Per-user tokens)
-# - Define in secrets.toml (recommended):
+# This app supports multiple GitHub accounts.
+# Configure tokens + user-keys in Streamlit secrets like:
 #
-#   [GITHUB_TOKENS]
-#   GauthamBC = "ghp_..."
-#   AmyBC     = "ghp_..."
-#   BenBC     = "ghp_..."
-#   KathyBC   = "ghp_..."
+# [GITHUB_TOKENS]
+# GauthamBC = "ghp_xxx"
+# AmyBC     = "ghp_xxx"
+# BenBC     = "ghp_xxx"
+# KathyBC   = "ghp_xxx"
 #
-# - Or as a single string:
-#   GITHUB_TOKENS = "GauthamBC:ghp_xxx,AmyBC:ghp_yyy"
+# [USER_KEYS]
+# GauthamBC = "567979"
+# AmyBC     = "123456"
+# BenBC     = "654321"
+# KathyBC   = "111111"
 #
-# This drives the Username dropdown and selects the right token automatically.
-# =========================================================
-
+# No "default user" is used; users must select a username and enter the matching 6-digit key.
 
 def get_github_tokens_map() -> dict:
     """Return {username: token} from Streamlit secrets."""
@@ -51,33 +47,21 @@ def get_github_tokens_map() -> dict:
         if hasattr(st, "secrets") and "GITHUB_TOKENS" in st.secrets:
             raw = st.secrets["GITHUB_TOKENS"]
             if isinstance(raw, dict):
-                return {
-                    str(k).strip(): str(v).strip()
-                    for k, v in raw.items()
-                    if str(k).strip() and str(v).strip()
-                }
+                return {str(k).strip(): str(v).strip() for k, v in raw.items() if str(k).strip()}
             if isinstance(raw, str):
                 m = {}
                 for part in raw.split(","):
                     part = part.strip()
                     if not part or ":" not in part:
                         continue
-                    u, tok = part.split(":", 1)
-                    u = u.strip()
-                    tok = tok.strip()
-                    if u and tok:
-                        m[u] = tok
+                    u, t = part.split(":", 1)
+                    if u.strip():
+                        m[u.strip()] = t.strip()
                 return m
     except Exception:
         pass
-
-    # Fallback (dev only) — replace via secrets in production
     return {}
 
-
-def token_for_user(username: str) -> str:
-    username = (username or "").strip()
-    return get_github_tokens_map().get(username, "").strip()
 
 
 # =========================================================
@@ -85,11 +69,9 @@ def token_for_user(username: str) -> str:
 # - Define USER_KEYS in secrets.toml (recommended):
 #     [USER_KEYS]
 #     GauthamBC = "567979"
-#     AmyBC     = "123456"
-#     BenBC     = "654321"
-#     KathyBC   = "111111"
+#     ActionNetwork = "123456"
 # - Or as a single string:
-#     USER_KEYS = "GauthamBC:567979,AmyBC:123456"
+#     USER_KEYS = "GauthamBC:567979,ActionNetwork:123456"
 # =========================================================
 
 def get_user_keys_map() -> dict:
@@ -113,8 +95,7 @@ def get_user_keys_map() -> dict:
     except Exception:
         pass
 
-    # Fallback (dev only) — replace via secrets in production
-    return {}
+        return {}
 
 
 def expected_user_key(username: str) -> str:
@@ -127,11 +108,10 @@ def is_user_key_valid(username: str, provided_key: str) -> bool:
     if not exp:
         return False
     return (provided_key or "").strip() == str(exp).strip()
-
-
 # =========================================================
 # GitHub Helpers
 # =========================================================
+
 
 def github_headers(token: str) -> dict:
     headers = {"Accept": "application/vnd.github+json"}
@@ -140,6 +120,18 @@ def github_headers(token: str) -> dict:
     headers["X-GitHub-Api-Version"] = "2022-11-28"
     return headers
 
+
+def get_authenticated_github_login(token: str) -> str:
+    """Return the GitHub username for the provided token ('' if unknown)."""
+    try:
+        if not token:
+            return ""
+        r = requests.get("https://api.github.com/user", headers=github_headers(token), timeout=20)
+        if r.status_code == 200:
+            return str(r.json().get("login", "")).strip()
+    except Exception:
+        pass
+    return ""
 
 def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
@@ -314,7 +306,10 @@ def get_brand_meta(brand: str) -> dict:
 
 # =========================================================
 # HTML Template
-# (unchanged from your version)
+# - Fixes table rendering by clamping INSIDE a wrapper div
+# - Download button opens menu: Top 10 vs Bottom 10 (ONLY)
+# - EXPORT removes header/subtitle and controls: image shows ONLY table + logo
+# - NO alert() anywhere
 # =========================================================
 
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
@@ -801,8 +796,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const btnTop10 = controls.querySelector('#dw-dl-top10');
     const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
     const btnEmbed = controls.querySelector('#dw-embed-script');
-    const menuTitle = controls.querySelector('#dw-menu-title');
-    const emptyRow = tb.querySelector('.dw-empty');
+const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
     const hasSearch = !controlsHidden
@@ -889,6 +883,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       if(totalVisible === 0){ pageStatus.textContent = ""; return; }
       if(!hasPager || pageSize === 0){ pageStatus.textContent = ""; return; }
       pageStatus.textContent = "Page " + page + " Of " + pages;
+    }
+
+    function getVisibleRowsInOrder(){
+      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      return ordered.filter(matchesFilter);
     }
 
     function renderPage(){
@@ -982,6 +981,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
+    // =============================
+    // DOM PNG EXPORT (NO alert popups)
+    // - Export-mode uses fixed table layout, so width doesn't explode
+    // - Export hides header/subtitle and controls: ONLY table + logo
+    // =============================
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -997,6 +1001,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     function getFilenameBase(clone){
+      // Use TITLE if present; otherwise fallback to 'table'
       const t = clone.querySelector('.vi-table-header .title')?.textContent || 'table';
       return (t || 'table')
         .trim()
@@ -1005,13 +1010,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         .slice(0,60) || 'table';
     }
 
+    // IMPORTANT FIX:
+    // Select rows by POSITION (robust with sorting/filtering/paging),
+    // so Bottom 10 always matches correctly.
     function showRowsInClone(clone, mode){
       const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
       if(!cloneTb) return;
 
       const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
 
+      // Row positions that are visible under current filter, in current DOM order (sorting applied)
+      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
       const visiblePositions = [];
       for(let i=0;i<ordered.length;i++){
         if(matchesFilter(ordered[i])) visiblePositions.push(i);
@@ -1044,6 +1053,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         cloneScroller.classList.add('no-scroll');
       }
 
+      // Force clone width to match the on-screen widget width (prevents giant images)
       const w = Math.max(900, Math.ceil(targetWidth || 1200));
       clone.style.maxWidth = 'none';
       clone.style.width = w + 'px';
@@ -1057,6 +1067,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         clone.getBoundingClientRect().height || 0
       ));
 
+      // If height is still insane, just bail silently (no popup)
       const MAX_CAPTURE_AREA = 28_000_000;
       const area = Math.ceil(w) * Math.ceil(fullH);
       if(area > MAX_CAPTURE_AREA){
@@ -1185,6 +1196,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       const code = buildEmbedCode();
       const ok = await copyToClipboard(code);
       if(menuTitle){
+        const prev = menuTitle.textContent;
         menuTitle.textContent = ok ? 'Embed code copied!' : 'Copy failed (try again)';
         setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
       }
@@ -1193,8 +1205,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
     if(btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
     if(btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
-
-    renderPage();
+renderPage();
   })();
   </script>
 
@@ -1252,6 +1263,8 @@ def generate_table_html_from_df(
         head_cells.append(f'<th scope="col" data-type="{col_type}">{safe_label}</th>')
     table_head_html = "\n              ".join(head_cells)
 
+    # IMPORTANT FIX:
+    # keep TD as table-cell; clamp inside a wrapper div
     row_html_snippets = []
     for _, row in df.iterrows():
         cells = []
@@ -1678,7 +1691,7 @@ with left_col:
             )
 
         st.markdown("---")
-        st.caption("For images: use **Embed / Download** in the table.")
+        st.caption("For images: use **Download PNG** in the table. It will show **Top 10** or **Bottom 10**.")
 
     # ---------- HTML TAB ----------
     with tab_html:
@@ -1700,7 +1713,8 @@ with left_col:
         )
 
     # ---------- IFRAME TAB ----------
-    with tab_iframe:
+
+with tab_iframe:
         st.markdown("### Publish + IFrame")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
@@ -1709,82 +1723,84 @@ with left_col:
 
         # ---------------------------------------------
         # Access gate: Username + User Key (stacked)
-        # - NO DEFAULTS
-        # - Placeholder "Select a user…"
-        # - Username list comes from [GITHUB_TOKENS] keys in secrets
         # ---------------------------------------------
-        tokens_map = get_github_tokens_map()
-        real_users = sorted([u for u in tokens_map.keys() if u.strip()])
+        saved_gh_user = st.session_state.get("bt_gh_user", "")
+        saved_gh_repo = st.session_state.get("bt_gh_repo", "branded-table-widget")
+        saved_widget_file = st.session_state.get("bt_widget_file_name", "branded_table.html")
 
-        PLACEHOLDER_USER = "Select a user…"
-        username_options = [PLACEHOLDER_USER] + real_users
+        tokens_map = get_github_tokens_map()
+        user_keys_map = get_user_keys_map()
+
+        configured_users = sorted(set(tokens_map.keys()) & set(user_keys_map.keys()))
+        if not configured_users:
+            st.error(
+                "No users configured for publishing yet. Add **both** `[GITHUB_TOKENS]` and `[USER_KEYS]` in Streamlit secrets."
+            )
+
+        username_options = ["Select a user..."] + configured_users
+
+        # Safe index (prevents Streamlit crash)
+        default_idx = 0
+        if saved_gh_user in username_options:
+            default_idx = username_options.index(saved_gh_user)
+        default_idx = max(0, min(default_idx, len(username_options) - 1))
 
         github_username_input = st.selectbox(
             "Username (GitHub)",
             options=username_options,
-            index=0,  # always placeholder by default
+            index=default_idx,
             key="bt_gh_user",
-            disabled=not html_generated,
+            disabled=not html_generated or not configured_users,
         )
 
-        effective_github_user = "" if github_username_input == PLACEHOLDER_USER else (github_username_input or "").strip()
-        selected_token = token_for_user(effective_github_user) if effective_github_user else ""
+        effective_github_user = ""
+        if github_username_input and github_username_input != "Select a user...":
+            effective_github_user = github_username_input.strip()
 
-        if html_generated and not effective_github_user:
-            st.caption("⬆️ Select a user to continue.")
+        token_for_user = tokens_map.get(effective_github_user, "").strip()
 
         user_key_input = st.text_input(
             "User Key (6 digits)",
             value=st.session_state.get("bt_user_key", ""),
             key="bt_user_key",
             type="password",
-            disabled=not html_generated or not effective_github_user,  # locked until user chosen
+            disabled=not html_generated or not effective_github_user,
             placeholder="e.g. 567979",
         )
 
         key_ok = bool(effective_github_user) and is_user_key_valid(effective_github_user, user_key_input)
 
-        if html_generated and effective_github_user and not key_ok:
+        if html_generated and effective_github_user and user_key_input and not key_ok:
             st.warning("User Key doesn’t match the selected Username. IFrame is locked until it matches.")
-
-        if html_generated and effective_github_user and key_ok and not selected_token:
-            st.error("No GitHub token found for this user in secrets. Add it under [GITHUB_TOKENS].")
-
+# ---------------------------------------------
+        # Minimal fields: Repo + File + Email
         # ---------------------------------------------
-        # Minimal fields: Repo + File
-        # ---------------------------------------------
-        saved_gh_repo = st.session_state.get("bt_gh_repo", "")
-        saved_widget_file = st.session_state.get("bt_widget_file_name", "")
-
         repo_name = st.text_input(
             "Campaign Name (Repository)",
             value=saved_gh_repo,
             key="bt_gh_repo",
-            disabled=not html_generated or not key_ok or not selected_token,
+            disabled=not html_generated or not key_ok,
         ).strip()
 
         widget_file_name = st.text_input(
             "Widget Name (File)",
             value=saved_widget_file,
             key="bt_widget_file_name",
-            disabled=not html_generated or not key_ok or not selected_token,
+            disabled=not html_generated or not key_ok,
             help="Example: branded_table.html (must end with .html)",
         ).strip() or "branded_table.html"
 
-        can_run = bool(
-            html_generated
-            and effective_github_user
-            and key_ok
-            and selected_token
-            and repo_name
-            and widget_file_name
-        )
+
+        can_run = bool(token_for_user and effective_github_user and repo_name and html_generated and key_ok)
 
         get_iframe_clicked = st.button(
             "🧩 Get IFrame",
             use_container_width=True,
             disabled=not can_run,
         )
+
+        if not token_for_user:
+            st.info("Set `token_for_user` in `.streamlit/secrets.toml` (with `repo` scope) to enable GitHub publishing.")
 
         if get_iframe_clicked:
             try:
@@ -1794,31 +1810,34 @@ with left_col:
 
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
-                # IMPORTANT: use the per-user token here
-                ensure_repo_exists(effective_github_user, repo_name, selected_token)
+                token_login = get_authenticated_github_login(token_for_user)
+                if token_login and token_login.lower() != effective_github_user.lower():
+                    raise RuntimeError(
+                        f"Token user '{token_login}' does not match selected Username '{effective_github_user}'. "
+                        "Select the matching user or update secrets."
+                    )
+
+                ensure_repo_exists(effective_github_user, repo_name, token_for_user)
 
                 try:
-                    ensure_pages_enabled(effective_github_user, repo_name, selected_token, branch="main")
+                    ensure_pages_enabled(effective_github_user, repo_name, token_for_user, branch="main")
                 except Exception:
                     pass
 
                 upload_file_to_github(
                     effective_github_user,
                     repo_name,
-                    selected_token,
+                    token_for_user,
                     widget_file_name,
                     html_final,
                     f"Add/Update {widget_file_name} from Branded Table App",
                     branch="main",
                 )
-                trigger_pages_build(effective_github_user, repo_name, selected_token)
+                trigger_pages_build(effective_github_user, repo_name, token_for_user)
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                    pages_url,
-                    height=int(st.session_state.get("bt_iframe_height", 800)),
-                )
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
 
                 st.success("Done. URL + IFrame are ready below.")
 
