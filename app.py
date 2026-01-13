@@ -1,5 +1,3 @@
-
-You said:
 import base64
 import datetime
 import html as html_mod
