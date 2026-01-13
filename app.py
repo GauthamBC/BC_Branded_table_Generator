@@ -254,7 +254,9 @@ def get_brand_meta(brand: str) -> dict:
 
 
 # =========================================================
-# HTML Template (UPDATED: Embed Script copies SCRIPT snippet, not iframe)
+# HTML Template (UPDATED)
+# - Embed Script copies SCRIPT snippet (expects matching .js beside .html)
+# - FIXED dropdown menu not showing (z-index/stacking context + click handler)
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -375,6 +377,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --vbar-w: 6px; --vbar-w-hover: 8px;
       padding: 10px var(--gutter);
       padding-top: 10px;
+
+      /* FIX: dropdown must be able to paint outside */
+      position: relative;
+      overflow: visible;
     }
 
     #bt-block .dw-controls{
@@ -383,9 +389,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:center;
       gap:12px;
       margin:4px 0 10px 0;
+
+      /* FIX: put controls above table/scroller */
+      position: relative;
+      z-index: 9999;
+      overflow: visible;
     }
     #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
+    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative; overflow:visible;}
 
     #bt-block .dw-field{position:relative}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
@@ -448,7 +459,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       border-radius:12px;
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
-      z-index: 50;
+
+      /* FIX: ensure above everything */
+      z-index: 10000;
     }
     #bt-block .dw-download-menu .dw-menu-title{
       font: 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
@@ -483,8 +496,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-clear:hover{background:var(--brand-100)}
 
     /* Card & table */
-    #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
-    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; position:relative; z-index:1; }
+    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; position:relative; z-index:1; }
     #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
 
     #bt-block table.dw-table {
@@ -907,10 +920,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
     function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
+    // FIX: use closest() so weird retargeting doesn't instantly close the menu
     document.addEventListener('click', (e)=>{
       if(!menu || menu.classList.contains('vi-hide')) return;
-      const inMenu = menu.contains(e.target);
-      const inBtn = downloadBtn && downloadBtn.contains(e.target);
+      const inMenu = e.target && e.target.closest && e.target.closest('#dw-download-menu');
+      const inBtn = e.target && e.target.closest && e.target.closest('#dw-download-png');
       if(!inMenu && !inBtn) hideMenu();
     });
 
@@ -1175,7 +1189,7 @@ EMBED_LOADER_JS = r"""(function () {
 
   var mount = mountNode();
 
-  // Optional iframe mode (Streamlit will only OFFER this for AN + RG)
+  // Optional iframe mode (supported via data-mode="iframe")
   if (mode === "iframe") {
     var iframe = document.createElement("iframe");
     iframe.src = htmlSrc;
@@ -1763,7 +1777,7 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- PUBLISH + EMBED TAB (SCRIPT DEFAULT; IFRAME ONLY FOR AN + RG) ----------
+    # ---------- PUBLISH + EMBED TAB (SCRIPT DEFAULT; IFRAME AVAILABLE FOR ALL BRANDS) ----------
     with tab_publish:
         st.markdown("### Publish + Embed")
 
@@ -1931,13 +1945,9 @@ with left_col:
                     mode="inline",
                 )
 
-                # Only enable iframe output for Action Network + RotoGrinders
-                brand_now = st.session_state.get("brand_table", "Action Network")
-                iframe_allowed = brand_now in ("Action Network", "RotoGrinders")
-                st.session_state["bt_iframe_code"] = (
-                    build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
-                    if iframe_allowed
-                    else ""
+                # IFRAME: available for ALL brands now
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                    pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
                 )
 
                 st.session_state["bt_widget_exists_locked"] = True
@@ -1963,15 +1973,9 @@ with left_col:
             disabled=True,
         )
 
-        brand_now = st.session_state.get("brand_table", "Action Network")
-        iframe_allowed = brand_now in ("Action Network", "RotoGrinders")
-
-        if iframe_allowed:
-            st.text_area(
-                "IFrame Code (Allowed for this brand)",
-                value=st.session_state.get("bt_iframe_code", ""),
-                height=160,
-                disabled=True,
-            )
-        else:
-            st.caption("IFrame embed is disabled for this brand (script embed only).")
+        st.text_area(
+            "IFrame Code",
+            value=st.session_state.get("bt_iframe_code", ""),
+            height=160,
+            disabled=True,
+        )
