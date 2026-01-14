@@ -98,7 +98,6 @@ def suggested_repo_name(brand: str) -> str:
     now = datetime.datetime.utcnow()
     mm = MONTH_CODE.get(now.month, "x")
     yy = str(now.year)[-2:]
-    # GitHub repo names are case-insensitive but we keep branding casing for readability.
     return f"{prefix}{mm}{yy}"
 
 
@@ -615,7 +614,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-hide{ display:none !important; }
 
     /* EXPORT MODE for capture: ONLY table + logo */
-    .vi-table-embed.export-mode .vi-table-header{ display:none !important; } /* removes title/subtitle from export */
+    .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
       display:none !important;
@@ -634,7 +633,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:none !important;
     }
     .vi-table-embed.export-mode #bt-block table.dw-table{
-      table-layout:fixed !important; /* prevents huge width from long URLs */
+      table-layout:fixed !important;
       width:100% !important;
     }
     .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{
@@ -1270,6 +1269,45 @@ def generate_table_html_from_df(
 
 
 # =========================================================
+# IFrame Builder (AUTO)
+# =========================================================
+def build_iframe_snippet_auto(published_url: str, html_code: str, height: int = 800) -> str:
+    """
+    If published_url exists -> iframe src=published_url
+    Else -> iframe src=data:text/html;base64,<...> from html_code
+    """
+    h = int(height) if height else 800
+    published_url = (published_url or "").strip()
+    html_code = (html_code or "").strip()
+
+    # Published: use the real URL
+    if published_url:
+        src = html_mod.escape(published_url, quote=True)
+        return f"""<iframe
+  src="{src}"
+  width="100%"
+  height="{h}"
+  style="border:0; border-radius:12px; overflow:hidden;"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade"
+></iframe>"""
+
+    # Not published yet: embed the HTML itself via data URL
+    if not html_code:
+        return ""
+
+    b64 = base64.b64encode(html_code.encode("utf-8")).decode("utf-8")
+    src = f"data:text/html;base64,{b64}"
+    return f"""<iframe
+  src="{src}"
+  width="100%"
+  height="{h}"
+  style="border:0; border-radius:12px; overflow:hidden;"
+  loading="lazy"
+></iframe>"""
+
+
+# =========================================================
 # UI Helpers
 # =========================================================
 def stable_config_hash(cfg: dict) -> str:
@@ -1338,19 +1376,6 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     return f"https://{user}.github.io/{repo}/{filename}"
 
 
-def build_iframe_snippet(url: str, height: int = 800) -> str:
-    url = (url or "").strip()
-    h = int(height) if height else 800
-    return f"""<iframe
-  src="{html_mod.escape(url, quote=True)}"
-  width="100%"
-  height="{h}"
-  style="border:0; border-radius:12px; overflow:hidden;"
-  loading="lazy"
-  referrerpolicy="no-referrer-when-downgrade"
-></iframe>"""
-
-
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1393,9 +1418,20 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
 
+    # Optional height (kept compatible with your existing usage)
+    st.session_state.setdefault("bt_iframe_height", 800)
+
     # Widget locking state (set during Publish tab checks)
     st.session_state.setdefault("bt_widget_exists_locked", False)
     st.session_state.setdefault("bt_widget_name_locked_value", "")
+
+
+def refresh_iframe_code_from_state():
+    st.session_state["bt_iframe_code"] = build_iframe_snippet_auto(
+        published_url=st.session_state.get("bt_last_published_url", ""),
+        html_code=st.session_state.get("bt_html_code", ""),
+        height=int(st.session_state.get("bt_iframe_height", 800)),
+    )
 
 
 def do_confirm_snapshot():
@@ -1410,6 +1446,9 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
+
+    # ✅ Update iframe immediately after Confirm (unpublished uses HTML; published uses URL)
+    refresh_iframe_code_from_state()
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -1644,7 +1683,7 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- IFRAME TAB (SUPER SIMPLE + AUTO REPO + NO SWAP IF EXISTS) ----------
+    # ---------- IFRAME TAB ----------
     with tab_iframe:
         st.markdown("### Publish + IFrame")
 
@@ -1681,7 +1720,7 @@ with left_col:
             else:
                 st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
 
-        # Auto repo based on brand + month + year and LOCK it
+        # Auto repo based on brand + month + year and LOCK it (hidden from UI)
         current_brand = st.session_state.get("brand_table", "Action Network")
         auto_repo = suggested_repo_name(current_brand)
         st.session_state["bt_gh_repo"] = auto_repo
@@ -1690,28 +1729,10 @@ with left_col:
         # -----------------------------------------------------
         # Widget Name (file) with "no swapping if already exists"
         # -----------------------------------------------------
-        # Rule:
-        # - If selected user has a valid token and the file already exists in the repo,
-        #   then lock the widget name to that existing value (user can only change it by typing a NEW name).
-        #
-        # Implementation:
-        # - We check existence only when we have token + user + repo + a filename candidate.
-        # - If it exists, we set a lock flag and store the locked filename in session_state.
-        # - While locked, we DISABLE any programmatic swapping: we keep the value stable unless user edits it.
-        #
-        # Note: since this UI is just a text_input (not a select/dropdown), "swapping" typically happens
-        # when other state changes overwrite the input value. We prevent overwrites by only auto-setting
-        # the value if not locked.
-        # -----------------------------------------------------
-
-        # If locked, keep showing the locked value unless user changes it.
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
 
-        # If not locked, use the normal session default
         default_widget_value = st.session_state.get("bt_widget_file_name", "table.html")
-
-        # Decide what to show in the input:
         input_value = locked_value if (locked and locked_value) else default_widget_value
 
         widget_file_name = st.text_input(
@@ -1726,17 +1747,13 @@ with left_col:
             widget_file_name = widget_file_name + ".html"
             st.session_state["bt_widget_file_name"] = widget_file_name
 
-        # If we are locked and user changed the name away from the locked one,
-        # then unlock (because they explicitly want a new filename).
         if locked and locked_value and widget_file_name and widget_file_name != locked_value:
             st.session_state["bt_widget_exists_locked"] = False
             st.session_state["bt_widget_name_locked_value"] = ""
 
-        # Recompute after possible unlock
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
 
-        # Only check "exists" when we have enough info (and NOT already locked)
         if (not locked) and effective_github_user and token_for_user and repo_name and widget_file_name:
             if github_file_exists(effective_github_user, repo_name, token_for_user, widget_file_name, branch="main"):
                 st.session_state["bt_widget_exists_locked"] = True
@@ -1747,7 +1764,6 @@ with left_col:
         if locked and locked_value:
             st.caption("🔒 This widget file already exists in the repo. To publish a new one, type a NEW file name.")
 
-        # ✅ ONLY the button is gated
         can_publish = bool(
             html_generated
             and effective_github_user
@@ -1810,11 +1826,10 @@ with left_col:
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                    pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
-                )
 
-                # If it now exists (it does), lock to prevent any "swap" overrides later
+                # ✅ After publish, iframe switches automatically to Published URL
+                refresh_iframe_code_from_state()
+
                 st.session_state["bt_widget_exists_locked"] = True
                 st.session_state["bt_widget_name_locked_value"] = widget_file_name
 
@@ -1822,6 +1837,11 @@ with left_col:
 
             except Exception as e:
                 st.error(f"Publish / IFrame generation failed: {e}")
+
+        # ✅ Always keep iframe output up-to-date:
+        # - If Published URL exists -> use it
+        # - Else -> embed the confirmed HTML via data URL
+        refresh_iframe_code_from_state()
 
         st.markdown("#### Outputs")
 
