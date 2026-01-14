@@ -1726,7 +1726,7 @@ with right_col:
                 "Edits Apply To The Draft Immediately. Click Confirm And Save Table Contents To Finalize HTML/Publishing."
             )
 
-    draft_cfg_hash = stable_config_hash(draft_config_from_state()))
+    draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
 
     draft_df = st.session_state.get("bt_df_draft")
