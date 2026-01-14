@@ -12,20 +12,6 @@ import streamlit.components.v1 as components
 # =========================================================
 # 0) Publishing Users + Secrets (SIMPLIFIED)
 # =========================================================
-# ✅ Only usernames in dropdown (4 users)
-# ✅ No token input UI, no consent UI
-# ✅ Tokens must exist in Streamlit secrets:
-#
-# [GITHUB_TOKENS]
-# gauthambc = "ghp_xxx_or_github_pat_xxx"
-# amybc     = "..."
-# benbc     = "..."
-# kathybc   = "..."
-#
-# URL becomes:
-# https://{username}.github.io/{repo}/{file}
-# =========================================================
-
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
 
 
@@ -59,16 +45,6 @@ def get_github_tokens_map() -> dict:
 # =========================================================
 # Repo Auto-Naming (Full Brand Name + Month + Year)
 # =========================================================
-# Example outputs (UTC-based):
-#   Action Network (Jan 2026) -> ActionNetworkj26
-#   VegasInsider (Oct 2026)   -> VegasInsidero26
-#   Canada SB (Feb 2026)      -> CanadaSportsBettingf26
-#   RotoGrinders (Dec 2026)   -> RotoGrindersd26
-#
-# Month letters chosen to be short + stable:
-# Jan=j, Feb=f, Mar=m, Apr=a, May=y, Jun=u, Jul=l, Aug=g, Sep=s, Oct=o, Nov=n, Dec=d
-# =========================================================
-
 BRAND_REPO_PREFIX_FULL = {
     "Action Network": "ActionNetwork",
     "Canada Sports Betting": "CanadaSportsBetting",
@@ -517,7 +493,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
     #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
 
-    /* TD stays a real table-cell (do NOT change display here) */
     #bt-block thead th,
     #bt-block tbody td {
       padding: 16px 14px;
@@ -526,7 +501,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       vertical-align: middle;
     }
 
-    /* Clamp INSIDE wrapper to prevent bleed without breaking layout */
     #bt-block .dw-cell{
       white-space: normal;
       overflow-wrap: anywhere;
@@ -541,10 +515,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       text-overflow:ellipsis;
     }
 
-    /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
 
-    /* Hover should win */
     #bt-block tbody tr:hover td{ background:var(--hover) !important; }
     #bt-block tbody tr:hover{
       box-shadow:inset 3px 0 0 var(--brand-500);
@@ -574,7 +546,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
     }
 
-    /* Footer */
     .vi-table-embed .vi-footer {
       display:block;
       padding:10px 14px 8px;
@@ -591,7 +562,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
     .vi-table-embed .vi-footer img{ height: 36px; width:auto; display:inline-block; }
 
-    /* Brand-specific logo recolor + sizes */
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
       height: 44px;
@@ -613,7 +583,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
-    /* EXPORT MODE for capture: ONLY table + logo */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
@@ -624,9 +593,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       height:auto !important;
       overflow:visible !important;
     }
-    .vi-table-embed.export-mode #bt-block thead th{
-      position:static !important;
-    }
+    .vi-table-embed.export-mode #bt-block thead th{ position:static !important; }
     .vi-table-embed.export-mode #bt-block tbody tr:hover,
     .vi-table-embed.export-mode #bt-block tbody tr:hover td{
       transform:none !important;
@@ -641,13 +608,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
   </style>
 
-  <!-- Header (optional) -->
   <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
     <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
     <span class="subtitle">[[SUBTITLE]]</span>
   </div>
 
-  <!-- Table block -->
   <div id="bt-block" data-dw="table">
     <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
       <div class="left">
@@ -704,7 +669,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     </div>
   </div>
 
-  <!-- Footer (optional) -->
   <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
       <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
@@ -758,14 +722,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
+    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
     let filter = '';
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
-    // Sorting always on
     const heads = Array.from(table.tHead.rows[0].cells);
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -900,9 +863,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    // =============================
-    // Download Menu Toggle
-    // =============================
     function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
     function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
@@ -921,9 +881,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
-    // =============================
-    // DOM PNG EXPORT (NO alert popups)
-    // =============================
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -975,7 +932,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     async function captureCloneToPng(clone, stage, filename, targetWidth){
       const cloneScroller = clone.querySelector('.dw-scroll');
-
       if(cloneScroller){
         cloneScroller.style.maxHeight = 'none';
         cloneScroller.style.height = 'auto';
@@ -1043,7 +999,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     async function downloadDomPng(mode){
       try{
         hideMenu();
-
         if(!window.html2canvas){
           console.warn("html2canvas failed to load.");
           return;
@@ -1377,21 +1332,20 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_generated", False)
     st.session_state.setdefault("bt_html_hash", "")
 
-    # IMPORTANT: keep these EMPTY until publish actually happens
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
-
     st.session_state.setdefault("bt_gh_user", "Select a user...")
     st.session_state.setdefault("bt_widget_file_name", "table.html")
-
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
-
-    # Widget locking state (set during Publish tab checks)
     st.session_state.setdefault("bt_widget_exists_locked", False)
     st.session_state.setdefault("bt_widget_name_locked_value", "")
+
+    # ✅ HARD RULE: if there's no published URL, iframe code MUST be empty
+    if not (st.session_state.get("bt_last_published_url") or "").strip():
+        st.session_state["bt_iframe_code"] = ""
 
 
 def do_confirm_snapshot():
@@ -1406,6 +1360,10 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
+
+    # ✅ Any time HTML changes, clear old publish outputs (prevents stale iframe/code)
+    st.session_state["bt_last_published_url"] = ""
+    st.session_state["bt_iframe_code"] = ""
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -1650,9 +1608,7 @@ with left_col:
 
         tokens_map = get_github_tokens_map()
 
-        allowed_users = list(PUBLISH_USERS)
-        username_options = ["Select a user..."] + allowed_users
-
+        username_options = ["Select a user..."] + list(PUBLISH_USERS)
         saved_user = st.session_state.get("bt_gh_user", "Select a user...")
         if saved_user not in username_options:
             saved_user = "Select a user..."
@@ -1677,15 +1633,12 @@ with left_col:
             else:
                 st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
 
-        # Auto repo based on brand + month + year and LOCK it (HIDDEN from UI)
+        # Auto repo based on brand + month + year and LOCK it
         current_brand = st.session_state.get("brand_table", "Action Network")
-        auto_repo = suggested_repo_name(current_brand)
-        st.session_state["bt_gh_repo"] = auto_repo
-        repo_name = auto_repo
+        repo_name = suggested_repo_name(current_brand)
+        st.session_state["bt_gh_repo"] = repo_name
 
-        # -----------------------------------------------------
-        # Widget Name (file) with "no swapping if already exists"
-        # -----------------------------------------------------
+        # Widget filename lock if exists
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
 
@@ -1783,8 +1736,6 @@ with left_col:
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-
-                # IMPORTANT: iframe code is ONLY created after successful publish
                 st.session_state["bt_iframe_code"] = build_iframe_snippet(
                     pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
                 )
@@ -1799,15 +1750,21 @@ with left_col:
 
         st.markdown("#### Outputs")
 
+        published_url = (st.session_state.get("bt_last_published_url", "") or "").strip()
+        iframe_code = (st.session_state.get("bt_iframe_code", "") or "").strip()
+
+        # ✅ Published URL can show empty (that's fine)
         st.text_input(
             "Published URL",
-            value=st.session_state.get("bt_last_published_url", ""),
+            value=published_url,
             disabled=True,
         )
 
-        st.text_area(
-            "IFrame Code",
-            value=st.session_state.get("bt_iframe_code", ""),  # stays EMPTY until publish
-            height=160,
-            disabled=True,
-        )
+        # ✅ IFrame Code should NOT render at all unless we actually published
+        if published_url and iframe_code:
+            st.text_area(
+                "IFrame Code",
+                value=iframe_code,
+                height=160,
+                disabled=True,
+            )
