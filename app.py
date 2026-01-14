@@ -229,7 +229,9 @@ def get_brand_meta(brand: str) -> dict:
 
 
 # =========================================================
-# HTML Template
+# HTML Template (UPDATED)
+# - Embed/Download button is independent from Pager visibility
+# - Embed Script copies FULL HTML (not iframe)
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -360,7 +362,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       margin:4px 0 10px 0;
     }
     #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
+    #bt-block .right{display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
+
+    /* NEW: pager group + embed group */
+    #bt-block .dw-pager{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    #bt-block .dw-embed{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
 
     #bt-block .dw-field{position:relative}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
@@ -515,6 +521,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       text-overflow:ellipsis;
     }
 
+    /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
 
     #bt-block tbody tr:hover td{ background:var(--hover) !important; }
@@ -546,6 +553,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
     }
 
+    /* Footer */
     .vi-table-embed .vi-footer {
       display:block;
       padding:10px 14px 8px;
@@ -568,10 +576,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       width: auto;
       display: inline-block;
     }
-    .vi-table-embed.brand-vegasinsider .vi-footer img{
-      filter: none !important;
-      height:24px;
-    }
+    .vi-table-embed.brand-vegasinsider .vi-footer img{ filter: none !important; height:24px; }
     .vi-table-embed.brand-canadasb .vi-footer img{
       filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
       height: 28px;
@@ -583,6 +588,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
+    /* EXPORT MODE for capture: ONLY table + logo */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
@@ -603,16 +609,16 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       table-layout:fixed !important;
       width:100% !important;
     }
-    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{
-      overflow-x:hidden !important;
-    }
+    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
   </style>
 
+  <!-- Header (optional) -->
   <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
     <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
     <span class="subtitle">[[SUBTITLE]]</span>
   </div>
 
+  <!-- Table block -->
   <div id="bt-block" data-dw="table">
     <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
       <div class="left">
@@ -622,28 +628,34 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         </div>
       </div>
 
-      <div class="right [[PAGER_VIS_CLASS]]">
-        <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
-        <select id="bt-size" class="dw-select">
-          <option value="5">5</option>
-          <option value="10" selected>10</option>
-          <option value="15">15</option>
-          <option value="20">20</option>
-          <option value="25">25</option>
-          <option value="30">30</option>
-          <option value="0">All</option>
-        </select>
+      <div class="right">
+        <!-- Pager group (independent) -->
+        <div class="dw-pager [[PAGER_VIS_CLASS]]">
+          <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
+          <select id="bt-size" class="dw-select">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="25">25</option>
+            <option value="30">30</option>
+            <option value="0">All</option>
+          </select>
 
-        <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
-        <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
+          <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
+          <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
+        </div>
 
-        <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
+        <!-- Embed/Download group (independent) -->
+        <div class="dw-embed [[EMBED_VIS_CLASS]]">
+          <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
-        <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-          <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-          <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-embed-script">Embed Script</button>
+          <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
+            <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+            <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
+            <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+            <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
+          </div>
         </div>
       </div>
     </div>
@@ -669,6 +681,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     </div>
   </div>
 
+  <!-- Footer (optional) -->
   <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
       <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
@@ -693,17 +706,18 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const searchInput = controls.querySelector('.dw-input');
     const clearBtn = controls.querySelector('.dw-clear');
 
-    const pagerWrap = controls.querySelector('.right');
-    const sizeSel = controls.querySelector('#bt-size');
-    const prevBtn = controls.querySelector('[data-page="prev"]');
-    const nextBtn = controls.querySelector('[data-page="next"]');
-    const downloadBtn = controls.querySelector('#dw-download-png');
+    const pagerWrap = controls.querySelector('.dw-pager');
+    const sizeSel = pagerWrap ? pagerWrap.querySelector('#bt-size') : null;
+    const prevBtn = pagerWrap ? pagerWrap.querySelector('[data-page="prev"]') : null;
+    const nextBtn = pagerWrap ? pagerWrap.querySelector('[data-page="next"]') : null;
 
-    const menu = controls.querySelector('#dw-download-menu');
-    const btnTop10 = controls.querySelector('#dw-dl-top10');
-    const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
-    const btnEmbed = controls.querySelector('#dw-embed-script');
-    const menuTitle = controls.querySelector('#dw-menu-title');
+    const embedWrap = controls.querySelector('.dw-embed');
+    const downloadBtn = embedWrap ? embedWrap.querySelector('#dw-download-png') : null;
+    const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
+    const btnTop10 = embedWrap ? embedWrap.querySelector('#dw-dl-top10') : null;
+    const btnBottom10 = embedWrap ? embedWrap.querySelector('#dw-dl-bottom10') : null;
+    const btnEmbed = embedWrap ? embedWrap.querySelector('#dw-embed-script') : null;
+    const menuTitle = embedWrap ? embedWrap.querySelector('#dw-menu-title') : null;
 
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
@@ -716,19 +730,24 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
       && !!sizeSel && !!prevBtn && !!nextBtn;
 
+    const hasEmbed = !controlsHidden
+      && !!embedWrap && !embedWrap.classList.contains('vi-hide')
+      && !!downloadBtn && !!menu && !!btnEmbed;
+
     if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
       scroller.classList.add('no-scroll');
     }
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
+    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
     let page = 1;
     let filter = '';
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
+    // Sorting always on
     const heads = Array.from(table.tHead.rows[0].cells);
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -863,6 +882,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
+    // =============================
+    // Download Menu Toggle
+    // =============================
     function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
     function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
@@ -873,7 +895,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       if(!inMenu && !inBtn) hideMenu();
     });
 
-    if(downloadBtn){
+    if(hasEmbed && downloadBtn){
       downloadBtn.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
@@ -881,6 +903,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
+    // =============================
+    // DOM PNG EXPORT
+    // =============================
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -932,6 +957,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     async function captureCloneToPng(clone, stage, filename, targetWidth){
       const cloneScroller = clone.querySelector('.dw-scroll');
+
       if(cloneScroller){
         cloneScroller.style.maxHeight = 'none';
         cloneScroller.style.height = 'auto';
@@ -999,6 +1025,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     async function downloadDomPng(mode){
       try{
         hideMenu();
+
         if(!window.html2canvas){
           console.warn("html2canvas failed to load.");
           return;
@@ -1041,11 +1068,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     // =============================
-    // EMBED SCRIPT: copy FULL HTML (NOT an iframe)
+    // Copy FULL HTML (NOT iframe)
     // =============================
-    function buildHtmlCodeToCopy(){
-      const doc = document.documentElement.outerHTML;
-      return "<!doctype html>\n" + doc;
+    function getFullHtml(){
+      const html = document.documentElement ? document.documentElement.outerHTML : "";
+      // ensure doctype at the top
+      return "<!doctype html>\n" + html;
     }
 
     async function copyToClipboard(text){
@@ -1073,17 +1101,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     async function onEmbedClick(){
       hideMenu();
-      const html = buildHtmlCodeToCopy();
-      const ok = await copyToClipboard(html);
+      const code = getFullHtml();
+      const ok = await copyToClipboard(code);
       if(menuTitle){
         menuTitle.textContent = ok ? 'HTML copied!' : 'Copy failed (try again)';
         setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
       }
     }
 
-    if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
-    if(btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
-    if(btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
+    if(hasEmbed && btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
+    if(hasEmbed && btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
+    if(hasEmbed && btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
 
     renderPage();
   })();
@@ -1127,6 +1155,7 @@ def generate_table_html_from_df(
     branded_title_color: bool = True,
     show_search: bool = True,
     show_pager: bool = True,
+    show_embed: bool = True,          # NEW
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
@@ -1172,9 +1201,10 @@ def generate_table_html_from_df(
     header_vis = "" if show_header else "vi-hide"
     footer_vis = "" if show_footer else "vi-hide"
 
-    controls_vis = "" if (show_search or show_pager) else "vi-hide"
+    controls_vis = "" if (show_search or show_pager or show_embed) else "vi-hide"
     search_vis = "" if show_search else "vi-hide"
     pager_vis = "" if show_pager else "vi-hide"
+    embed_vis = "" if show_embed else "vi-hide"
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
 
     footer_logo_align = (footer_logo_align or "Center").strip().lower()
@@ -1211,6 +1241,7 @@ def generate_table_html_from_df(
         .replace("[[CONTROLS_VIS_CLASS]]", controls_vis)
         .replace("[[SEARCH_VIS_CLASS]]", search_vis)
         .replace("[[PAGER_VIS_CLASS]]", pager_vis)
+        .replace("[[EMBED_VIS_CLASS]]", embed_vis)
         .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
@@ -1254,6 +1285,7 @@ def draft_config_from_state() -> dict:
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
+        "show_embed": st.session_state.get("bt_show_embed", True),  # NEW
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
     }
 
@@ -1272,6 +1304,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         branded_title_color=cfg["branded_title_color"],
         show_search=cfg["show_search"],
         show_pager=cfg["show_pager"],
+        show_embed=cfg["show_embed"],
         show_page_numbers=cfg["show_page_numbers"],
         show_header=cfg["show_header"],
         show_footer=cfg["show_footer"],
@@ -1289,6 +1322,8 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
 
 def build_iframe_snippet(url: str, height: int = 800) -> str:
     url = (url or "").strip()
+    if not url:
+        return ""
     h = int(height) if height else 800
     return f"""<iframe
   src="{html_mod.escape(url, quote=True)}"
@@ -1316,6 +1351,8 @@ def reset_widget_state_for_new_upload():
         "bt_confirm_flash",
         "bt_widget_exists_locked",
         "bt_widget_name_locked_value",
+        "bt_df_uploaded",
+        "bt_df_confirmed",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -1331,25 +1368,30 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_code", "")
     st.session_state.setdefault("bt_html_generated", False)
     st.session_state.setdefault("bt_html_hash", "")
-
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
+
+    # hard-clean legacy "data:text/html;base64,..." iframe code so it never shows pre-publish
+    iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+    if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
+        st.session_state["bt_iframe_code"] = ""
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
     st.session_state.setdefault("bt_gh_user", "Select a user...")
     st.session_state.setdefault("bt_widget_file_name", "table.html")
+
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
+
     st.session_state.setdefault("bt_widget_exists_locked", False)
     st.session_state.setdefault("bt_widget_name_locked_value", "")
 
-    # ✅ HARD RULE: if there's no published URL, iframe code MUST be empty
-    if not (st.session_state.get("bt_last_published_url") or "").strip():
-        st.session_state["bt_iframe_code"] = ""
+    # NEW: embed button checkbox default ON
+    st.session_state.setdefault("bt_show_embed", True)
 
 
 def do_confirm_snapshot():
-    st.session_state["bt_df_confirmed"] = st.session_state["bt_df_draft"].copy()
+    st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
 
     cfg = draft_config_from_state()
     st.session_state["bt_confirmed_cfg"] = cfg
@@ -1360,10 +1402,6 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
-
-    # ✅ Any time HTML changes, clear old publish outputs (prevents stale iframe/code)
-    st.session_state["bt_last_published_url"] = ""
-    st.session_state["bt_iframe_code"] = ""
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -1411,59 +1449,30 @@ if prev_name != uploaded_name:
     reset_widget_state_for_new_upload()
     st.session_state["bt_uploaded_name"] = uploaded_name
     st.session_state["bt_df_uploaded"] = df_uploaded_now.copy()
-    st.session_state["bt_df_draft"] = df_uploaded_now.copy()
     st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()
 
 ensure_confirm_state_exists()
 
 left_col, right_col = st.columns([1, 3], gap="large")
 
-# ===================== Right: Editor + Live Preview (Draft) =====================
+# ===================== Right: Live Preview =====================
 with right_col:
-    with st.expander("Open Editor", expanded=False):
-        edited_df = st.data_editor(
-            st.session_state["bt_df_draft"],
-            use_container_width=True,
-            num_rows="dynamic",
-            key="bt_data_editor",
-        )
-        st.session_state["bt_df_draft"] = edited_df
-
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("↩️ Reset Draft To Uploaded CSV", use_container_width=True):
-                st.session_state["bt_df_draft"] = st.session_state["bt_df_uploaded"].copy()
-                st.rerun()
-        with c2:
-            st.caption(
-                "Edits Apply To The Draft Immediately. Click Confirm And Save Table Contents To Finalize HTML/Publishing."
-            )
-
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
 
-    draft_df = st.session_state.get("bt_df_draft")
-    confirmed_df = st.session_state.get("bt_df_confirmed")
-
-    df_diff = True
-    try:
-        df_diff = not draft_df.equals(confirmed_df)
-    except Exception:
-        df_diff = True
-
-    show_banner = (draft_cfg_hash != confirmed_cfg_hash) or df_diff
+    show_banner = (draft_cfg_hash != confirmed_cfg_hash)
 
     h_left, h_right = st.columns([2, 3], vertical_alignment="center")
     with h_left:
-        st.markdown("### Preview (Live Draft)")
+        st.markdown("### Preview")
     with h_right:
         if show_banner:
-            st.info("Preview Reflects Draft. HTML/Publishing Uses The Last Confirmed Snapshot.")
+            st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
         else:
-            st.success("Draft Matches The Confirmed Snapshot.")
+            st.success("Settings match the confirmed snapshot.")
 
     live_cfg = draft_config_from_state()
-    live_preview_html = html_from_config(st.session_state["bt_df_draft"], live_cfg)
+    live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
     components.html(live_preview_html, height=820, scrolling=True)
 
 # ===================== Left: Tabs =====================
@@ -1475,14 +1484,14 @@ with left_col:
         st.markdown("#### Table Setup")
 
         st.button(
-            "✅ Confirm And Save Table Contents",
+            "✅ Confirm And Save (Generate HTML For Publishing)",
             key="bt_confirm_btn",
             use_container_width=True,
             on_click=do_confirm_snapshot,
         )
 
         if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed Snapshot Updated And HTML Regenerated.")
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
         sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
@@ -1558,17 +1567,20 @@ with left_col:
                 index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                 key="bt_cell_align",
             )
+
             st.checkbox(
                 "Show Search",
                 value=st.session_state.get("bt_show_search", True),
                 key="bt_show_search",
             )
+
             show_pager = st.checkbox(
                 "Show Pager (Rows/Page + Prev/Next)",
                 value=st.session_state.get("bt_show_pager", True),
                 key="bt_show_pager",
-                help="If Off, The Table Will Show All Rows By Default.",
+                help="If Off, the table will show all rows by default (but Embed/Download can still remain ON).",
             )
+
             st.checkbox(
                 "Show Page Numbers (Page X Of Y)",
                 value=st.session_state.get("bt_show_page_numbers", True),
@@ -1576,26 +1588,33 @@ with left_col:
                 disabled=not show_pager,
             )
 
+            st.checkbox(
+                "Show Embed / Download Button",
+                value=st.session_state.get("bt_show_embed", True),
+                key="bt_show_embed",
+                help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
+            )
+
         st.markdown("---")
-        st.caption("For images: use **Embed / Download** in the table. It will show **Top 10** or **Bottom 10**.")
+        st.caption("Inside the table: **Embed / Download → Copy HTML** copies the full HTML of the widget (not an iframe).")
 
     # ---------- HTML TAB ----------
     with tab_html:
         st.markdown("#### HTML (From Confirmed Snapshot)")
-        st.caption("HTML Updates Automatically When You Click Confirm And Save Table Contents.")
+        st.caption("HTML updates only when you click **Confirm And Save**.")
 
         html_code = st.session_state.get("bt_html_code", "")
 
         if not html_code:
-            st.info("Click Confirm And Save Table Contents To Generate HTML.")
+            st.info("Click Confirm And Save to generate HTML.")
         else:
-            st.success("HTML Is Ready (From The Latest Confirmed Snapshot).")
+            st.success("HTML is ready (from the latest confirmed snapshot).")
 
         st.text_area(
             "HTML Code",
             value=html_code,
             height=520,
-            placeholder="Confirm And Save To Generate HTML Here.",
+            placeholder="Confirm And Save to generate HTML here.",
         )
 
     # ---------- IFRAME TAB ----------
@@ -1604,11 +1623,13 @@ with left_col:
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
-            st.warning("Click **Confirm And Save Table Contents** to generate HTML before publishing / embedding.")
+            st.warning("Click **Confirm And Save** to generate HTML before publishing.")
 
         tokens_map = get_github_tokens_map()
 
-        username_options = ["Select a user..."] + list(PUBLISH_USERS)
+        allowed_users = list(PUBLISH_USERS)
+        username_options = ["Select a user..."] + allowed_users
+
         saved_user = st.session_state.get("bt_gh_user", "Select a user...")
         if saved_user not in username_options:
             saved_user = "Select a user..."
@@ -1635,13 +1656,13 @@ with left_col:
 
         # Auto repo based on brand + month + year and LOCK it
         current_brand = st.session_state.get("brand_table", "Action Network")
-        repo_name = suggested_repo_name(current_brand)
-        st.session_state["bt_gh_repo"] = repo_name
+        auto_repo = suggested_repo_name(current_brand)
+        st.session_state["bt_gh_repo"] = auto_repo
+        repo_name = auto_repo
 
-        # Widget filename lock if exists
+        # Widget file locking logic
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
-
         default_widget_value = st.session_state.get("bt_widget_file_name", "table.html")
         input_value = locked_value if (locked and locked_value) else default_widget_value
 
@@ -1736,9 +1757,9 @@ with left_col:
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                    pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
-                )
+
+                # IMPORTANT: iframe code stays EMPTY until we have a real published URL
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
 
                 st.session_state["bt_widget_exists_locked"] = True
                 st.session_state["bt_widget_name_locked_value"] = widget_file_name
@@ -1750,21 +1771,24 @@ with left_col:
 
         st.markdown("#### Outputs")
 
-        published_url = (st.session_state.get("bt_last_published_url", "") or "").strip()
-        iframe_code = (st.session_state.get("bt_iframe_code", "") or "").strip()
+        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+        iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
 
-        # ✅ Published URL can show empty (that's fine)
+        # HARD RULE: If not published, show COMPLETELY EMPTY
+        if not published_url_val:
+            iframe_val = ""
+
         st.text_input(
             "Published URL",
-            value=published_url,
+            value=published_url_val,
             disabled=True,
+            placeholder="(empty until published)",
         )
 
-        # ✅ IFrame Code should NOT render at all unless we actually published
-        if published_url and iframe_code:
-            st.text_area(
-                "IFrame Code",
-                value=iframe_code,
-                height=160,
-                disabled=True,
-            )
+        st.text_area(
+            "IFrame Code",
+            value=iframe_val,
+            height=160,
+            disabled=True,
+            placeholder="(empty until published)",
+        )
