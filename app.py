@@ -1085,17 +1085,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
-    function buildEmbedCode(){
-      const src = window.location.href;
-      const h = 800;
-      return `<iframe
-  src="${src}"
-  width="100%"
-  height="${h}"
-  style="border:0; border-radius:12px; overflow:hidden;"
-  loading="lazy"
-  referrerpolicy="no-referrer-when-downgrade"
-></iframe>`;
+    // =============================
+    // EMBED SCRIPT: copy FULL HTML (NOT an iframe)
+    // =============================
+    function buildHtmlCodeToCopy(){
+      const doc = document.documentElement.outerHTML;
+      return "<!doctype html>\n" + doc;
     }
 
     async function copyToClipboard(text){
@@ -1123,10 +1118,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     async function onEmbedClick(){
       hideMenu();
-      const code = buildEmbedCode();
-      const ok = await copyToClipboard(code);
+      const html = buildHtmlCodeToCopy();
+      const ok = await copyToClipboard(html);
       if(menuTitle){
-        menuTitle.textContent = ok ? 'Embed code copied!' : 'Copy failed (try again)';
+        menuTitle.textContent = ok ? 'HTML copied!' : 'Copy failed (try again)';
         setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
       }
     }
@@ -1269,45 +1264,6 @@ def generate_table_html_from_df(
 
 
 # =========================================================
-# IFrame Builder (AUTO)
-# =========================================================
-def build_iframe_snippet_auto(published_url: str, html_code: str, height: int = 800) -> str:
-    """
-    If published_url exists -> iframe src=published_url
-    Else -> iframe src=data:text/html;base64,<...> from html_code
-    """
-    h = int(height) if height else 800
-    published_url = (published_url or "").strip()
-    html_code = (html_code or "").strip()
-
-    # Published: use the real URL
-    if published_url:
-        src = html_mod.escape(published_url, quote=True)
-        return f"""<iframe
-  src="{src}"
-  width="100%"
-  height="{h}"
-  style="border:0; border-radius:12px; overflow:hidden;"
-  loading="lazy"
-  referrerpolicy="no-referrer-when-downgrade"
-></iframe>"""
-
-    # Not published yet: embed the HTML itself via data URL
-    if not html_code:
-        return ""
-
-    b64 = base64.b64encode(html_code.encode("utf-8")).decode("utf-8")
-    src = f"data:text/html;base64,{b64}"
-    return f"""<iframe
-  src="{src}"
-  width="100%"
-  height="{h}"
-  style="border:0; border-radius:12px; overflow:hidden;"
-  loading="lazy"
-></iframe>"""
-
-
-# =========================================================
 # UI Helpers
 # =========================================================
 def stable_config_hash(cfg: dict) -> str:
@@ -1376,6 +1332,19 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     return f"https://{user}.github.io/{repo}/{filename}"
 
 
+def build_iframe_snippet(url: str, height: int = 800) -> str:
+    url = (url or "").strip()
+    h = int(height) if height else 800
+    return f"""<iframe
+  src="{html_mod.escape(url, quote=True)}"
+  width="100%"
+  height="{h}"
+  style="border:0; border-radius:12px; overflow:hidden;"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade"
+></iframe>"""
+
+
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1407,6 +1376,8 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_code", "")
     st.session_state.setdefault("bt_html_generated", False)
     st.session_state.setdefault("bt_html_hash", "")
+
+    # IMPORTANT: keep these EMPTY until publish actually happens
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
 
@@ -1418,20 +1389,9 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_confirm_flash", False)
     st.session_state.setdefault("bt_html_stale", False)
 
-    # Optional height (kept compatible with your existing usage)
-    st.session_state.setdefault("bt_iframe_height", 800)
-
     # Widget locking state (set during Publish tab checks)
     st.session_state.setdefault("bt_widget_exists_locked", False)
     st.session_state.setdefault("bt_widget_name_locked_value", "")
-
-
-def refresh_iframe_code_from_state():
-    st.session_state["bt_iframe_code"] = build_iframe_snippet_auto(
-        published_url=st.session_state.get("bt_last_published_url", ""),
-        html_code=st.session_state.get("bt_html_code", ""),
-        height=int(st.session_state.get("bt_iframe_height", 800)),
-    )
 
 
 def do_confirm_snapshot():
@@ -1446,9 +1406,6 @@ def do_confirm_snapshot():
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
-
-    # ✅ Update iframe immediately after Confirm (unpublished uses HTML; published uses URL)
-    refresh_iframe_code_from_state()
 
     st.session_state["bt_confirm_flash"] = True
 
@@ -1720,7 +1677,7 @@ with left_col:
             else:
                 st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
 
-        # Auto repo based on brand + month + year and LOCK it (hidden from UI)
+        # Auto repo based on brand + month + year and LOCK it (HIDDEN from UI)
         current_brand = st.session_state.get("brand_table", "Action Network")
         auto_repo = suggested_repo_name(current_brand)
         st.session_state["bt_gh_repo"] = auto_repo
@@ -1827,8 +1784,10 @@ with left_col:
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
 
-                # ✅ After publish, iframe switches automatically to Published URL
-                refresh_iframe_code_from_state()
+                # IMPORTANT: iframe code is ONLY created after successful publish
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                    pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
+                )
 
                 st.session_state["bt_widget_exists_locked"] = True
                 st.session_state["bt_widget_name_locked_value"] = widget_file_name
@@ -1837,11 +1796,6 @@ with left_col:
 
             except Exception as e:
                 st.error(f"Publish / IFrame generation failed: {e}")
-
-        # ✅ Always keep iframe output up-to-date:
-        # - If Published URL exists -> use it
-        # - Else -> embed the confirmed HTML via data URL
-        refresh_iframe_code_from_state()
 
         st.markdown("#### Outputs")
 
@@ -1853,7 +1807,7 @@ with left_col:
 
         st.text_area(
             "IFrame Code",
-            value=st.session_state.get("bt_iframe_code", ""),
+            value=st.session_state.get("bt_iframe_code", ""),  # stays EMPTY until publish
             height=160,
             disabled=True,
         )
