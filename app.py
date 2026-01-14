@@ -254,7 +254,10 @@ def get_brand_meta(brand: str) -> dict:
 
 
 # =========================================================
-# HTML Template
+# HTML Template (UPDATED - WORKING MENU + EMBED + PNG)
+# - FIX: Dropdown menu rendered as a portal in document.body (cannot be clipped)
+# - FIX: Embed code shows modal textarea fallback (clipboard often blocked in iframes)
+# - FIX: PNG download uses dataURL + window.open fallback (download often blocked in iframes)
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -375,6 +378,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --vbar-w: 6px; --vbar-w-hover: 8px;
       padding: 10px var(--gutter);
       padding-top: 10px;
+      position: relative;
+      overflow: visible;
     }
 
     #bt-block .dw-controls{
@@ -383,9 +388,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:center;
       gap:12px;
       margin:4px 0 10px 0;
+      position: relative;
+      z-index: 5;
+      overflow: visible;
     }
     #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
+    #bt-block .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative; overflow:visible;}
 
     #bt-block .dw-field{position:relative}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
@@ -437,41 +445,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:var(--brand-600);
     }
 
-    /* Download menu (popover) */
-    #bt-block .dw-download-menu{
-      position:absolute;
-      right:0;
-      top:44px;
-      min-width: 220px;
-      background:#fff;
-      border:1px solid rgba(0,0,0,.10);
-      border-radius:12px;
-      box-shadow:0 10px 30px rgba(0,0,0,.18);
-      padding:10px;
-      z-index: 50;
-    }
-    #bt-block .dw-download-menu .dw-menu-title{
-      font: 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-      color:#6b7280;
-      margin:0 0 8px 2px;
-    }
-    #bt-block .dw-download-menu .dw-menu-btn{
-      width:100%;
-      text-align:left;
-      border-radius:10px;
-      border:1px solid rgba(0,0,0,.10);
-      background:#fff;
-      color:#111827;
-      padding:10px 10px;
-      cursor:pointer;
-      margin:4px 0;
-      font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    }
-    #bt-block .dw-download-menu .dw-menu-btn:hover{
-      background:var(--brand-50);
-      border-color: rgba(var(--brand-500-rgb), .35);
-    }
-
     /* Clear button */
     #bt-block .dw-clear{
       position:absolute; right:10px; top:50%; translate:0 -50%;
@@ -483,8 +456,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-clear:hover{background:var(--brand-100)}
 
     /* Card & table */
-    #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
-    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; position:relative; z-index:1; }
+    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; position:relative; z-index:1; }
     #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
 
     #bt-block table.dw-table {
@@ -640,6 +613,87 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{
       overflow-x:hidden !important;
     }
+
+    /* --- PORTAL MENU (fixed to viewport) --- */
+    .dw-portal-menu{
+      position: fixed;
+      min-width: 220px;
+      background:#fff;
+      border:1px solid rgba(0,0,0,.10);
+      border-radius:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.18);
+      padding:10px;
+      z-index: 2147483647;
+    }
+    .dw-portal-menu.vi-hide{ display:none !important; }
+    .dw-portal-menu .dw-menu-title{
+      font: 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      color:#6b7280;
+      margin:0 0 8px 2px;
+    }
+    .dw-portal-menu .dw-menu-btn{
+      width:100%;
+      text-align:left;
+      border-radius:10px;
+      border:1px solid rgba(0,0,0,.10);
+      background:#fff;
+      color:#111827;
+      padding:10px 10px;
+      cursor:pointer;
+      margin:4px 0;
+      font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+    .dw-portal-menu .dw-menu-btn:hover{
+      background:var(--brand-50);
+      border-color: rgba(var(--brand-500-rgb), .35);
+    }
+
+    /* --- EMBED MODAL (copy fallback) --- */
+    .dw-embed-modal-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.35);
+      z-index: 2147483646;
+    }
+    .dw-embed-modal{
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(720px, calc(100vw - 24px));
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.12);
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      padding: 14px;
+      z-index: 2147483647;
+    }
+    .dw-embed-modal textarea{
+      width: 100%;
+      height: 140px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,.18);
+      padding: 10px;
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .dw-embed-modal .row{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      margin-top: 10px;
+    }
+    .dw-embed-modal .btn{
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(0,0,0,.14);
+      background: #fff;
+      cursor: pointer;
+    }
+    .dw-embed-modal .btn.primary{
+      border-color: var(--brand-600);
+      color: #fff;
+      background: var(--brand-600);
+    }
   </style>
 
   <!-- Header (optional) -->
@@ -674,13 +728,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
 
         <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
-
-        <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-          <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-          <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-embed-script">Embed Script</button>
-        </div>
       </div>
     </div>
 
@@ -735,12 +782,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const prevBtn = controls.querySelector('[data-page="prev"]');
     const nextBtn = controls.querySelector('[data-page="next"]');
     const downloadBtn = controls.querySelector('#dw-download-png');
-
-    const menu = controls.querySelector('#dw-download-menu');
-    const btnTop10 = controls.querySelector('#dw-dl-top10');
-    const btnBottom10 = controls.querySelector('#dw-dl-bottom10');
-    const btnEmbed = controls.querySelector('#dw-embed-script');
-    const menuTitle = controls.querySelector('#dw-menu-title');
 
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
@@ -902,27 +943,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     // =============================
-    // Download Menu Toggle
-    // =============================
-    function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
-    function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
-
-    document.addEventListener('click', (e)=>{
-      if(!menu || menu.classList.contains('vi-hide')) return;
-      const inMenu = menu.contains(e.target);
-      const inBtn = downloadBtn && downloadBtn.contains(e.target);
-      if(!inMenu && !inBtn) hideMenu();
-    });
-
-    if(downloadBtn){
-      downloadBtn.addEventListener('click', (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        toggleMenu();
-      });
-    }
-
-    // =============================
     // DOM PNG EXPORT (NO alert popups)
     // =============================
     async function waitForFontsAndImages(el){
@@ -1023,22 +1043,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         scrollY: 0,
       });
 
-      canvas.toBlob((blob)=>{
-        if(!blob){
-          stage.remove();
-          console.warn("PNG export failed: no blob returned.");
-          return;
-        }
-        const url = URL.createObjectURL(blob);
+      // FIX: dataURL download + fallback open in new tab (works better in sandboxed iframes)
+      const dataUrl = canvas.toDataURL('image/png');
+      try{
         const a = document.createElement('a');
-        a.href = url;
+        a.href = dataUrl;
         a.download = filename + '.png';
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 1500);
-        stage.remove();
-      }, 'image/png');
+      }catch(e){
+        window.open(dataUrl, '_blank');
+      }
+      stage.remove();
     }
 
     async function downloadDomPng(mode){
@@ -1086,17 +1103,67 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
+    // =============================
+    // EMBED SCRIPT + MODAL FALLBACK
+    // =============================
     function buildEmbedCode(){
-      const src = window.location.href;
-      const h = 800;
-      return <iframe
-  src="${src}"
-  width="100%"
-  height="${h}"
-  style="border:0; border-radius:12px; overflow:hidden;"
-  loading="lazy"
-  referrerpolicy="no-referrer-when-downgrade"
-></iframe>;
+      // If hosted on GitHub Pages, this expects a matching .js next to .html (uploaded by Streamlit app)
+      const htmlSrc = window.location.href.split('#')[0];
+      const jsSrc = htmlSrc.replace(/\.html?(\?.*)?$/i, '.js');
+      const id = 'bt-embed-' + Math.random().toString(36).slice(2, 9);
+      const h = 820;
+
+      return `<div id="${id}"></div>
+<script async
+  src="${jsSrc}"
+  data-target="${id}"
+  data-src="${htmlSrc}"
+  data-height="${h}"
+></script>`;
+    }
+
+    function showEmbedModal(code, statusText){
+      const backdrop = document.createElement('div');
+      backdrop.className = 'dw-embed-modal-backdrop';
+
+      const modal = document.createElement('div');
+      modal.className = 'dw-embed-modal';
+      modal.innerHTML = `
+        <div style="font:600 14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin-bottom:8px;">
+          ${statusText || 'Copy embed code'}
+        </div>
+        <textarea spellcheck="false"></textarea>
+        <div class="row">
+          <button class="btn" type="button" data-act="close">Close</button>
+          <button class="btn primary" type="button" data-act="select">Select All</button>
+        </div>
+        <div style="margin-top:8px; color:#6b7280; font:12px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+          If auto-copy is blocked, click “Select All” and copy manually.
+        </div>
+      `;
+
+      const ta = modal.querySelector('textarea');
+      ta.value = code;
+
+      function cleanup(){
+        backdrop.remove();
+        modal.remove();
+      }
+
+      backdrop.addEventListener('click', cleanup);
+      modal.querySelector('[data-act="close"]').addEventListener('click', cleanup);
+      modal.querySelector('[data-act="select"]').addEventListener('click', ()=>{
+        ta.focus();
+        ta.select();
+      });
+
+      document.body.appendChild(backdrop);
+      document.body.appendChild(modal);
+
+      setTimeout(()=>{
+        ta.focus();
+        ta.select();
+      }, 50);
     }
 
     async function copyToClipboard(text){
@@ -1106,35 +1173,95 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           return true;
         }
       }catch(e){}
-      try{
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly','');
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-        return true;
-      }catch(e){
-        return false;
-      }
+      return false;
     }
 
     async function onEmbedClick(){
       hideMenu();
       const code = buildEmbedCode();
       const ok = await copyToClipboard(code);
-      if(menuTitle){
-        menuTitle.textContent = ok ? 'Embed code copied!' : 'Copy failed (try again)';
-        setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
-      }
+      showEmbedModal(code, ok ? 'Embed code copied!' : 'Copy blocked — use manual copy');
     }
 
-    if(btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
-    if(btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
-    if(btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
+    // =============================
+    // PORTAL MENU (NOT CLIPPED)
+    // =============================
+    let portalMenu = null;
+
+    function buildPortalMenu(){
+      if (portalMenu) return portalMenu;
+
+      portalMenu = document.createElement('div');
+      portalMenu.className = 'dw-portal-menu vi-hide';
+      portalMenu.id = 'dw-portal-menu';
+
+      portalMenu.innerHTML = `
+        <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+        <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
+        <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+        <button type="button" class="dw-menu-btn" id="dw-embed-script">Embed Script</button>
+      `;
+
+      document.body.appendChild(portalMenu);
+
+      portalMenu.querySelector('#dw-dl-top10')?.addEventListener('click', ()=> downloadDomPng('top10'));
+      portalMenu.querySelector('#dw-dl-bottom10')?.addEventListener('click', ()=> downloadDomPng('bottom10'));
+      portalMenu.querySelector('#dw-embed-script')?.addEventListener('click', onEmbedClick);
+
+      return portalMenu;
+    }
+
+    function hideMenu(){
+      const m = buildPortalMenu();
+      m.classList.add('vi-hide');
+    }
+
+    function showMenu(){
+      const m = buildPortalMenu();
+      if (!downloadBtn) return;
+
+      // ensure dimensions exist
+      m.classList.remove('vi-hide');
+      m.style.top = '0px';
+      m.style.left = '0px';
+
+      const r = downloadBtn.getBoundingClientRect();
+      const pad = 6;
+
+      const menuW = m.getBoundingClientRect().width || 240;
+      const top = Math.min(window.innerHeight - 10, r.bottom + pad);
+      const left = Math.min(window.innerWidth - 10, Math.max(10, r.right - menuW));
+
+      m.style.top = top + 'px';
+      m.style.left = left + 'px';
+    }
+
+    function toggleMenu(){
+      const m = buildPortalMenu();
+      if (m.classList.contains('vi-hide')) showMenu();
+      else hideMenu();
+    }
+
+    document.addEventListener('click', (e)=>{
+      const m = portalMenu;
+      if (!m || m.classList.contains('vi-hide')) return;
+      const inMenu = e.target && e.target.closest && e.target.closest('#dw-portal-menu');
+      const inBtn = e.target && e.target.closest && e.target.closest('#dw-download-png');
+      if(!inMenu && !inBtn) hideMenu();
+    });
+
+    window.addEventListener('resize', ()=>{
+      const m = portalMenu;
+      if (m && !m.classList.contains('vi-hide')) showMenu();
+    });
+
+    if(downloadBtn){
+      downloadBtn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        toggleMenu();
+      });
+    }
 
     renderPage();
   })();
@@ -1144,6 +1271,92 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </body>
 </html>
 """
+
+
+# =========================================================
+# Embed Loader JS (published as .js next to each .html)
+# =========================================================
+EMBED_LOADER_JS = r"""(function () {
+  var script = document.currentScript;
+  if (!script) return;
+
+  var htmlSrc = script.getAttribute("data-src") || script.src.replace(/\.js(\?.*)?$/i, ".html");
+  var targetId = script.getAttribute("data-target");
+  var height = parseInt(script.getAttribute("data-height") || "820", 10);
+  var mode = (script.getAttribute("data-mode") || "inline").toLowerCase();
+
+  function mountNode() {
+    if (targetId) {
+      var el = document.getElementById(targetId);
+      if (el) return el;
+    }
+    var d = document.createElement("div");
+    script.parentNode.insertBefore(d, script);
+    return d;
+  }
+
+  var mount = mountNode();
+
+  // Optional iframe mode (supported via data-mode="iframe")
+  if (mode === "iframe") {
+    var iframe = document.createElement("iframe");
+    iframe.src = htmlSrc;
+    iframe.width = "100%";
+    iframe.height = String(height);
+    iframe.style.border = "0";
+    iframe.style.borderRadius = "12px";
+    iframe.style.overflow = "hidden";
+    iframe.loading = "lazy";
+    iframe.referrerPolicy = "no-referrer-when-downgrade";
+    mount.appendChild(iframe);
+    return;
+  }
+
+  function ensureScript(src) {
+    return new Promise(function (resolve) {
+      if (document.querySelector('script[src="' + src + '"]')) return resolve();
+      var s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = resolve;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Needed for the PNG download feature inside the widget
+  var html2canvasCdn = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+
+  Promise.all([ensureScript(html2canvasCdn)])
+    .then(function () { return fetch(htmlSrc, { credentials: "omit" }).then(function (r) { return r.text(); }); })
+    .then(function (html) {
+      var tmp = document.createElement("div");
+      tmp.innerHTML = html;
+
+      var section = tmp.querySelector("section.vi-table-embed");
+      if (!section) {
+        mount.innerHTML = html;
+        return;
+      }
+
+      // Pull scripts out so we can re-execute them after insertion
+      var scripts = Array.prototype.slice.call(section.querySelectorAll("script"));
+      scripts.forEach(function (s) { s.parentNode && s.parentNode.removeChild(s); });
+
+      mount.appendChild(section);
+
+      scripts.forEach(function (old) {
+        var s = document.createElement("script");
+        if (old.src) {
+          s.src = old.src;
+          s.async = old.async;
+        }
+        s.text = old.textContent || "";
+        mount.appendChild(s);
+      });
+    })
+    .catch(function () { /* fail silently */ });
+})();"""
 
 
 # =========================================================
@@ -1338,6 +1551,14 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     return f"https://{user}.github.io/{repo}/{filename}"
 
 
+def compute_pages_js_url(user: str, repo: str, html_filename: str) -> tuple[str, str]:
+    """Return (js_url, js_filename) for a given html filename."""
+    html_filename = (html_filename or "").lstrip("/").strip() or "table.html"
+    base = re.sub(r"\.html?$", "", html_filename, flags=re.I)
+    js_filename = base + ".js"
+    return compute_pages_url(user, repo, js_filename), js_filename
+
+
 def build_iframe_snippet(url: str, height: int = 800) -> str:
     url = (url or "").strip()
     h = int(height) if height else 800
@@ -1351,6 +1572,24 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 ></iframe>"""
 
 
+def build_embed_script_snippet(js_url: str, html_url: str, height: int = 820, mode: str = "inline") -> str:
+    """Default embed is script-based; optional mode='iframe' if you really want it."""
+    js_url = (js_url or "").strip()
+    html_url = (html_url or "").strip()
+    h = int(height) if height else 820
+    mode = (mode or "inline").strip().lower()
+
+    embed_id = "bt-embed-" + str(int(time.time()))
+    return f"""<div id="{embed_id}"></div>
+<script async
+  src="{html_mod.escape(js_url, quote=True)}"
+  data-target="{embed_id}"
+  data-src="{html_mod.escape(html_url, quote=True)}"
+  data-height="{h}"
+  data-mode="{html_mod.escape(mode, quote=True)}"
+></script>"""
+
+
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1360,6 +1599,7 @@ def reset_widget_state_for_new_upload():
         "bt_html_hash",
         "bt_last_published_url",
         "bt_iframe_code",
+        "bt_embed_code",
         "bt_widget_file_name",
         "bt_gh_user",
         "bt_gh_repo",
@@ -1384,6 +1624,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
+    st.session_state.setdefault("bt_embed_code", "")
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
 
@@ -1485,7 +1726,7 @@ with right_col:
                 "Edits Apply To The Draft Immediately. Click Confirm And Save Table Contents To Finalize HTML/Publishing."
             )
 
-    draft_cfg_hash = stable_config_hash(draft_config_from_state())
+    draft_cfg_hash = stable_config_hash(draft_config_from_state()))
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
 
     draft_df = st.session_state.get("bt_df_draft")
@@ -1514,7 +1755,7 @@ with right_col:
 
 # ===================== Left: Tabs =====================
 with left_col:
-    tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
+    tab_config, tab_html, tab_publish = st.tabs(["Configure", "HTML", "Publish + Embed"])
 
     # ---------- CONFIGURE TAB ----------
     with tab_config:
@@ -1644,9 +1885,9 @@ with left_col:
             placeholder="Confirm And Save To Generate HTML Here.",
         )
 
-    # ---------- IFRAME TAB (SUPER SIMPLE + AUTO REPO + NO SWAP IF EXISTS) ----------
-    with tab_iframe:
-        st.markdown("### Publish + IFrame")
+    # ---------- PUBLISH + EMBED TAB ----------
+    with tab_publish:
+        st.markdown("### Publish + Embed")
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
@@ -1681,44 +1922,19 @@ with left_col:
             else:
                 st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
 
-        # Auto repo based on brand + month + year and LOCK it
+        # Auto repo based on brand + month + year and LOCK it (hidden)
         current_brand = st.session_state.get("brand_table", "Action Network")
         auto_repo = suggested_repo_name(current_brand)
         st.session_state["bt_gh_repo"] = auto_repo
         repo_name = auto_repo
 
-        st.text_input(
-            "Campaign Name (repo)",
-            value=repo_name,
-            disabled=True,
-            help="Auto-generated from Brand + current month + year.",
-        )
+        st.caption("Campaign repo is auto-generated from brand + month + year (hidden).")
 
-        # -----------------------------------------------------
         # Widget Name (file) with "no swapping if already exists"
-        # -----------------------------------------------------
-        # Rule:
-        # - If selected user has a valid token and the file already exists in the repo,
-        #   then lock the widget name to that existing value (user can only change it by typing a NEW name).
-        #
-        # Implementation:
-        # - We check existence only when we have token + user + repo + a filename candidate.
-        # - If it exists, we set a lock flag and store the locked filename in session_state.
-        # - While locked, we DISABLE any programmatic swapping: we keep the value stable unless user edits it.
-        #
-        # Note: since this UI is just a text_input (not a select/dropdown), "swapping" typically happens
-        # when other state changes overwrite the input value. We prevent overwrites by only auto-setting
-        # the value if not locked.
-        # -----------------------------------------------------
-
-        # If locked, keep showing the locked value unless user changes it.
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
 
-        # If not locked, use the normal session default
         default_widget_value = st.session_state.get("bt_widget_file_name", "table.html")
-
-        # Decide what to show in the input:
         input_value = locked_value if (locked and locked_value) else default_widget_value
 
         widget_file_name = st.text_input(
@@ -1733,17 +1949,13 @@ with left_col:
             widget_file_name = widget_file_name + ".html"
             st.session_state["bt_widget_file_name"] = widget_file_name
 
-        # If we are locked and user changed the name away from the locked one,
-        # then unlock (because they explicitly want a new filename).
         if locked and locked_value and widget_file_name and widget_file_name != locked_value:
             st.session_state["bt_widget_exists_locked"] = False
             st.session_state["bt_widget_name_locked_value"] = ""
 
-        # Recompute after possible unlock
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
 
-        # Only check "exists" when we have enough info (and NOT already locked)
         if (not locked) and effective_github_user and token_for_user and repo_name and widget_file_name:
             if github_file_exists(effective_github_user, repo_name, token_for_user, widget_file_name, branch="main"):
                 st.session_state["bt_widget_exists_locked"] = True
@@ -1754,7 +1966,6 @@ with left_col:
         if locked and locked_value:
             st.caption("🔒 This widget file already exists in the repo. To publish a new one, type a NEW file name.")
 
-        # ✅ ONLY the button is gated
         can_publish = bool(
             html_generated
             and effective_github_user
@@ -1764,7 +1975,7 @@ with left_col:
         )
 
         publish_clicked = st.button(
-            "🧩 Publish + Get IFrame",
+            "🧩 Publish + Get Embed",
             use_container_width=True,
             disabled=not can_publish,
         )
@@ -1804,6 +2015,7 @@ with left_col:
                 except Exception:
                     pass
 
+                # 1) upload HTML
                 upload_file_to_github(
                     effective_github_user,
                     repo_name,
@@ -1813,28 +2025,57 @@ with left_col:
                     f"Add/Update {widget_file_name} from Branded Table App",
                     branch="main",
                 )
+
+                # 2) upload matching JS loader (same base name)
+                js_url, js_filename = compute_pages_js_url(effective_github_user, repo_name, widget_file_name)
+                upload_file_to_github(
+                    effective_github_user,
+                    repo_name,
+                    token_for_user,
+                    js_filename,
+                    EMBED_LOADER_JS,
+                    f"Add/Update {js_filename} embed loader",
+                    branch="main",
+                )
+
                 trigger_pages_build(effective_github_user, repo_name, token_for_user)
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
+
+                # Default: SCRIPT embed (no iframe)
+                st.session_state["bt_embed_code"] = build_embed_script_snippet(
+                    js_url=js_url,
+                    html_url=pages_url,
+                    height=int(st.session_state.get("bt_iframe_height", 800)),
+                    mode="inline",
+                )
+
+                # IFRAME: available for ALL brands
                 st.session_state["bt_iframe_code"] = build_iframe_snippet(
                     pages_url, height=int(st.session_state.get("bt_iframe_height", 800))
                 )
 
-                # If it now exists (it does), lock to prevent any "swap" overrides later
                 st.session_state["bt_widget_exists_locked"] = True
                 st.session_state["bt_widget_name_locked_value"] = widget_file_name
 
-                st.success("Done. URL + IFrame are ready below.")
+                st.success("Done. URL + Embed code are ready below.")
 
             except Exception as e:
-                st.error(f"Publish / IFrame generation failed: {e}")
+                st.error(f"Publish / embed generation failed: {e}")
 
         st.markdown("#### Outputs")
 
         st.text_input(
             "GitHub Hosted URL",
             value=st.session_state.get("bt_last_published_url", ""),
+            disabled=True,
+        )
+
+        st.text_area(
+            "Embed Script (Recommended)",
+            value=st.session_state.get("bt_embed_code", ""),
+            height=190,
             disabled=True,
         )
 
