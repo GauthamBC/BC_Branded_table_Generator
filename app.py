@@ -365,74 +365,80 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --vbar-w: 6px; --vbar-w-hover: 8px;
       padding: 10px var(--gutter);
       padding-top: 10px;
-      width: 100%;
     }
 
-    /* ==========================
-       Controls: Top Row + Embed Row
-    ========================== */
+    /* ✅ CONTROLS: single-row always (desktop + mobile) */
     #bt-block .dw-controls{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      width:100%;
-      margin:4px 0 10px 0;
-    }
-
-    /* Row 1: search left + pager right */
-    #bt-block .dw-toprow{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
+      margin:4px 0 10px 0;
       width:100%;
       flex-wrap:nowrap;
     }
 
-    #bt-block .dw-toprow .left{
-      flex: 1 1 280px;
-      min-width: 180px;
+    #bt-block .left{
       display:flex;
       align-items:center;
-      justify-content:flex-start;
       gap:8px;
-      flex-wrap:wrap;
+      flex:1 1 auto;
+      min-width:0;
+      justify-content:flex-start;
     }
 
-    #bt-block .dw-toprow .right{
-      flex: 0 0 auto;
+    #bt-block .right{
       display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:12px;
+      flex:0 0 auto;
+      flex-wrap:nowrap;
+      min-width:0;
+      position:relative;
+    }
+
+    #bt-block .dw-pager{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
       gap:10px;
-      align-items:center;
-      justify-content:flex-end;
-      flex-wrap:wrap;
-      position:relative;
+      flex-wrap:nowrap;
+      min-width:0;
     }
 
-    /* Row 2: embed/download button below */
-    #bt-block .dw-embedrow{
-      width:100%;
-      position:relative;
+    #bt-block .dw-embed{
       display:flex;
-      justify-content:flex-end;
       align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:nowrap;
+      min-width:0;
+      position:relative;
     }
 
-    /* Button styles */
-    #bt-block .dw-field{position:relative}
+    #bt-block .dw-field{position:relative; min-width:0;}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
       font:14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
       border-radius:10px;
       padding:8px 10px;
       transition:.15s ease;
     }
+
     #bt-block .dw-input,#bt-block .dw-select{
       background:#fff;
       border:1px solid var(--brand-700);
       color:var(--text);
       box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
     }
-    #bt-block .dw-input{width:min(320px,100%); padding-right:36px}
+
+    /* ✅ Search stays left and shrinks nicely */
+    #bt-block .dw-input{
+      width:min(320px, 100%);
+      max-width:320px;
+      min-width:120px;
+      padding-right:36px;
+    }
     #bt-block .dw-input::placeholder{color:#9AA4B2}
     #bt-block .dw-input:focus,#bt-block .dw-select:focus{
       outline:none;
@@ -440,9 +446,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .25);
       background:#fff;
     }
+
     #bt-block .dw-select{
       appearance:none; -webkit-appearance:none; -moz-appearance:none;
       padding-right:26px; background:#fff; background-image:none;
+      min-width:68px;
+    }
+
+    #bt-block .dw-status{
+      font-size:14px;
+      color:#111827;
+      white-space:nowrap;
     }
 
     #bt-block .dw-btn{
@@ -457,7 +471,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
 
-    /* Download button (embed/download) */
+    /* Download button */
     #bt-block .dw-btn.dw-download{
       background:#ffffff;
       color:var(--brand-700);
@@ -516,28 +530,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Card & table */
     #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
+    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 
-    /* ✅ REAL horizontal scrolling on mobile */
-    #bt-block .dw-scroll{
-      width: 100%;
-      max-width: 100%;
-      overflow-x: auto;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      touch-action: pan-x pan-y;
-      overscroll-behavior: contain;
-
-      max-height:var(--table-max-h,360px);
-      -ms-overflow-style:auto;
-      scrollbar-width:thin;
-      scrollbar-color:var(--scroll-thumb) transparent;
-    }
-
-    /* Optional: keep this for narrow tables */
-    #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
-
-    #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
-    #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
+    /* ✅ FIX: horizontal scrollbar is allowed (don’t kill it) */
+    #bt-block .dw-scroll::-webkit-scrollbar{ height:8px; width:var(--vbar-w); }
+    #bt-block .dw-scroll:hover::-webkit-scrollbar{ width:var(--vbar-w-hover); }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
       background:var(--scroll-thumb);
       border-radius:9999px;
@@ -553,10 +550,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color: var(--text);
       font-variant-numeric: tabular-nums;
       background: transparent;
-
-      /* ✅ ensures horizontal scroll exists on small screens */
       min-width: 600px;
-
       table-layout: auto;
     }
 
@@ -592,11 +586,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overflow-wrap: anywhere;
       word-break: break-word;
       line-height: 1.35;
-
       display:-webkit-box;
       -webkit-line-clamp:2;
       -webkit-box-orient:vertical;
-
       overflow:hidden;
       text-overflow:ellipsis;
     }
@@ -612,6 +604,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
+    #bt-block .dw-scroll{
+      max-height:var(--table-max-h,360px);
+      overflow-y:auto;
+      -ms-overflow-style:auto;
+      scrollbar-width:thin;
+      scrollbar-color:var(--scroll-thumb) transparent
+    }
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
@@ -653,40 +652,34 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
-    /* ✅ Mobile behavior:
-       - Top row wraps (search/pager)
-       - Embed button becomes full width on its own row
-       - Menu becomes full width
-    */
+    /* ✅ MOBILE TIGHT MODE (same row layout, just smaller) */
     @media (max-width: 640px){
-      #bt-block{ --gutter: 10px; }
+      #bt-block{ --gutter: 10px; padding-top: 8px; }
 
-      #bt-block .dw-toprow{
-        flex-wrap:wrap;
+      #bt-block .dw-controls{ gap:8px; }
+
+      #bt-block .dw-input,
+      #bt-block .dw-select,
+      #bt-block .dw-btn{
+        font-size:12px;
+        border-radius:10px;
+        padding:6px 8px;
       }
-      #bt-block .dw-toprow .left,
-      #bt-block .dw-toprow .right{
-        flex: 1 1 100%;
-        justify-content:flex-start;
-      }
+
       #bt-block .dw-input{
-        width: 100%;
-        min-width: 0;
+        width: 120px;
+        max-width: 120px;
+        min-width: 90px;
+        padding-right:28px;
       }
 
-      /* full-width CTA */
-      #bt-block .dw-embedrow{
-        width:100%;
-      }
-      #bt-block .dw-embedrow #dw-download-png{
-        width:100%;
-      }
+      #bt-block .dw-status{ font-size:12px; }
+      #bt-block .dw-pager{ gap:8px; }
+      #bt-block .dw-btn{ padding-inline:10px; }
 
-      /* menu spans width */
-      #bt-block .dw-download-menu{
-        left:0;
-        right:0;
-        min-width: unset;
+      /* keep embed button readable but compact */
+      #bt-block .dw-btn.dw-download{
+        padding-inline:10px;
       }
     }
 
@@ -711,7 +704,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       table-layout:fixed !important;
       width:100% !important;
     }
-    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
   </style>
 
   <!-- Header (optional) -->
@@ -722,20 +714,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
   <!-- Table block -->
   <div id="bt-block" data-dw="table">
-
     <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
-
-      <!-- Row 1: Search + Pager -->
-      <div class="dw-toprow">
-        <div class="left">
-          <div class="dw-field [[SEARCH_VIS_CLASS]]">
-            <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
-            <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
-          </div>
+      <div class="left">
+        <div class="dw-field [[SEARCH_VIS_CLASS]]">
+          <input type="search" class="dw-input" placeholder="Search" aria-label="Search Table">
+          <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
         </div>
+      </div>
 
-        <!-- Pager (independent) -->
-        <div class="right dw-pager [[PAGER_VIS_CLASS]]">
+      <div class="right">
+        <!-- Pager group (independent) -->
+        <div class="dw-pager [[PAGER_VIS_CLASS]]">
           <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
           <select id="bt-size" class="dw-select">
             <option value="5">5</option>
@@ -750,22 +739,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
           <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
         </div>
-      </div>
 
-      <!-- Row 2: Embed/Download full-width on mobile -->
-      <div class="dw-embedrow [[EMBED_VIS_CLASS]]">
-        <button class="dw-btn dw-download" id="dw-download-png" type="button" style="width:auto;">
-          Embed / Download
-        </button>
+        <!-- Embed/Download group (independent) -->
+        <div class="dw-embed [[EMBED_VIS_CLASS]]">
+          <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
-        <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-          <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-          <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-          <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
+          <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
+            <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+            <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
+            <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+            <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
+          </div>
         </div>
       </div>
-
     </div>
 
     <div class="dw-card">
@@ -819,8 +805,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const prevBtn = pagerWrap ? pagerWrap.querySelector('[data-page="prev"]') : null;
     const nextBtn = pagerWrap ? pagerWrap.querySelector('[data-page="next"]') : null;
 
-    /* ✅ embed row selector updated */
-    const embedWrap = controls.querySelector('.dw-embedrow');
+    const embedWrap = controls.querySelector('.dw-embed');
     const downloadBtn = embedWrap ? embedWrap.querySelector('#dw-download-png') : null;
     const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
     const btnTop10 = embedWrap ? embedWrap.querySelector('#dw-dl-top10') : null;
@@ -842,10 +827,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const hasEmbed = !controlsHidden
       && !!embedWrap && !embedWrap.classList.contains('vi-hide')
       && !!downloadBtn && !!menu && !!btnEmbed;
-
-    if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
-      scroller.classList.add('no-scroll');
-    }
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
@@ -991,9 +972,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    // =============================
-    // Download Menu Toggle
-    // =============================
+    // Download menu toggle
     function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
     function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
@@ -1012,9 +991,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
-    // =============================
-    // DOM PNG EXPORT
-    // =============================
+    // DOM PNG EXPORT + Copy HTML (kept from your version)
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -1066,13 +1043,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     async function captureCloneToPng(clone, stage, filename, targetWidth){
       const cloneScroller = clone.querySelector('.dw-scroll');
-
       if(cloneScroller){
         cloneScroller.style.maxHeight = 'none';
         cloneScroller.style.height = 'auto';
         cloneScroller.style.overflow = 'visible';
-        cloneScroller.style.overflowX = 'visible';
-        cloneScroller.style.overflowY = 'visible';
         cloneScroller.classList.add('no-scroll');
       }
 
@@ -1134,7 +1108,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     async function downloadDomPng(mode){
       try{
         hideMenu();
-
         if(!window.html2canvas){
           console.warn("html2canvas failed to load.");
           return;
@@ -1176,9 +1149,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
-    // =============================
-    // Copy FULL HTML (NOT iframe)
-    // =============================
     function getFullHtml(){
       const html = document.documentElement ? document.documentElement.outerHTML : "";
       return "<!doctype html>\n" + html;
@@ -1229,8 +1199,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </body>
 </html>
 """
-
-
 # =========================================================
 # Generator
 # =========================================================
