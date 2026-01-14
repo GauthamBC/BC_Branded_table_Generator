@@ -1687,13 +1687,6 @@ with left_col:
         st.session_state["bt_gh_repo"] = auto_repo
         repo_name = auto_repo
 
-        st.text_input(
-            "Campaign Name (repo)",
-            value=repo_name,
-            disabled=True,
-            help="Auto-generated from Brand + current month + year.",
-        )
-
         # -----------------------------------------------------
         # Widget Name (file) with "no swapping if already exists"
         # -----------------------------------------------------
@@ -1833,7 +1826,7 @@ with left_col:
         st.markdown("#### Outputs")
 
         st.text_input(
-            "GitHub Hosted URL",
+            "Published URL",
             value=st.session_state.get("bt_last_published_url", ""),
             disabled=True,
         )
