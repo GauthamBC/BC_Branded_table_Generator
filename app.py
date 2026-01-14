@@ -3,6 +3,7 @@ import datetime
 import html as html_mod
 import re
 import time
+from collections.abc import Mapping
 
 import pandas as pd
 import requests
@@ -15,33 +16,40 @@ import streamlit.components.v1 as components
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
 
 
+from collections.abc import Mapping
+
 def get_github_tokens_map() -> dict:
     """Return {username_lower: token} from Streamlit secrets."""
     try:
-        if hasattr(st, "secrets") and "GITHUB_TOKENS" in st.secrets:
-            raw = st.secrets["GITHUB_TOKENS"]
-            if isinstance(raw, dict):
-                return {
-                    str(k).strip().lower(): str(v).strip()
-                    for k, v in raw.items()
-                    if str(k).strip()
-                }
-            if isinstance(raw, str):
-                m = {}
-                for part in raw.split(","):
-                    part = part.strip()
-                    if not part or ":" not in part:
-                        continue
-                    u, t = part.split(":", 1)
-                    u = u.strip().lower()
-                    if u:
-                        m[u] = t.strip()
-                return m
+        raw = st.secrets.get("GITHUB_TOKENS", None)
+        if raw is None:
+            return {}
+
+        # Streamlit secrets sections behave like a Mapping, not always a dict
+        if isinstance(raw, Mapping):
+            return {
+                str(k).strip().lower(): str(v).strip()
+                for k, v in raw.items()
+                if str(k).strip()
+            }
+
+        # Optional: allow a single string like "user1:token1, user2:token2"
+        if isinstance(raw, str):
+            m = {}
+            for part in raw.split(","):
+                part = part.strip()
+                if not part or ":" not in part:
+                    continue
+                u, t = part.split(":", 1)
+                u = u.strip().lower()
+                if u:
+                    m[u] = t.strip()
+            return m
+
     except Exception:
-        pass
+        return {}
+
     return {}
-
-
 # =========================================================
 # Repo Auto-Naming (Full Brand Name + Month + Year)
 # =========================================================
