@@ -16,8 +16,6 @@ import streamlit.components.v1 as components
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
 
 
-from collections.abc import Mapping
-
 def get_github_tokens_map() -> dict:
     """Return {username_lower: token} from Streamlit secrets."""
     try:
@@ -50,6 +48,8 @@ def get_github_tokens_map() -> dict:
         return {}
 
     return {}
+
+
 # =========================================================
 # Repo Auto-Naming (Full Brand Name + Month + Year)
 # =========================================================
@@ -61,15 +61,15 @@ BRAND_REPO_PREFIX_FULL = {
 }
 
 MONTH_CODE = {
-    1: "j",   # Jan
-    2: "f",   # Feb
-    3: "m",   # Mar
-    4: "a",   # Apr
-    5: "y",   # May
-    6: "u",   # Jun
-    7: "l",   # Jul
-    8: "g",   # Aug
-    9: "s",   # Sep
+    1: "j",  # Jan
+    2: "f",  # Feb
+    3: "m",  # Mar
+    4: "a",  # Apr
+    5: "y",  # May
+    6: "u",  # Jun
+    7: "l",  # Jul
+    8: "g",  # Aug
+    9: "s",  # Sep
     10: "o",  # Oct
     11: "n",  # Nov
     12: "d",  # Dec
@@ -101,7 +101,11 @@ def get_authenticated_github_login(token: str) -> str:
     try:
         if not token:
             return ""
-        r = requests.get("https://api.github.com/user", headers=github_headers(token), timeout=20)
+        r = requests.get(
+            "https://api.github.com/user",
+            headers=github_headers(token),
+            timeout=20,
+        )
         if r.status_code == 200:
             return str(r.json().get("login", "")).strip()
     except Exception:
@@ -238,8 +242,9 @@ def get_brand_meta(brand: str) -> dict:
 
 # =========================================================
 # HTML Template (UPDATED)
-# - Embed/Download button is independent from Pager visibility
-# - Embed Script copies FULL HTML (not iframe)
+# - Mobile-safe controls layout
+# - Embed/Download row becomes FULL WIDTH on mobile (below top row)
+# - Real horizontal scrolling enabled on mobile
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -360,22 +365,60 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --vbar-w: 6px; --vbar-w-hover: 8px;
       padding: 10px var(--gutter);
       padding-top: 10px;
+      width: 100%;
     }
 
+    /* ==========================
+       Controls: Top Row + Embed Row
+    ========================== */
     #bt-block .dw-controls{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      align-items:center;
-      gap:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      width:100%;
       margin:4px 0 10px 0;
     }
-    #bt-block .left{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-start}
-    #bt-block .right{display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
 
-    /* NEW: pager group + embed group */
-    #bt-block .dw-pager{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
-    #bt-block .dw-embed{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; position:relative;}
+    /* Row 1: search left + pager right */
+    #bt-block .dw-toprow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      width:100%;
+      flex-wrap:nowrap;
+    }
 
+    #bt-block .dw-toprow .left{
+      flex: 1 1 280px;
+      min-width: 180px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    #bt-block .dw-toprow .right{
+      flex: 0 0 auto;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      position:relative;
+    }
+
+    /* Row 2: embed/download button below */
+    #bt-block .dw-embedrow{
+      width:100%;
+      position:relative;
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+    }
+
+    /* Button styles */
     #bt-block .dw-field{position:relative}
     #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
       font:14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
@@ -414,7 +457,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
 
-    /* Download button */
+    /* Download button (embed/download) */
     #bt-block .dw-btn.dw-download{
       background:#ffffff;
       color:var(--brand-700);
@@ -473,8 +516,34 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Card & table */
     #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
-    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+
+    /* ✅ REAL horizontal scrolling on mobile */
+    #bt-block .dw-scroll{
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x pan-y;
+      overscroll-behavior: contain;
+
+      max-height:var(--table-max-h,360px);
+      -ms-overflow-style:auto;
+      scrollbar-width:thin;
+      scrollbar-color:var(--scroll-thumb) transparent;
+    }
+
+    /* Optional: keep this for narrow tables */
     #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
+
+    #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
+    #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
+    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
+      background:var(--scroll-thumb);
+      border-radius:9999px;
+      border:2px solid transparent;
+      background-clip:content-box;
+    }
 
     #bt-block table.dw-table {
       width: 100%;
@@ -484,7 +553,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color: var(--text);
       font-variant-numeric: tabular-nums;
       background: transparent;
+
+      /* ✅ ensures horizontal scroll exists on small screens */
       min-width: 600px;
+
       table-layout: auto;
     }
 
@@ -540,22 +612,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
-    #bt-block .dw-scroll{
-      max-height:var(--table-max-h,360px);
-      overflow-y:auto;
-      -ms-overflow-style:auto;
-      scrollbar-width:thin;
-      scrollbar-color:var(--scroll-thumb) transparent
-    }
-    #bt-block .dw-scroll::-webkit-scrollbar:horizontal{height:0; display:none}
-    #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
-    #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
-    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background:var(--scroll-thumb);
-      border-radius:9999px;
-      border:2px solid transparent;
-      background-clip:content-box;
-    }
+
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
       background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
@@ -596,6 +653,43 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
+    /* ✅ Mobile behavior:
+       - Top row wraps (search/pager)
+       - Embed button becomes full width on its own row
+       - Menu becomes full width
+    */
+    @media (max-width: 640px){
+      #bt-block{ --gutter: 10px; }
+
+      #bt-block .dw-toprow{
+        flex-wrap:wrap;
+      }
+      #bt-block .dw-toprow .left,
+      #bt-block .dw-toprow .right{
+        flex: 1 1 100%;
+        justify-content:flex-start;
+      }
+      #bt-block .dw-input{
+        width: 100%;
+        min-width: 0;
+      }
+
+      /* full-width CTA */
+      #bt-block .dw-embedrow{
+        width:100%;
+      }
+      #bt-block .dw-embedrow #dw-download-png{
+        width:100%;
+      }
+
+      /* menu spans width */
+      #bt-block .dw-download-menu{
+        left:0;
+        right:0;
+        min-width: unset;
+      }
+    }
+
     /* EXPORT MODE for capture: ONLY table + logo */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
@@ -628,17 +722,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
   <!-- Table block -->
   <div id="bt-block" data-dw="table">
-    <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
-      <div class="left">
-        <div class="dw-field [[SEARCH_VIS_CLASS]]">
-          <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
-          <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
-        </div>
-      </div>
 
-      <div class="right">
-        <!-- Pager group (independent) -->
-        <div class="dw-pager [[PAGER_VIS_CLASS]]">
+    <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
+
+      <!-- Row 1: Search + Pager -->
+      <div class="dw-toprow">
+        <div class="left">
+          <div class="dw-field [[SEARCH_VIS_CLASS]]">
+            <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
+            <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
+          </div>
+        </div>
+
+        <!-- Pager (independent) -->
+        <div class="right dw-pager [[PAGER_VIS_CLASS]]">
           <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
           <select id="bt-size" class="dw-select">
             <option value="5">5</option>
@@ -653,19 +750,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
           <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
         </div>
+      </div>
 
-        <!-- Embed/Download group (independent) -->
-        <div class="dw-embed [[EMBED_VIS_CLASS]]">
-          <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
+      <!-- Row 2: Embed/Download full-width on mobile -->
+      <div class="dw-embedrow [[EMBED_VIS_CLASS]]">
+        <button class="dw-btn dw-download" id="dw-download-png" type="button" style="width:auto;">
+          Embed / Download
+        </button>
 
-          <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-            <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-            <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-            <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-            <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
-          </div>
+        <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
+          <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+          <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
+          <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+          <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
         </div>
       </div>
+
     </div>
 
     <div class="dw-card">
@@ -719,7 +819,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const prevBtn = pagerWrap ? pagerWrap.querySelector('[data-page="prev"]') : null;
     const nextBtn = pagerWrap ? pagerWrap.querySelector('[data-page="next"]') : null;
 
-    const embedWrap = controls.querySelector('.dw-embed');
+    /* ✅ embed row selector updated */
+    const embedWrap = controls.querySelector('.dw-embedrow');
     const downloadBtn = embedWrap ? embedWrap.querySelector('#dw-download-png') : null;
     const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
     const btnTop10 = embedWrap ? embedWrap.querySelector('#dw-dl-top10') : null;
@@ -1080,7 +1181,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     // =============================
     function getFullHtml(){
       const html = document.documentElement ? document.documentElement.outerHTML : "";
-      // ensure doctype at the top
       return "<!doctype html>\n" + html;
     }
 
@@ -1163,7 +1263,7 @@ def generate_table_html_from_df(
     branded_title_color: bool = True,
     show_search: bool = True,
     show_pager: bool = True,
-    show_embed: bool = True,          # NEW
+    show_embed: bool = True,
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
@@ -1293,7 +1393,7 @@ def draft_config_from_state() -> dict:
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
-        "show_embed": st.session_state.get("bt_show_embed", True),  # NEW
+        "show_embed": st.session_state.get("bt_show_embed", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
     }
 
@@ -1394,7 +1494,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_widget_exists_locked", False)
     st.session_state.setdefault("bt_widget_name_locked_value", "")
 
-    # NEW: embed button checkbox default ON
+    # embed button checkbox default ON
     st.session_state.setdefault("bt_show_embed", True)
 
 
@@ -1767,7 +1867,10 @@ with left_col:
                 st.session_state["bt_last_published_url"] = pages_url
 
                 # IMPORTANT: iframe code stays EMPTY until we have a real published URL
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=int(st.session_state.get("bt_iframe_height", 800)))
+                st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                    pages_url,
+                    height=int(st.session_state.get("bt_iframe_height", 800)),
+                )
 
                 st.session_state["bt_widget_exists_locked"] = True
                 st.session_state["bt_widget_name_locked_value"] = widget_file_name
