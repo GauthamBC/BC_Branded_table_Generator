@@ -609,40 +609,39 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
     #bt-block .dw-scroll{
-      max-height:var(--table-max-h,360px);
-      overflow-y:auto;
-      overflow-x:auto;                 /* ✅ allow horizontal scroll */
-      -webkit-overflow-scrolling: touch;
-    
-      -ms-overflow-style:auto;
-      scrollbar-width:thin;            /* Firefox */
-      scrollbar-color:var(--scroll-thumb) transparent; /* Firefox */
-    }
-    
-    /* ✅ WebKit scrollbar sizing */
-    #bt-block .dw-scroll::-webkit-scrollbar{
-      width: var(--vbar-w);            /* vertical */
-      height: 6px;                     /* horizontal */
-    }
-    
-    /* ✅ Slightly thicker on hover */
-    #bt-block .dw-scroll:hover::-webkit-scrollbar{
-      width: var(--vbar-w-hover);
-      height: 8px;
-    }
-    
-    /* ✅ Branded green thumb */
-    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background: var(--scroll-thumb);
-      border-radius: 9999px;
-      border: 2px solid transparent;
-      background-clip: content-box;
-    }
-    
-    /* ✅ Transparent track (clean look) */
-    #bt-block .dw-scroll::-webkit-scrollbar-track{
-      background: transparent;
-    }
+  max-height:var(--table-max-h,360px);
+  overflow-y:auto;
+  overflow-x:auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* ✅ prevents layout shift when scrollbar appears */
+  scrollbar-gutter: stable both-edges;
+
+  /* ✅ Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--brand-100);
+}
+
+/* ✅ Chrome / Edge / Android */
+#bt-block .dw-scroll::-webkit-scrollbar{
+  width: 8px;
+  height: 8px;
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar-track{
+  background: var(--brand-100);
+  border-radius: 9999px;
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar-thumb{
+  background: var(--scroll-thumb);
+  border-radius: 9999px;
+  border: 0;                 /* ✅ IMPORTANT: don't shrink thumb */
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
+  background: var(--brand-600);
+}
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
