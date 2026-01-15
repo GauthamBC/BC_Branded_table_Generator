@@ -2076,25 +2076,32 @@ with left_col:
             except Exception as e:
                 st.error(f"Publish / IFrame generation failed: {e}")
 
-        # =========================================================
-        # ✅ OUTPUTS (COPY BUTTONS + CLEAR OUTPUTS)
-        # =========================================================
-        st.markdown("#### Outputs")
+       # =========================================================
+# ✅ OUTPUTS (CLEAN + NATIVE COPY ICON + CLEAR BUTTON)
+# =========================================================
+st.markdown("#### Outputs")
 
-        # ✅ Clear button (ONLY clears if clicked)
-        if st.button("🧹 Clear IFrame / Outputs", use_container_width=True):
-            st.session_state["bt_last_published_url"] = ""
-            st.session_state["bt_iframe_code"] = ""
-            st.success("Outputs cleared. Publish again when ready.")
+# ✅ Clear button (ONLY clears if clicked)
+if st.button("🧹 Clear IFrame / Outputs", use_container_width=True, key="bt_clear_outputs"):
+    st.session_state["bt_last_published_url"] = ""
+    st.session_state["bt_iframe_code"] = ""
+    st.success("Outputs cleared. Publish again when ready.")
+    st.rerun()
 
-        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-        iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
 
-        # HARD RULE: If not published, show COMPLETELY EMPTY
-        if not published_url_val:
-            iframe_val = ""
+# HARD RULE: If not published, show COMPLETELY EMPTY
+if not published_url_val:
+    iframe_val = ""
 
-        # ✅ Copy-friendly outputs
-        render_copy_box("Published URL", published_url_val, multiline=False)
-        st.markdown("")
-        render_copy_box("IFrame Code", iframe_val, multiline=True)
+# ✅ Published URL output (copy icon appears automatically)
+st.caption("Published URL")
+if published_url_val:
+    st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+
+st.code(published_url_val or "", language="text")
+
+# ✅ Iframe output (copy icon appears automatically)
+st.caption("IFrame Code")
+st.code(iframe_val or "", language="html")
