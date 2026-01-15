@@ -1855,13 +1855,6 @@ with left_col:
             # ✅ Show ONE link only (clean UX)
             if existing_pages_url:
                 st.markdown(f"✅ **Existing Page:** {existing_pages_url}")
-            
-            # Optional: keep GitHub file link tucked away
-            with st.expander("Show GitHub file link (advanced)"):
-                if existing_github_file_url:
-                    st.markdown(existing_github_file_url)
-                else:
-                    st.caption("GitHub file link unavailable.")
 
             st.caption("To overwrite safely, you must enable override and type SWAP.")
 
