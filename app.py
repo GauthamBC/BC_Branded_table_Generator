@@ -5,49 +5,33 @@ import re
 import time
 from collections.abc import Mapping
 
+import jwt  # ✅ NEW (PyJWT)
 import pandas as pd
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
 
 # =========================================================
-# 0) Publishing Users + Secrets (SIMPLIFIED)
+# 0) Publishing Users + Secrets (GITHUB APP)
 # =========================================================
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
 
 
-def get_github_tokens_map() -> dict:
-    """Return {username_lower: token} from Streamlit secrets."""
+def get_secret(key: str, default=""):
     try:
-        raw = st.secrets.get("GITHUB_TOKENS", None)
-        if raw is None:
-            return {}
-
-        # Streamlit secrets sections behave like a Mapping, not always a dict
-        if isinstance(raw, Mapping):
-            return {
-                str(k).strip().lower(): str(v).strip()
-                for k, v in raw.items()
-                if str(k).strip()
-            }
-
-        # Optional: allow a single string like "user1:token1, user2:token2"
-        if isinstance(raw, str):
-            m = {}
-            for part in raw.split(","):
-                part = part.strip()
-                if not part or ":" not in part:
-                    continue
-                u, t = part.split(":", 1)
-                u = u.strip().lower()
-                if u:
-                    m[u] = t.strip()
-            return m
-
+        if hasattr(st, "secrets") and key in st.secrets:
+            return st.secrets[key]
     except Exception:
-        return {}
+        pass
+    return default
 
-    return {}
+
+# ✅ GitHub App Secrets (store these in Streamlit secrets)
+GITHUB_APP_ID = str(get_secret("GITHUB_APP_ID", "")).strip()
+GITHUB_APP_PRIVATE_KEY = str(get_secret("GITHUB_APP_PRIVATE_KEY", "")).strip()
+
+# optional (for showing install link)
+GITHUB_APP_SLUG = str(get_secret("GITHUB_APP_SLUG", "")).strip().lower()  # e.g. "bcdprpagehoster"
 
 
 # =========================================================
@@ -96,21 +80,78 @@ def github_headers(token: str) -> dict:
     return headers
 
 
-def get_authenticated_github_login(token: str) -> str:
-    """Return the GitHub username for the provided token ('' if unknown)."""
-    try:
-        if not token:
-            return ""
-        r = requests.get(
-            "https://api.github.com/user",
-            headers=github_headers(token),
-            timeout=20,
-        )
-        if r.status_code == 200:
-            return str(r.json().get("login", "")).strip()
-    except Exception:
-        pass
-    return ""
+def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
+    """
+    Create a short-lived JWT for GitHub App authentication.
+    """
+    if not app_id or not private_key_pem:
+        raise RuntimeError("Missing GitHub App credentials in secrets (GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY).")
+
+    now = int(time.time())
+    payload = {
+        "iat": now - 30,          # helps with clock skew
+        "exp": now + (9 * 60),    # <= 10 mins
+        "iss": app_id,
+    }
+
+    token = jwt.encode(payload, private_key_pem, algorithm="RS256")
+    # PyJWT can return bytes depending on version
+    if isinstance(token, bytes):
+        token = token.decode("utf-8", errors="ignore")
+    return token
+
+
+def get_installation_id_for_user(username: str) -> int:
+    """
+    Returns GitHub App installation id for a given personal account username
+    IF the app is installed there.
+    """
+    username = (username or "").strip()
+    if not username:
+        return 0
+
+    app_jwt = build_github_app_jwt(GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)
+
+    r = requests.get(
+        f"https://api.github.com/users/{username}/installation",
+        headers=github_headers(app_jwt),
+        timeout=20,
+    )
+
+    if r.status_code == 200:
+        data = r.json() or {}
+        return int(data.get("id", 0) or 0)
+
+    # Not installed / blocked / not accessible
+    if r.status_code in (404, 403):
+        return 0
+
+    raise RuntimeError(f"Error checking GitHub App installation: {r.status_code} {r.text}")
+
+
+@st.cache_data(ttl=50 * 60)
+def get_installation_token_for_user(username: str) -> str:
+    """
+    Get an installation token for a user.
+    Caches ~50 mins because token lifetime is ~1 hour.
+    """
+    install_id = get_installation_id_for_user(username)
+    if not install_id:
+        return ""
+
+    app_jwt = build_github_app_jwt(GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)
+
+    r = requests.post(
+        f"https://api.github.com/app/installations/{install_id}/access_tokens",
+        headers=github_headers(app_jwt),
+        timeout=20,
+    )
+
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"Error creating installation token: {r.status_code} {r.text}")
+
+    data = r.json() or {}
+    return str(data.get("token", "")).strip()
 
 
 def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
@@ -129,9 +170,14 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
         "private": False,
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
+
+    # NOTE:
+    # Some GitHub App installation tokens may NOT be allowed to create new user repos.
+    # If this fails with 403, user should create repo manually once.
     r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload, timeout=20)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Creating Repo: {r.status_code} {r.text}")
+
     return True
 
 
@@ -1709,8 +1755,6 @@ with left_col:
         if not html_generated:
             st.warning("Click **Confirm And Save** to generate HTML before publishing.")
 
-        tokens_map = get_github_tokens_map()
-
         allowed_users = list(PUBLISH_USERS)
         username_options = ["Select a user..."] + allowed_users
 
@@ -1730,13 +1774,26 @@ with left_col:
         if github_username_input and github_username_input != "Select a user...":
             effective_github_user = github_username_input.strip().lower()
 
-        token_for_user = tokens_map.get(effective_github_user, "").strip()
+        # ✅ NEW: Installation token from GitHub App
+        installation_token = ""
+        app_installed = False
 
         if effective_github_user:
-            if token_for_user:
-                st.caption("✅ Token found in Streamlit secrets for this user.")
+            try:
+                installation_token = get_installation_token_for_user(effective_github_user)
+                app_installed = bool(installation_token)
+            except Exception as e:
+                installation_token = ""
+                app_installed = False
+                st.caption(f"⚠️ GitHub App check failed: {e}")
+
+            if app_installed:
+                st.caption("✅ GitHub App is installed for this user. Publishing is enabled.")
             else:
-                st.caption("ℹ️ No token found for this user yet. You can still fill file name, but publishing is disabled.")
+                if GITHUB_APP_SLUG:
+                    st.caption(f"❌ GitHub App is NOT installed for this user. Install it here: https://github.com/apps/{GITHUB_APP_SLUG}")
+                else:
+                    st.caption("❌ GitHub App is NOT installed for this user. Install the app on their GitHub account to enable publishing.")
 
         # Auto repo based on brand + month + year and LOCK it
         current_brand = st.session_state.get("brand_table", "Action Network")
@@ -1769,8 +1826,8 @@ with left_col:
         locked = bool(st.session_state.get("bt_widget_exists_locked", False))
         locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
 
-        if (not locked) and effective_github_user and token_for_user and repo_name and widget_file_name:
-            if github_file_exists(effective_github_user, repo_name, token_for_user, widget_file_name, branch="main"):
+        if (not locked) and effective_github_user and installation_token and repo_name and widget_file_name:
+            if github_file_exists(effective_github_user, repo_name, installation_token, widget_file_name, branch="main"):
                 st.session_state["bt_widget_exists_locked"] = True
                 st.session_state["bt_widget_name_locked_value"] = widget_file_name
                 locked = True
@@ -1784,7 +1841,7 @@ with left_col:
             and effective_github_user
             and repo_name
             and widget_file_name
-            and token_for_user
+            and installation_token
         )
 
         publish_clicked = st.button(
@@ -1801,8 +1858,8 @@ with left_col:
                 missing.append("select a user")
             if not widget_file_name:
                 missing.append("file name")
-            if effective_github_user and not token_for_user:
-                missing.append("GitHub token in secrets")
+            if effective_github_user and not installation_token:
+                missing.append("GitHub App installed for this user")
             if missing:
                 st.caption("To enable publishing: " + ", ".join(missing) + ".")
 
@@ -1814,30 +1871,23 @@ with left_col:
 
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
-                token_login = get_authenticated_github_login(token_for_user)
-                if token_login and token_login.lower() != effective_github_user.lower():
-                    raise RuntimeError(
-                        f"Token user '{token_login}' does not match selected Username '{effective_github_user}'. "
-                        "Fix the token in secrets."
-                    )
-
-                ensure_repo_exists(effective_github_user, repo_name, token_for_user)
+                ensure_repo_exists(effective_github_user, repo_name, installation_token)
 
                 try:
-                    ensure_pages_enabled(effective_github_user, repo_name, token_for_user, branch="main")
+                    ensure_pages_enabled(effective_github_user, repo_name, installation_token, branch="main")
                 except Exception:
                     pass
 
                 upload_file_to_github(
                     effective_github_user,
                     repo_name,
-                    token_for_user,
+                    installation_token,
                     widget_file_name,
                     html_final,
                     f"Add/Update {widget_file_name} from Branded Table App",
                     branch="main",
                 )
-                trigger_pages_build(effective_github_user, repo_name, token_for_user)
+                trigger_pages_build(effective_github_user, repo_name, installation_token)
 
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
