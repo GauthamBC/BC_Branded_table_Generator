@@ -2056,8 +2056,8 @@ with left_col:
                         message="Update widget registry",
                         branch="main",
                     )
-                except Exception as e:
-                    st.caption(f"⚠️ Registry update skipped: {e}")
+                except Exception:
+                    pass
 
                 st.success("Done. URL + IFrame are ready below.")
 
