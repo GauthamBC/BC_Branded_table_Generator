@@ -549,9 +549,51 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-clear:hover{background:var(--brand-100)}
 
     /* Card & table */
-    #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
-    #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-    #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
+    /* ✅ Card & Scroll Container (FIXED) */
+#bt-block .dw-card{
+  background: var(--bg);
+  border: 0;
+  box-shadow: none;
+  margin: 0;
+  width: 100%;
+
+  /* ✅ IMPORTANT: don't clip scrollbars */
+  overflow: visible;
+}
+
+/* ✅ Table scroll container = vertical + horizontal scrolling */
+#bt-block .dw-scroll{
+  max-height: var(--table-max-h, 520px);
+  overflow: auto;                      /* ✅ BOTH vertical + horizontal */
+  -webkit-overflow-scrolling: touch;   /* ✅ iOS smooth scrolling */
+  touch-action: pan-x pan-y;           /* ✅ makes swipe scroll work */
+  overscroll-behavior: contain;
+
+  /* ✅ Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+/* ✅ Webkit branded slim scrollbars (Chrome/Edge/Safari) */
+#bt-block .dw-scroll::-webkit-scrollbar{
+  width: 8px;   /* vertical */
+  height: 8px;  /* horizontal */
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar-track{
+  background: transparent;
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar-thumb{
+  background: var(--scroll-thumb);     /* ✅ BRANDED GREEN */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
+  background: var(--brand-600);
+}
 
     #bt-block table.dw-table {
       width: 100%;
@@ -840,10 +882,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const hasEmbed = !controlsHidden
       && !!embedWrap && !embedWrap.classList.contains('vi-hide')
       && !!downloadBtn && !!menu && !!btnEmbed;
-
-    if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
-      scroller.classList.add('no-scroll');
-    }
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
