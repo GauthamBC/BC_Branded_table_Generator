@@ -2032,32 +2032,6 @@ with left_col:
                     st.session_state["bt_iframe_code"] = ""
                     st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
 
-
-                # ✅ Update registry
-                try:
-                    registry = read_github_json(publish_owner, repo_name, installation_token, "widget_registry.json", branch="main")
-                    if not isinstance(registry, dict):
-                        registry = {}
-
-                    registry[widget_file_name] = {
-                        "brand": current_brand,
-                        "created_by": created_by_user,
-                        "created_at_utc": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        "repo": repo_name,
-                    }
-
-                    write_github_json(
-                        publish_owner,
-                        repo_name,
-                        installation_token,
-                        "widget_registry.json",
-                        registry,
-                        message="Update widget registry",
-                        branch="main",
-                    )
-                except Exception:
-                    pass
-
                 st.success("Done. URL + IFrame are ready below.")
 
             except Exception as e:
