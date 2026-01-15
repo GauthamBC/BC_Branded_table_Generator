@@ -1524,6 +1524,25 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
   referrerpolicy="no-referrer-when-downgrade"
 ></iframe>"""
 
+def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
+    """
+    Returns True when the URL stops returning 404 and returns 200.
+    """
+    if not url:
+        return False
+
+    end_time = time.time() + timeout_sec
+    while time.time() < end_time:
+        try:
+            r = requests.get(url, timeout=10, headers={"Cache-Control": "no-cache"})
+            if r.status_code == 200:
+                return True
+        except Exception:
+            pass
+        time.sleep(interval_sec)
+
+    return False
+
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1999,11 +2018,21 @@ with left_col:
 
                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
+                
+                # ✅ WAIT UNTIL PAGE IS LIVE (NOT 404) BEFORE SHOWING IFRAME
+                with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
+                    live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
+                
+                if live:
+                    st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                        pages_url,
+                        height=int(st.session_state.get("bt_iframe_height", 800)),
+                    )
+                    st.success("✅ Page is live. IFrame is ready.")
+                else:
+                    st.session_state["bt_iframe_code"] = ""
+                    st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
 
-                st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                    pages_url,
-                    height=int(st.session_state.get("bt_iframe_height", 800)),
-                )
 
                 # ✅ Update registry
                 try:
