@@ -2014,7 +2014,7 @@ with left_col:
                     f"Add/Update {widget_file_name} from Branded Table App",
                     branch="main",
                 )
-                trigger_pages_build(publish_owner, repo_name, installation_token)
+                #trigger_pages_build(publish_owner, repo_name, installation_token)
 
                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
