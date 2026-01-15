@@ -6,7 +6,7 @@ import re
 import time
 from collections.abc import Mapping
 
-import jwt  # ✅ NEW (PyJWT)
+import jwt  # ✅ PyJWT
 import pandas as pd
 import requests
 import streamlit as st
@@ -15,8 +15,8 @@ import streamlit.components.v1 as components
 # =========================================================
 # 0) Publishing Users + Secrets (GITHUB APP)
 # =========================================================
+# ✅ "Created by" tracking list (UI only)
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
-
 
 def get_secret(key: str, default=""):
     try:
@@ -26,7 +26,6 @@ def get_secret(key: str, default=""):
         pass
     return default
 
-
 # ✅ GitHub App Secrets (store these in Streamlit secrets)
 GITHUB_APP_ID = str(get_secret("GITHUB_APP_ID", "")).strip()
 GITHUB_APP_PRIVATE_KEY = str(get_secret("GITHUB_APP_PRIVATE_KEY", "")).strip()
@@ -34,6 +33,10 @@ GITHUB_APP_PRIVATE_KEY = str(get_secret("GITHUB_APP_PRIVATE_KEY", "")).strip()
 # optional (for showing install link)
 GITHUB_APP_SLUG = str(get_secret("GITHUB_APP_SLUG", "")).strip().lower()  # e.g. "bcdprpagehoster"
 
+# ✅ Publishing always happens under ONE account (Earned Media)
+# Put this in Streamlit secrets if you want (recommended):
+# PUBLISH_OWNER = "earnedmedia"
+PUBLISH_OWNER = str(get_secret("PUBLISH_OWNER", "earnedmedia")).strip().lower()
 
 # =========================================================
 # Repo Auto-Naming (Full Brand Name + Month + Year)
@@ -60,7 +63,6 @@ MONTH_CODE = {
     12: "d",  # Dec
 }
 
-
 def suggested_repo_name(brand: str) -> str:
     b = (brand or "").strip()
     prefix = BRAND_REPO_PREFIX_FULL.get(b, "ActionNetwork")
@@ -68,7 +70,6 @@ def suggested_repo_name(brand: str) -> str:
     mm = MONTH_CODE.get(now.month, "x")
     yy = str(now.year)[-2:]
     return f"{prefix}{mm}{yy}"
-
 
 # =========================================================
 # GitHub Helpers
@@ -79,7 +80,6 @@ def github_headers(token: str) -> dict:
         headers["Authorization"] = f"Bearer {token}"
     headers["X-GitHub-Api-Version"] = "2022-11-28"
     return headers
-
 
 def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
     """
@@ -96,11 +96,9 @@ def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
     }
 
     token = jwt.encode(payload, private_key_pem, algorithm="RS256")
-    # PyJWT can return bytes depending on version
     if isinstance(token, bytes):
         token = token.decode("utf-8", errors="ignore")
     return token
-
 
 def get_installation_id_for_user(username: str) -> int:
     """
@@ -123,12 +121,10 @@ def get_installation_id_for_user(username: str) -> int:
         data = r.json() or {}
         return int(data.get("id", 0) or 0)
 
-    # Not installed / blocked / not accessible
     if r.status_code in (404, 403):
         return 0
 
     raise RuntimeError(f"Error checking GitHub App installation: {r.status_code} {r.text}")
-
 
 @st.cache_data(ttl=50 * 60)
 def get_installation_token_for_user(username: str) -> str:
@@ -154,7 +150,6 @@ def get_installation_token_for_user(username: str) -> str:
     data = r.json() or {}
     return str(data.get("token", "")).strip()
 
-
 def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
@@ -172,15 +167,11 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
 
-    # NOTE:
-    # Some GitHub App installation tokens may NOT be allowed to create new user repos.
-    # If this fails with 403, user should create repo manually once.
     r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload, timeout=20)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Creating Repo: {r.status_code} {r.text}")
 
     return True
-
 
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
     api_base = "https://api.github.com"
@@ -199,7 +190,6 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     if r.status_code not in (201, 202):
         raise RuntimeError(f"Error Enabling GitHub Pages: {r.status_code} {r.text}")
 
-
 def upload_file_to_github(
     owner: str,
     repo: str,
@@ -212,6 +202,7 @@ def upload_file_to_github(
     api_base = "https://api.github.com"
     headers = github_headers(token)
 
+    path = (path or "").lstrip("/").strip()
     get_url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
     r = requests.get(get_url, headers=headers, params={"ref": branch}, timeout=20)
 
@@ -230,13 +221,11 @@ def upload_file_to_github(
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Uploading File: {r.status_code} {r.text}")
 
-
 def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers, timeout=20)
     return r.status_code in (201, 202)
-
 
 def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str = "main") -> bool:
     """True if a file exists at path in repo."""
@@ -252,6 +241,40 @@ def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str
     except Exception:
         return False
 
+def read_github_json(owner: str, repo: str, token: str, path: str, branch: str = "main") -> dict:
+    """Read a JSON file from GitHub. If missing, return {}."""
+    api_base = "https://api.github.com"
+    headers = github_headers(token)
+    path = (path or "").lstrip("/").strip()
+    if not path:
+        return {}
+
+    url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
+    r = requests.get(url, headers=headers, params={"ref": branch}, timeout=20)
+
+    if r.status_code == 404:
+        return {}
+    if r.status_code != 200:
+        raise RuntimeError(f"Error reading JSON: {r.status_code} {r.text}")
+
+    data = r.json() or {}
+    content_b64 = data.get("content", "")
+    if not content_b64:
+        return {}
+
+    raw = base64.b64decode(content_b64).decode("utf-8", errors="ignore").strip()
+    if not raw:
+        return {}
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        return {}
+
+def write_github_json(owner: str, repo: str, token: str, path: str, payload: dict, message: str, branch: str = "main") -> None:
+    """Write a JSON file into GitHub."""
+    content = json.dumps(payload or {}, indent=2, ensure_ascii=False)
+    upload_file_to_github(owner, repo, token, path, content, message, branch=branch)
 
 # =========================================================
 # Brand Metadata
@@ -285,7 +308,6 @@ def get_brand_meta(brand: str) -> dict:
         meta["logo_alt"] = "RotoGrinders Logo"
 
     return meta
-
 
 # =========================================================
 # HTML Template (UPDATED)
@@ -335,7 +357,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --ctrl-radius: 10px;
       --ctrl-gap: 8px;
 
-      /* ✅ Table scroll height (increase so 10 rows fits better) */
+      /* ✅ Table scroll height */
       --table-max-h: 680px;
     }
 
@@ -457,7 +479,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       position:relative;
     }
 
-    #bt-block .dw-field{ position:relative; min-width:0; }
+    #bt-block .dw-field{ position:relative; min-width:0; width:100%; }
 
     #bt-block .dw-input,
     #bt-block .dw-select,
@@ -470,39 +492,31 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Search */
     #bt-block .dw-input{
-      width: clamp(120px, 34vw, 240px);
-      max-width: 240px;
+      width: 100%;
+      max-width: 260px;
+      min-width: 120px;
       padding-right: 34px;
       background:#fff;
       border:1px solid var(--brand-700);
       color:var(--text);
       box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
     }
+
     /* ✅ Mobile squeeze so everything fits in one row */
     @media (max-width: 520px){
-    
-      /* tighten spacing + make buttons slightly smaller */
       #bt-block{
         --ctrl-gap: 6px;
         --ctrl-font: 12px;
         --ctrl-pad-y: 6px;
         --ctrl-pad-x: 8px;
       }
-    
-      /* shrink search input more so right side fits */
       #bt-block .dw-input{
         max-width: 140px;
         min-width: 85px;
       }
-    
-      /* hide "Rows/Page" label (big space saver) */
-      #bt-block .dw-pager .dw-status{
-        display:none;
-      }
-    
-      /* shorten Embed / Download button text */
+      #bt-block .dw-pager .dw-status{ display:none; }
       #bt-block .dw-btn.dw-download{
-        font-size: 0;            /* hides original text */
+        font-size: 0;
         padding-inline: 10px;
       }
       #bt-block .dw-btn.dw-download::after{
@@ -511,42 +525,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         font-weight: 600;
       }
     }
-    #bt-block .dw-input::placeholder{color:#9AA4B2}
-    #bt-block .dw-input:focus,
-    #bt-block .dw-select:focus{
-      outline:none;
-      border-color:var(--brand-500);
-      box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .22);
-      background:#fff;
-    }
-    /* ✅ Keep everything on one line (only shrink search) */
-    #bt-block .dw-field{ width:100%; }
-    #bt-block .dw-input{
-      width: 100%;
-      max-width: 260px;   /* stays reasonable on desktop */
-      min-width: 120px;   /* can shrink a bit */
-    }
-    
-    /* ✅ Only tighten controls on smaller screens (still ONE line) */
-    @media (max-width: 560px){
-    
-      /* shrink search more */
-      #bt-block .dw-input{
-        max-width: 180px;
-        min-width: 90px;
-      }
-    
-      /* hide label to save space */
-      #bt-block .dw-pager .dw-status{
-        display:none;
-      }
-    
-      /* slightly tighter Embed button */
-      #bt-block .dw-btn.dw-download{
-        padding-inline: 8px;
-      }
-    }
-    
+
     /* ✅ ONLY stack on *very* tiny screens */
     @media (max-width: 330px){
       #bt-block .dw-controls{
@@ -558,6 +537,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         flex-wrap:wrap;
         white-space:normal;
       }
+    }
+
+    #bt-block .dw-input::placeholder{color:#9AA4B2}
+    #bt-block .dw-input:focus,
+    #bt-block .dw-select:focus{
+      outline:none;
+      border-color:var(--brand-500);
+      box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .22);
+      background:#fff;
     }
 
     /* Rows/Page dropdown */
@@ -605,7 +593,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:var(--brand-600);
     }
 
-    /* ✅ Download menu (vertical stack) */
+    /* ✅ Download menu */
     #bt-block .dw-download-menu{
       position:absolute;
       right:0;
@@ -674,34 +662,23 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
-
-      /* ✅ IMPORTANT: allow “table scroll ends → page scroll continues” */
       overscroll-behavior: auto;
-
       scrollbar-gutter: stable both-edges;
 
-      /* Firefox */
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) transparent;
     }
 
     /* Chrome/Edge/Safari */
-    #bt-block .dw-scroll::-webkit-scrollbar{
-      width: 8px;
-      height: 8px;
-    }
-    #bt-block .dw-scroll::-webkit-scrollbar-track{
-      background: transparent;
-    }
+    #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 8px; }
+    #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
       background: var(--scroll-thumb);
       border-radius: 9999px;
       border: 2px solid transparent;
       background-clip: content-box;
     }
-    #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
-      background: var(--brand-600);
-    }
+    #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     #bt-block table.dw-table {
       width: 100%;
@@ -1066,7 +1043,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
       shown.forEach(r=>{ r.style.display='table-row'; });
 
-      /* ✅ reset scroll to top after changing pages */
       scroller.scrollTop = 0;
     }
 
@@ -1121,7 +1097,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
-    /* ===== PNG EXPORT ===== */
+    /* ===== PNG EXPORT (unchanged) ===== */
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -1180,7 +1156,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         cloneScroller.style.overflow = 'visible';
         cloneScroller.style.overflowX = 'visible';
         cloneScroller.style.overflowY = 'visible';
-        cloneScroller.classList.add('no-scroll'); /* ✅ KEEP THIS */
+        cloneScroller.classList.add('no-scroll');
       }
 
       const w = Math.max(900, Math.ceil(targetWidth || 1200));
@@ -1325,7 +1301,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </html>
 """
 
-
 # =========================================================
 # Generator
 # =========================================================
@@ -1344,7 +1319,6 @@ def guess_column_type(series: pd.Series) -> str:
         except ValueError:
             continue
     return "num" if numeric_like >= max(3, len(sample) // 2) else "text"
-
 
 def generate_table_html_from_df(
     df: pd.DataFrame,
@@ -1451,14 +1425,12 @@ def generate_table_html_from_df(
     )
     return html
 
-
 # =========================================================
 # UI Helpers
 # =========================================================
 def stable_config_hash(cfg: dict) -> str:
     keys = sorted(cfg.keys())
     return "|".join([f"{k}={repr(cfg.get(k))}" for k in keys])
-
 
 def simulate_progress(label: str, total_sleep: float = 0.35):
     ph = st.empty()
@@ -1472,7 +1444,6 @@ def simulate_progress(label: str, total_sleep: float = 0.35):
     time.sleep(0.05)
     ph.empty()
     prog.empty()
-
 
 def draft_config_from_state() -> dict:
     return {
@@ -1491,7 +1462,6 @@ def draft_config_from_state() -> dict:
         "show_embed": st.session_state.get("bt_show_embed", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
     }
-
 
 def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
     meta = get_brand_meta(cfg["brand"])
@@ -1515,13 +1485,11 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         cell_align=cfg["cell_align"],
     )
 
-
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
     repo = (repo or "").strip()
     filename = (filename or "").lstrip("/").strip() or "branded_table.html"
     return f"https://{user}.github.io/{repo}/{filename}"
-
 
 def build_iframe_snippet(url: str, height: int = 800) -> str:
     url = (url or "").strip()
@@ -1536,7 +1504,6 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
   loading="lazy"
   referrerpolicy="no-referrer-when-downgrade"
 ></iframe>"""
-
 
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
@@ -1556,14 +1523,12 @@ def reset_widget_state_for_new_upload():
         "bt_widget_name_locked_value",
         "bt_df_uploaded",
         "bt_df_confirmed",
-        # ✅ override flow keys
         "bt_allow_swap",
         "bt_swap_confirm_text",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
             del st.session_state[k]
-
 
 def ensure_confirm_state_exists():
     if "bt_confirmed_cfg" not in st.session_state:
@@ -1577,7 +1542,6 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
 
-    # hard-clean legacy "data:text/html;base64,..." iframe code so it never shows pre-publish
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
     if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
         st.session_state["bt_iframe_code"] = ""
@@ -1592,13 +1556,10 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_widget_exists_locked", False)
     st.session_state.setdefault("bt_widget_name_locked_value", "")
 
-    # embed button checkbox default ON
     st.session_state.setdefault("bt_show_embed", True)
 
-    # ✅ override flow
     st.session_state.setdefault("bt_allow_swap", False)
     st.session_state.setdefault("bt_swap_confirm_text", "")
-
 
 def do_confirm_snapshot():
     st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
@@ -1614,7 +1575,6 @@ def do_confirm_snapshot():
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
-
 
 # =========================================================
 # Streamlit App
@@ -1835,6 +1795,7 @@ with left_col:
         if not html_generated:
             st.warning("Click **Confirm And Save** to generate HTML before publishing.")
 
+        # ✅ "Created by" tracking (UI)
         allowed_users = list(PUBLISH_USERS)
         username_options = ["Select a user..."] + allowed_users
 
@@ -1842,38 +1803,41 @@ with left_col:
         if saved_user not in username_options:
             saved_user = "Select a user..."
 
-        github_username_input = st.selectbox(
-            "User name",
+        created_by_input = st.selectbox(
+            "Created by (tracking only)",
             options=username_options,
             index=username_options.index(saved_user),
-            key="bt_gh_user",
+            key="bt_gh_user",  # keep same key
             disabled=False,
         )
 
-        effective_github_user = ""
-        if github_username_input and github_username_input != "Select a user...":
-            effective_github_user = github_username_input.strip().lower()
+        created_by_user = ""
+        if created_by_input and created_by_input != "Select a user...":
+            created_by_user = created_by_input.strip().lower()
 
-        # ✅ Installation token from GitHub App
+        # ✅ Publishing owner (backend only)
+        publish_owner = (PUBLISH_OWNER or "").strip().lower()
+
+        # ✅ Installation token from GitHub App (ONLY for the publish owner)
         installation_token = ""
         app_installed = False
 
-        if effective_github_user:
+        if publish_owner:
             try:
-                installation_token = get_installation_token_for_user(effective_github_user)
+                installation_token = get_installation_token_for_user(publish_owner)
                 app_installed = bool(installation_token)
             except Exception as e:
                 installation_token = ""
                 app_installed = False
-                st.caption(f"⚠️ GitHub App check failed: {e}")
+                st.caption(f"⚠️ GitHub App check failed for publishing owner: {e}")
 
             if app_installed:
-                st.caption("✅ GitHub App is installed for this user. Publishing is enabled.")
+                st.caption("✅ GitHub App is installed for the publishing account. Publishing is enabled.")
             else:
                 if GITHUB_APP_SLUG:
-                    st.caption(f"❌ GitHub App is NOT installed for this user. Install it here: https://github.com/apps/{GITHUB_APP_SLUG}")
+                    st.caption(f"❌ GitHub App is NOT installed for the publishing account. Install: https://github.com/apps/{GITHUB_APP_SLUG}")
                 else:
-                    st.caption("❌ GitHub App is NOT installed for this user. Install the app on their GitHub account to enable publishing.")
+                    st.caption("❌ GitHub App is NOT installed for the publishing account.")
 
         # Auto repo based on brand + month + year and LOCK it
         current_brand = st.session_state.get("brand_table", "Action Network")
@@ -1894,13 +1858,20 @@ with left_col:
             widget_file_name = widget_file_name + ".html"
             st.session_state["bt_widget_file_name"] = widget_file_name
 
-        # File existence check
+        # File existence check (in publish owner repo)
         file_exists = False
         existing_pages_url = ""
-        if effective_github_user and installation_token and repo_name and widget_file_name:
-            file_exists = github_file_exists(effective_github_user, repo_name, installation_token, widget_file_name, branch="main")
+        existing_meta = {}
+
+        if publish_owner and installation_token and repo_name and widget_file_name:
+            file_exists = github_file_exists(publish_owner, repo_name, installation_token, widget_file_name, branch="main")
             if file_exists:
-                existing_pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
+                existing_pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
+                try:
+                    registry = read_github_json(publish_owner, repo_name, installation_token, "widget_registry.json", branch="main")
+                    existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
+                except Exception:
+                    existing_meta = {}
 
         # ✅ override logic (SWAP)
         allow_swap = bool(st.session_state.get("bt_allow_swap", False))
@@ -1910,6 +1881,14 @@ with left_col:
             st.warning("⚠️ A page with this file name already exists. Publishing will overwrite it if you allow swap.")
             if existing_pages_url:
                 st.markdown(f"✅ **Existing Page:** {existing_pages_url}")
+
+            # show meta for safety
+            if existing_meta:
+                st.info(
+                    f"📌 Existing info → Brand: **{existing_meta.get('brand','?')}** | "
+                    f"Created by: **{existing_meta.get('created_by','?')}** | "
+                    f"UTC: {existing_meta.get('created_at_utc','?')}"
+                )
 
             st.caption("To overwrite safely, you must enable override and type **SWAP**.")
             st.checkbox(
@@ -1928,10 +1907,11 @@ with left_col:
 
         can_publish = bool(
             html_generated
-            and effective_github_user
+            and publish_owner
             and repo_name
             and widget_file_name
             and installation_token
+            and created_by_user
             and swap_confirmed
         )
 
@@ -1945,12 +1925,12 @@ with left_col:
             missing = []
             if not html_generated:
                 missing.append("confirm+save (generate HTML)")
-            if not effective_github_user:
-                missing.append("select a user")
+            if not created_by_user:
+                missing.append("select Created by (tracking)")
             if not widget_file_name:
                 missing.append("file name")
-            if effective_github_user and not installation_token:
-                missing.append("GitHub App installed for this user")
+            if publish_owner and not installation_token:
+                missing.append("GitHub App installed for publishing account")
             if file_exists and not swap_confirmed:
                 missing.append("confirm override (checkbox + SWAP)")
             if missing:
@@ -1964,15 +1944,15 @@ with left_col:
 
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
-                ensure_repo_exists(effective_github_user, repo_name, installation_token)
+                ensure_repo_exists(publish_owner, repo_name, installation_token)
 
                 try:
-                    ensure_pages_enabled(effective_github_user, repo_name, installation_token, branch="main")
+                    ensure_pages_enabled(publish_owner, repo_name, installation_token, branch="main")
                 except Exception:
                     pass
 
                 upload_file_to_github(
-                    effective_github_user,
+                    publish_owner,
                     repo_name,
                     installation_token,
                     widget_file_name,
@@ -1980,9 +1960,9 @@ with left_col:
                     f"Add/Update {widget_file_name} from Branded Table App",
                     branch="main",
                 )
-                trigger_pages_build(effective_github_user, repo_name, installation_token)
+                trigger_pages_build(publish_owner, repo_name, installation_token)
 
-                pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
+                pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
 
                 st.session_state["bt_iframe_code"] = build_iframe_snippet(
@@ -1990,37 +1970,58 @@ with left_col:
                     height=int(st.session_state.get("bt_iframe_height", 800)),
                 )
 
+                # ✅ Update registry
+                try:
+                    registry = read_github_json(publish_owner, repo_name, installation_token, "widget_registry.json", branch="main")
+                    if not isinstance(registry, dict):
+                        registry = {}
+
+                    registry[widget_file_name] = {
+                        "brand": current_brand,
+                        "created_by": created_by_user,
+                        "created_at_utc": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "repo": repo_name,
+                    }
+
+                    write_github_json(
+                        publish_owner,
+                        repo_name,
+                        installation_token,
+                        "widget_registry.json",
+                        registry,
+                        message="Update widget registry",
+                        branch="main",
+                    )
+                except Exception as e:
+                    st.caption(f"⚠️ Registry update skipped: {e}")
+
                 st.success("Done. URL + IFrame are ready below.")
 
             except Exception as e:
                 st.error(f"Publish / IFrame generation failed: {e}")
 
-       # =========================================================
-            # ✅ OUTPUTS (CLEAN + NATIVE COPY ICON + CLEAR BUTTON)
-            # =========================================================
-            st.markdown("#### Outputs")
-            
-            # ✅ Clear button (ONLY clears if clicked)
-            if st.button("🧹 Clear IFrame / Outputs", use_container_width=True, key="bt_clear_outputs"):
-                st.session_state["bt_last_published_url"] = ""
-                st.session_state["bt_iframe_code"] = ""
-                st.success("Outputs cleared. Publish again when ready.")
-                st.rerun()
-            
-            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-            iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-            
-            # HARD RULE: If not published, show COMPLETELY EMPTY
-            if not published_url_val:
-                iframe_val = ""
-            
-            # ✅ Published URL output (copy icon appears automatically)
-            st.caption("Published URL")
-            if published_url_val:
-                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-            
-            st.code(published_url_val or "", language="text")
-            
-            # ✅ Iframe output (copy icon appears automatically)
-            st.caption("IFrame Code")
-            st.code(iframe_val or "", language="html")
+        # =========================================================
+        # ✅ OUTPUTS (CLEAN + NATIVE COPY ICON + CLEAR BUTTON)
+        # =========================================================
+        st.markdown("#### Outputs")
+
+        if st.button("🧹 Clear IFrame / Outputs", use_container_width=True, key="bt_clear_outputs"):
+            st.session_state["bt_last_published_url"] = ""
+            st.session_state["bt_iframe_code"] = ""
+            st.success("Outputs cleared. Publish again when ready.")
+            st.rerun()
+
+        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+        iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+
+        if not published_url_val:
+            iframe_val = ""
+
+        st.caption("Published URL")
+        if published_url_val:
+            st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+
+        st.code(published_url_val or "", language="text")
+
+        st.caption("IFrame Code")
+        st.code(iframe_val or "", language="html")
