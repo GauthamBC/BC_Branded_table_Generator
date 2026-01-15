@@ -252,6 +252,15 @@ def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str
         return False
 
 
+def compute_github_file_url(user: str, repo: str, filename: str, branch: str = "main") -> str:
+    user = (user or "").strip()
+    repo = (repo or "").strip()
+    filename = (filename or "").lstrip("/").strip()
+    if not (user and repo and filename):
+        return ""
+    return f"https://github.com/{user}/{repo}/blob/{branch}/{filename}"
+
+
 # =========================================================
 # Brand Metadata
 # =========================================================
@@ -288,9 +297,6 @@ def get_brand_meta(brand: str) -> dict:
 
 # =========================================================
 # HTML Template (UPDATED)
-# - Mobile-safe controls layout
-# - Embed/Download row becomes FULL WIDTH on mobile (below top row)
-# - Real horizontal scrolling enabled on mobile
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -1253,6 +1259,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </body>
 </html>
 """
+
 # =========================================================
 # Generator
 # =========================================================
@@ -1483,6 +1490,9 @@ def reset_widget_state_for_new_upload():
         "bt_widget_name_locked_value",
         "bt_df_uploaded",
         "bt_df_confirmed",
+        # ✅ NEW: overwrite protection keys
+        "bt_override_existing_page",
+        "bt_swap_confirm_text",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
@@ -1518,6 +1528,10 @@ def ensure_confirm_state_exists():
 
     # embed button checkbox default ON
     st.session_state.setdefault("bt_show_embed", True)
+
+    # ✅ NEW defaults
+    st.session_state.setdefault("bt_override_existing_page", False)
+    st.session_state.setdefault("bt_swap_confirm_text", "")
 
 
 def do_confirm_snapshot():
@@ -1801,15 +1815,9 @@ with left_col:
         st.session_state["bt_gh_repo"] = auto_repo
         repo_name = auto_repo
 
-        # Widget file locking logic
-        locked = bool(st.session_state.get("bt_widget_exists_locked", False))
-        locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
-        default_widget_value = st.session_state.get("bt_widget_file_name", "table.html")
-        input_value = locked_value if (locked and locked_value) else default_widget_value
-
         widget_file_name = st.text_input(
             "Widget Name (file)",
-            value=input_value,
+            value=st.session_state.get("bt_widget_file_name", "table.html"),
             key="bt_widget_file_name",
             disabled=False,
             help="Example: top10-supermoon-states.html",
@@ -1819,29 +1827,67 @@ with left_col:
             widget_file_name = widget_file_name + ".html"
             st.session_state["bt_widget_file_name"] = widget_file_name
 
-        if locked and locked_value and widget_file_name and widget_file_name != locked_value:
-            st.session_state["bt_widget_exists_locked"] = False
-            st.session_state["bt_widget_name_locked_value"] = ""
+        # =========================================================
+        # ✅ SAFETY CHECK: Existing page protection (OVERRIDE + SWAP)
+        # =========================================================
+        file_exists = False
+        existing_pages_url = ""
+        existing_github_file_url = ""
 
-        locked = bool(st.session_state.get("bt_widget_exists_locked", False))
-        locked_value = (st.session_state.get("bt_widget_name_locked_value", "") or "").strip()
+        if effective_github_user and installation_token and repo_name and widget_file_name:
+            file_exists = github_file_exists(
+                effective_github_user,
+                repo_name,
+                installation_token,
+                widget_file_name,
+                branch="main",
+            )
+            if file_exists:
+                existing_pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
+                existing_github_file_url = compute_github_file_url(effective_github_user, repo_name, widget_file_name, branch="main")
 
-        if (not locked) and effective_github_user and installation_token and repo_name and widget_file_name:
-            if github_file_exists(effective_github_user, repo_name, installation_token, widget_file_name, branch="main"):
-                st.session_state["bt_widget_exists_locked"] = True
-                st.session_state["bt_widget_name_locked_value"] = widget_file_name
-                locked = True
-                locked_value = widget_file_name
+        override_existing = False
+        swap_confirmed = False
 
-        if locked and locked_value:
-            st.caption("🔒 This widget file already exists in the repo. To publish a new one, type a NEW file name.")
+        if file_exists:
+            st.warning("⚠️ A page with this file name already exists. Publishing will overwrite it if you allow swap.")
 
+            if existing_pages_url:
+                st.markdown(f"✅ **Current Published Page:** {existing_pages_url}")
+            if existing_github_file_url:
+                st.markdown(f"✅ **GitHub File Link:** {existing_github_file_url}")
+
+            st.caption("To overwrite safely, you must enable override and type SWAP.")
+
+            override_existing = st.checkbox(
+                "Yes, I want to override (replace) the existing page",
+                value=bool(st.session_state.get("bt_override_existing_page", False)),
+                key="bt_override_existing_page",
+            )
+
+            if override_existing:
+                swap_text = st.text_input(
+                    "Type SWAP to confirm overwrite",
+                    value=st.session_state.get("bt_swap_confirm_text", ""),
+                    key="bt_swap_confirm_text",
+                    help="This prevents accidental overwrites. Type exactly: SWAP",
+                ).strip()
+
+                swap_confirmed = (swap_text == "SWAP")
+                if not swap_confirmed:
+                    st.caption("⛔ Override selected, but SWAP confirmation is missing.")
+
+        # ✅ Publishing allowed only when:
+        # - file DOES NOT exist
+        # OR
+        # - file exists AND user checked override AND typed SWAP
         can_publish = bool(
             html_generated
             and effective_github_user
             and repo_name
             and widget_file_name
             and installation_token
+            and (not file_exists or (override_existing and swap_confirmed))
         )
 
         publish_clicked = st.button(
@@ -1860,6 +1906,12 @@ with left_col:
                 missing.append("file name")
             if effective_github_user and not installation_token:
                 missing.append("GitHub App installed for this user")
+
+            if file_exists and (not override_existing):
+                missing.append("confirm override (checkbox)")
+            if file_exists and override_existing and (not swap_confirmed):
+                missing.append('type "SWAP" to confirm overwrite')
+
             if missing:
                 st.caption("To enable publishing: " + ", ".join(missing) + ".")
 
@@ -1868,6 +1920,10 @@ with left_col:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
                     raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
+
+                # ✅ Backend safety guard (prevents any accidental overwrite)
+                if file_exists and not (override_existing and swap_confirmed):
+                    raise RuntimeError('This page already exists. Enable override + type "SWAP" to confirm overwrite.')
 
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
@@ -1897,9 +1953,6 @@ with left_col:
                     pages_url,
                     height=int(st.session_state.get("bt_iframe_height", 800)),
                 )
-
-                st.session_state["bt_widget_exists_locked"] = True
-                st.session_state["bt_widget_name_locked_value"] = widget_file_name
 
                 st.success("Done. URL + IFrame are ready below.")
 
