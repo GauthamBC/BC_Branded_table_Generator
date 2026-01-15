@@ -1862,7 +1862,7 @@ with left_col:
         else:
             st.caption("❌ No publishing token found (PAT or GitHub App).")
 
-                app_installed = False
+            app_installed = False
                 st.caption(f"⚠️ GitHub App check failed for publishing owner: {e}")
 
             if app_installed:
