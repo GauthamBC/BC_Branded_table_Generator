@@ -611,17 +611,37 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll{
       max-height:var(--table-max-h,360px);
       overflow-y:auto;
+      overflow-x:auto;                 /* ✅ allow horizontal scroll */
+      -webkit-overflow-scrolling: touch;
+    
       -ms-overflow-style:auto;
-      scrollbar-width:thin;
-      scrollbar-color:var(--scroll-thumb) transparent
+      scrollbar-width:thin;            /* Firefox */
+      scrollbar-color:var(--scroll-thumb) transparent; /* Firefox */
     }
-    #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
-    #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
+    
+    /* ✅ WebKit scrollbar sizing */
+    #bt-block .dw-scroll::-webkit-scrollbar{
+      width: var(--vbar-w);            /* vertical */
+      height: 6px;                     /* horizontal */
+    }
+    
+    /* ✅ Slightly thicker on hover */
+    #bt-block .dw-scroll:hover::-webkit-scrollbar{
+      width: var(--vbar-w-hover);
+      height: 8px;
+    }
+    
+    /* ✅ Branded green thumb */
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background:var(--scroll-thumb);
-      border-radius:9999px;
-      border:2px solid transparent;
-      background-clip:content-box;
+      background: var(--scroll-thumb);
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    
+    /* ✅ Transparent track (clean look) */
+    #bt-block .dw-scroll::-webkit-scrollbar-track{
+      background: transparent;
     }
 
     #bt-block tr.dw-empty td{
