@@ -1468,8 +1468,10 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 # ✅ NEW: Copy button components for URL + iframe (no extra packages needed)
 def render_copy_box(label: str, text_value: str, multiline: bool = False):
     """
-    Renders a read-only field + Copy button using a small HTML component.
-    Uses a CSS grid so the Copy button never overlaps the field.
+    Read-only field + Copy icon button.
+    ✅ No overlap (grid + responsive fallback)
+    ✅ Button becomes a small icon
+    ✅ If narrow width → button moves below field automatically
     """
     safe_text = json.dumps(text_value or "")
     safe_label = html_mod.escape(label)
@@ -1490,10 +1492,10 @@ def render_copy_box(label: str, text_value: str, multiline: bool = False):
             line-height:1.35;
             outline:none;
             overflow:auto;
+            display:block;
           "></textarea>
         """
         comp_height = 175
-        align_items = "start"
     else:
         field_html = """
           <input id="txt" readonly style="
@@ -1506,38 +1508,86 @@ def render_copy_box(label: str, text_value: str, multiline: bool = False):
             padding:0 12px;
             font-size:13px;
             outline:none;
+            display:block;
           "/>
         """
         comp_height = 90
-        align_items = "end"
 
     html = f"""
-    <div style="width:100%; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0;">
-      <div style="font-size:12px; color:rgba(229,231,235,0.75); margin:0 0 6px 2px;">{safe_label}</div>
-
-      <!-- ✅ GRID LAYOUT (fixes overlap) -->
-      <div style="
-        display:grid;
-        grid-template-columns: 1fr 90px;
-        gap:10px;
-        align-items:{align_items};
+    <style>
+      .copy-wrap {{
         width:100%;
-      ">
-        <div style="min-width:0;">
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      }}
+
+      .copy-label {{
+        font-size:12px;
+        color:rgba(229,231,235,0.75);
+        margin:0 0 6px 2px;
+      }}
+
+      /* ✅ Grid: field + icon button */
+      .copy-grid {{
+        display:grid;
+        grid-template-columns: 1fr 44px;
+        gap:12px;
+        align-items: start;
+        width:100%;
+      }}
+
+      .copy-grid > div {{
+        min-width:0;
+      }}
+
+      .copy-btn {{
+        width:44px;
+        height:40px;
+        border-radius:10px;
+        border:1px solid rgba(255,255,255,0.18);
+        background:rgba(255,255,255,0.08);
+        color:#e5e7eb;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+      }}
+
+      .copy-btn:hover {{
+        background:rgba(255,255,255,0.14);
+      }}
+
+      /* ✅ If narrow space, button goes below (prevents ANY overlap) */
+      @media (max-width: 420px) {{
+        .copy-grid {{
+          grid-template-columns: 1fr;
+        }}
+        .copy-btn {{
+          width:100%;
+          height:40px;
+          justify-content:center;
+        }}
+      }}
+    </style>
+
+    <div class="copy-wrap">
+      <div class="copy-label">{safe_label}</div>
+
+      <div class="copy-grid">
+        <div>
           {field_html}
         </div>
 
-        <button id="btn" style="
-          height:40px;
-          width:90px;
-          border-radius:10px;
-          border:1px solid rgba(255,255,255,0.18);
-          background:rgba(255,255,255,0.08);
-          color:#e5e7eb;
-          cursor:pointer;
-          font-weight:600;
-          white-space:nowrap;
-        ">Copy</button>
+        <button id="btn" class="copy-btn" aria-label="Copy">
+          <!-- ✅ Clipboard icon -->
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+               xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M9 6h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 18H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       <script>
@@ -1549,19 +1599,16 @@ def render_copy_box(label: str, text_value: str, multiline: bool = False):
         async function doCopy() {{
           try {{
             await navigator.clipboard.writeText(v || "");
-            btn.textContent = "Copied ✅";
-            setTimeout(()=>btn.textContent="Copy", 1400);
+            btn.style.opacity = "0.75";
+            setTimeout(()=>btn.style.opacity="1", 500);
           }} catch(e) {{
             try {{
               txt.focus();
               txt.select();
               document.execCommand("copy");
-              btn.textContent = "Copied ✅";
-              setTimeout(()=>btn.textContent="Copy", 1400);
-            }} catch(e2) {{
-              btn.textContent = "Failed";
-              setTimeout(()=>btn.textContent="Copy", 1400);
-            }}
+              btn.style.opacity = "0.75";
+              setTimeout(()=>btn.style.opacity="1", 500);
+            }} catch(e2) {{}}
           }}
         }}
 
