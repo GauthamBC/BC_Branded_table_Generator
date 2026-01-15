@@ -283,6 +283,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --footer-border: rgba(var(--brand-500-rgb), 0.35);
 
       --cell-align:center;
+
+      /* tighter controls everywhere */
+      --ctrl-font: 13px;
+      --ctrl-pad-y: 7px;
+      --ctrl-pad-x: 10px;
+      --ctrl-radius: 10px;
+      --ctrl-gap: 8px;
     }
     .vi-table-embed.align-left { --cell-align:left; }
     .vi-table-embed.align-center { --cell-align:center; }
@@ -360,122 +367,126 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block, #bt-block * { box-sizing:border-box; }
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
-      --gutter: 14px;
+      --gutter: 12px;
       --table-max-h: 720px;
       --vbar-w: 6px; --vbar-w-hover: 8px;
       padding: 10px var(--gutter);
       padding-top: 10px;
     }
 
-    /* ✅ CONTROLS: single-row always (desktop + mobile) */
+    /* ✅ Controls always in a single row: left + right */
     #bt-block .dw-controls{
-      display:flex;
+      display:grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin:4px 0 10px 0;
+      gap: var(--ctrl-gap);
+      margin: 4px 0 10px 0;
       width:100%;
-      flex-wrap:nowrap;
-    }
-
-    #bt-block .left{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex:1 1 auto;
       min-width:0;
-      justify-content:flex-start;
     }
 
+    #bt-block .left,
     #bt-block .right{
+      min-width:0;
       display:flex;
       align-items:center;
+    }
+
+    #bt-block .left{ justify-content:flex-start; }
+    #bt-block .right{
       justify-content:flex-end;
-      gap:12px;
-      flex:0 0 auto;
-      flex-wrap:nowrap;
-      min-width:0;
+      gap: var(--ctrl-gap);
+      flex-wrap:nowrap;      /* prevents “wrapping into search area” */
+      white-space:nowrap;
       position:relative;
     }
 
     #bt-block .dw-pager{
       display:flex;
       align-items:center;
-      justify-content:flex-end;
-      gap:10px;
+      gap: var(--ctrl-gap);
       flex-wrap:nowrap;
-      min-width:0;
+      white-space:nowrap;
     }
 
     #bt-block .dw-embed{
       display:flex;
       align-items:center;
-      justify-content:flex-end;
-      gap:10px;
+      gap: var(--ctrl-gap);
       flex-wrap:nowrap;
-      min-width:0;
+      white-space:nowrap;
       position:relative;
     }
 
-    #bt-block .dw-field{position:relative; min-width:0;}
-    #bt-block .dw-input,#bt-block .dw-select,#bt-block .dw-btn{
-      font:14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-      border-radius:10px;
-      padding:8px 10px;
+    #bt-block .dw-field{ position:relative; min-width:0; }
+
+    #bt-block .dw-input,
+    #bt-block .dw-select,
+    #bt-block .dw-btn{
+      font: var(--ctrl-font)/1.1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      border-radius: var(--ctrl-radius);
+      padding: var(--ctrl-pad-y) var(--ctrl-pad-x);
       transition:.15s ease;
     }
 
-    #bt-block .dw-input,#bt-block .dw-select{
+    /* ✅ Search shrinks earlier so it doesn’t collide with right side */
+    #bt-block .dw-input{
+      width: clamp(120px, 34vw, 240px);
+      max-width: 240px;
+      padding-right: 34px;
+      background:#fff;
+      border:1px solid var(--brand-700);
+      color:var(--text);
+      box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
+    }
+    #bt-block .dw-input::placeholder{color:#9AA4B2}
+    #bt-block .dw-input:focus,
+    #bt-block .dw-select:focus{
+      outline:none;
+      border-color:var(--brand-500);
+      box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .22);
+      background:#fff;
+    }
+
+    /* ✅ Rows/Page dropdown compact (stops “bleeding”) */
+    #bt-block .dw-select{
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      padding-right: 18px;
+      width: 62px;
+      text-align:center;
       background:#fff;
       border:1px solid var(--brand-700);
       color:var(--text);
       box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
     }
 
-    /* ✅ Search stays left and shrinks nicely */
-    #bt-block .dw-input{
-      width:min(320px, 100%);
-      max-width:320px;
-      min-width:120px;
-      padding-right:36px;
-    }
-    #bt-block .dw-input::placeholder{color:#9AA4B2}
-    #bt-block .dw-input:focus,#bt-block .dw-select:focus{
-      outline:none;
-      border-color:var(--brand-500);
-      box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .25);
-      background:#fff;
-    }
-
-    #bt-block .dw-select{
-      appearance:none; -webkit-appearance:none; -moz-appearance:none;
-      padding-right:26px; background:#fff; background-image:none;
-      min-width:68px;
-    }
-
-    #bt-block .dw-status{
-      font-size:14px;
-      color:#111827;
-      white-space:nowrap;
-    }
-
     #bt-block .dw-btn{
       background:var(--brand-500);
       color:#fff;
       border:1px solid var(--brand-500);
-      padding-inline:12px;
+      padding-inline: 10px;
       cursor:pointer;
       white-space:nowrap;
+      height: 34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
     #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
 
-    /* Download button */
+    /* Prev/Next tighter */
+    #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
+
+    /* ✅ Embed/Download button compact and consistent */
     #bt-block .dw-btn.dw-download{
       background:#ffffff;
       color:var(--brand-700);
       border:1px solid var(--brand-700);
+      height: 34px;
+      padding-inline: 10px;
+      font-weight:600;
     }
     #bt-block .dw-btn.dw-download:hover{
       background:var(--brand-50);
@@ -487,7 +498,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-download-menu{
       position:absolute;
       right:0;
-      top:44px;
+      top:40px;
       min-width: 220px;
       background:#fff;
       border:1px solid rgba(0,0,0,.10);
@@ -520,8 +531,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Clear button */
     #bt-block .dw-clear{
-      position:absolute; right:10px; top:50%; translate:0 -50%;
-      width:22px; height:22px; border-radius:9999px; border:0;
+      position:absolute; right:9px; top:50%; translate:0 -50%;
+      width:20px; height:20px; border-radius:9999px; border:0;
       background:transparent; color:var(--brand-700);
       cursor:pointer; display:none; align-items:center; justify-content:center;
     }
@@ -531,16 +542,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* Card & table */
     #bt-block .dw-card { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; margin: 0; width: 100%; }
     #bt-block .dw-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-
-    /* ✅ FIX: horizontal scrollbar is allowed (don’t kill it) */
-    #bt-block .dw-scroll::-webkit-scrollbar{ height:8px; width:var(--vbar-w); }
-    #bt-block .dw-scroll:hover::-webkit-scrollbar{ width:var(--vbar-w-hover); }
-    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background:var(--scroll-thumb);
-      border-radius:9999px;
-      border:2px solid transparent;
-      background-clip:content-box;
-    }
+    #bt-block .dw-scroll.no-scroll { overflow-x: hidden !important; }
 
     #bt-block table.dw-table {
       width: 100%;
@@ -586,9 +588,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overflow-wrap: anywhere;
       word-break: break-word;
       line-height: 1.35;
+
       display:-webkit-box;
       -webkit-line-clamp:2;
       -webkit-box-orient:vertical;
+
       overflow:hidden;
       text-overflow:ellipsis;
     }
@@ -611,18 +615,29 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       scrollbar-width:thin;
       scrollbar-color:var(--scroll-thumb) transparent
     }
+    #bt-block .dw-scroll::-webkit-scrollbar:vertical{width:var(--vbar-w)}
+    #bt-block .dw-scroll:hover::-webkit-scrollbar:vertical{width:var(--vbar-w-hover)}
+    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
+      background:var(--scroll-thumb);
+      border-radius:9999px;
+      border:2px solid transparent;
+      background-clip:content-box;
+    }
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
       background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
     }
 
-    /* Footer */
+    /* ✅ Footer ALWAYS visible (sticky) */
     .vi-table-embed .vi-footer {
       display:block;
       padding:10px 14px 8px;
       border-top:1px solid var(--footer-border);
       background:linear-gradient(90deg,var(--brand-50),#ffffff);
+      position: sticky;
+      bottom: 0;
+      z-index: 20;
     }
     .vi-table-embed .footer-inner{
       display:flex;
@@ -652,37 +667,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
-    /* ✅ MOBILE TIGHT MODE (same row layout, just smaller) */
-    @media (max-width: 640px){
-      #bt-block{ --gutter: 10px; padding-top: 8px; }
-
-      #bt-block .dw-controls{ gap:8px; }
-
-      #bt-block .dw-input,
-      #bt-block .dw-select,
-      #bt-block .dw-btn{
-        font-size:12px;
-        border-radius:10px;
-        padding:6px 8px;
-      }
-
-      #bt-block .dw-input{
-        width: 120px;
-        max-width: 120px;
-        min-width: 90px;
-        padding-right:28px;
-      }
-
-      #bt-block .dw-status{ font-size:12px; }
-      #bt-block .dw-pager{ gap:8px; }
-      #bt-block .dw-btn{ padding-inline:10px; }
-
-      /* keep embed button readable but compact */
-      #bt-block .dw-btn.dw-download{
-        padding-inline:10px;
-      }
-    }
-
     /* EXPORT MODE for capture: ONLY table + logo */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
@@ -704,6 +688,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       table-layout:fixed !important;
       width:100% !important;
     }
+    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
   </style>
 
   <!-- Header (optional) -->
@@ -717,15 +702,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
       <div class="left">
         <div class="dw-field [[SEARCH_VIS_CLASS]]">
-          <input type="search" class="dw-input" placeholder="Search" aria-label="Search Table">
+          <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
           <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
         </div>
       </div>
 
       <div class="right">
-        <!-- Pager group (independent) -->
+        <!-- Pager group -->
         <div class="dw-pager [[PAGER_VIS_CLASS]]">
-          <label class="dw-status" for="bt-size" style="margin-right:4px;">Rows/Page</label>
+          <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
           <select id="bt-size" class="dw-select">
             <option value="5">5</option>
             <option value="10" selected>10</option>
@@ -740,7 +725,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
         </div>
 
-        <!-- Embed/Download group (independent) -->
+        <!-- Embed/Download group -->
         <div class="dw-embed [[EMBED_VIS_CLASS]]">
           <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
@@ -770,7 +755,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       </div>
     </div>
 
-    <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 2px 0; color:#6b7280; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+    <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:6px 2px 4px; color:#6b7280; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
       <span id="dw-page-status-text"></span>
     </div>
   </div>
@@ -827,6 +812,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const hasEmbed = !controlsHidden
       && !!embedWrap && !embedWrap.classList.contains('vi-hide')
       && !!downloadBtn && !!menu && !!btnEmbed;
+
+    if (table.tHead && table.tHead.rows[0].cells.length <= 4) {
+      scroller.classList.add('no-scroll');
+    }
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
@@ -972,7 +961,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    // Download menu toggle
+    // Download Menu Toggle
     function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
     function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
@@ -991,7 +980,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
-    // DOM PNG EXPORT + Copy HTML (kept from your version)
+    // DOM PNG EXPORT
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -1043,10 +1032,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     async function captureCloneToPng(clone, stage, filename, targetWidth){
       const cloneScroller = clone.querySelector('.dw-scroll');
+
       if(cloneScroller){
         cloneScroller.style.maxHeight = 'none';
         cloneScroller.style.height = 'auto';
         cloneScroller.style.overflow = 'visible';
+        cloneScroller.style.overflowX = 'visible';
+        cloneScroller.style.overflowY = 'visible';
         cloneScroller.classList.add('no-scroll');
       }
 
@@ -1108,6 +1100,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     async function downloadDomPng(mode){
       try{
         hideMenu();
+
         if(!window.html2canvas){
           console.warn("html2canvas failed to load.");
           return;
@@ -1149,6 +1142,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
+    // Copy FULL HTML (NOT iframe)
     function getFullHtml(){
       const html = document.documentElement ? document.documentElement.outerHTML : "";
       return "<!doctype html>\n" + html;
