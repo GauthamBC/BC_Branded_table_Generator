@@ -486,34 +486,44 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:0 0 0 3px rgba(var(--brand-500-rgb), .22);
       background:#fff;
     }
-
-    /* ✅ Responsive fix: prevent overlap on narrow screens */
-    @media (max-width: 720px) {
+    /* ✅ Keep everything on one line (only shrink search) */
+    #bt-block .dw-field{ width:100%; }
+    #bt-block .dw-input{
+      width: 100%;
+      max-width: 260px;   /* stays reasonable on desktop */
+      min-width: 120px;   /* can shrink a bit */
+    }
     
-      /* stack left + right controls vertically */
+    /* ✅ Only tighten controls on smaller screens (still ONE line) */
+    @media (max-width: 560px){
+    
+      /* shrink search more */
+      #bt-block .dw-input{
+        max-width: 180px;
+        min-width: 90px;
+      }
+    
+      /* hide label to save space */
+      #bt-block .dw-pager .dw-status{
+        display:none;
+      }
+    
+      /* slightly tighter Embed button */
+      #bt-block .dw-btn.dw-download{
+        padding-inline: 8px;
+      }
+    }
+    
+    /* ✅ ONLY stack on *very* tiny screens */
+    @media (max-width: 420px){
       #bt-block .dw-controls{
         grid-template-columns: 1fr;
         row-gap: 10px;
       }
-    
-      /* make right controls start from left so they don’t collide */
       #bt-block .right{
-        justify-content: flex-start;
-        flex-wrap: wrap;
-        white-space: normal;
-        gap: 10px;
-      }
-    
-      /* allow pager controls to wrap nicely */
-      #bt-block .dw-pager{
-        flex-wrap: wrap;
-        white-space: normal;
-      }
-    
-      /* make search input fill the row */
-      #bt-block .dw-input{
-        width: 100%;
-        max-width: none;
+        justify-content:flex-start;
+        flex-wrap:wrap;
+        white-space:normal;
       }
     }
 
