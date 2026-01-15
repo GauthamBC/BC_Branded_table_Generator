@@ -29,6 +29,7 @@ def get_secret(key: str, default=""):
 # ✅ GitHub App Secrets (store these in Streamlit secrets)
 GITHUB_APP_ID = str(get_secret("GITHUB_APP_ID", "")).strip()
 GITHUB_APP_PRIVATE_KEY = str(get_secret("GITHUB_APP_PRIVATE_KEY", "")).strip()
+GITHUB_PAT = str(get_secret("GITHUB_PAT", "")).strip()
 
 # optional (for showing install link)
 GITHUB_APP_SLUG = str(get_secret("GITHUB_APP_SLUG", "")).strip().lower()  # e.g. "bcdprpagehoster"
@@ -150,15 +151,27 @@ def get_installation_token_for_user(username: str) -> str:
     data = r.json() or {}
     return str(data.get("token", "")).strip()
 
-def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
+def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
     api_base = "https://api.github.com"
-    headers = github_headers(token)
 
-    r = requests.get(f"{api_base}/repos/{owner}/{repo}", headers=headers, timeout=20)
+    # First: check if repo exists (using GitHub App token)
+    r = requests.get(
+        f"{api_base}/repos/{owner}/{repo}",
+        headers=github_headers(install_token),
+        timeout=20
+    )
+
     if r.status_code == 200:
-        return False
+        return False  # already exists
+
     if r.status_code != 404:
         raise RuntimeError(f"Error Checking Repo: {r.status_code} {r.text}")
+
+    # Repo does not exist → create it using PAT
+    if not GITHUB_PAT:
+        raise RuntimeError(
+            "Repo does not exist and cannot be created because GITHUB_PAT is missing in secrets."
+        )
 
     payload = {
         "name": repo,
@@ -167,9 +180,15 @@ def ensure_repo_exists(owner: str, repo: str, token: str) -> bool:
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
 
-    r = requests.post(f"{api_base}/user/repos", headers=headers, json=payload, timeout=20)
-    if r.status_code not in (200, 201):
-        raise RuntimeError(f"Error Creating Repo: {r.status_code} {r.text}")
+    r2 = requests.post(
+        f"{api_base}/user/repos",
+        headers=github_headers(GITHUB_PAT),
+        json=payload,
+        timeout=20,
+    )
+
+    if r2.status_code not in (200, 201):
+        raise RuntimeError(f"Error Creating Repo (PAT): {r2.status_code} {r2.text}")
 
     return True
 
@@ -1819,15 +1838,30 @@ with left_col:
         publish_owner = (PUBLISH_OWNER or "").strip().lower()
 
         # ✅ Installation token from GitHub App (ONLY for the publish owner)
-        installation_token = ""
-        app_installed = False
-
-        if publish_owner:
+        token_to_use = ""
+        auth_mode = ""
+        
+        # ✅ Prefer PAT if provided
+        if GITHUB_PAT:
+            token_to_use = GITHUB_PAT
+            auth_mode = "pat"
+        else:
+            # fallback to GitHub App installation token
             try:
-                installation_token = get_installation_token_for_user(publish_owner)
-                app_installed = bool(installation_token)
+                token_to_use = get_installation_token_for_user(publish_owner)
+                auth_mode = "app" if token_to_use else ""
             except Exception as e:
-                installation_token = ""
+                token_to_use = ""
+                auth_mode = ""
+        
+        if token_to_use:
+            if auth_mode == "pat":
+                st.caption("✅ Using GitHub PAT for publishing. Publishing is enabled.")
+            else:
+                st.caption("✅ Using GitHub App installation token. Publishing is enabled.")
+        else:
+            st.caption("❌ No publishing token found (PAT or GitHub App).")
+
                 app_installed = False
                 st.caption(f"⚠️ GitHub App check failed for publishing owner: {e}")
 
