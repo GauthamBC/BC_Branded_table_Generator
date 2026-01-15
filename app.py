@@ -506,7 +506,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
       z-index: 50;
+    
+      /* ✅ FORCE vertical stacked menu */
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      gap:6px;
     }
+
     #bt-block .dw-download-menu .dw-menu-title{
       font: 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
       color:#6b7280;
@@ -514,6 +521,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     #bt-block .dw-download-menu .dw-menu-btn{
       width:100%;
+      display:block;              /* ✅ ensures vertical stacking */
       text-align:left;
       border-radius:10px;
       border:1px solid rgba(0,0,0,.10);
@@ -521,9 +529,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:#111827;
       padding:10px 10px;
       cursor:pointer;
-      margin:4px 0;
+      margin:0;                   /* ✅ prevent weird spacing conflicts */
       font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     }
+
     #bt-block .dw-download-menu .dw-menu-btn:hover{
       background:var(--brand-50);
       border-color: rgba(var(--brand-500-rgb), .35);
