@@ -1852,10 +1852,16 @@ with left_col:
         if file_exists:
             st.warning("⚠️ A page with this file name already exists. Publishing will overwrite it if you allow swap.")
 
+            # ✅ Show ONE link only (clean UX)
             if existing_pages_url:
-                st.markdown(f"✅ **Current Published Page:** {existing_pages_url}")
-            if existing_github_file_url:
-                st.markdown(f"✅ **GitHub File Link:** {existing_github_file_url}")
+                st.markdown(f"✅ **Existing Page:** {existing_pages_url}")
+            
+            # Optional: keep GitHub file link tucked away
+            with st.expander("Show GitHub file link (advanced)"):
+                if existing_github_file_url:
+                    st.markdown(existing_github_file_url)
+                else:
+                    st.caption("GitHub file link unavailable.")
 
             st.caption("To overwrite safely, you must enable override and type SWAP.")
 
