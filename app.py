@@ -70,7 +70,7 @@ def suggested_repo_name(brand: str) -> str:
     now = datetime.datetime.utcnow()
     mm = MONTH_CODE.get(now.month, "x")
     yy = str(now.year)[-2:]
-    return f"{prefix}{mm}{yy}"
+    return f"{prefix}t{mm}{yy}"
 
 # =========================================================
 # GitHub Helpers
