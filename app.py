@@ -1466,16 +1466,16 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 
 
 # ✅ NEW: Copy button components for URL + iframe (no extra packages needed)
-def render_copy_box(label: str, text_value: str, height: int = 44, multiline: bool = False):
+def render_copy_box(label: str, text_value: str, multiline: bool = False):
     """
     Renders a read-only field + Copy button using a small HTML component.
-    Works even when Streamlit inputs are disabled.
+    Uses a CSS grid so the Copy button never overlaps the field.
     """
     safe_text = json.dumps(text_value or "")
     safe_label = html_mod.escape(label)
 
     if multiline:
-        field_html = f"""
+        field_html = """
           <textarea id="txt" readonly style="
             width:100%;
             height:120px;
@@ -1489,9 +1489,11 @@ def render_copy_box(label: str, text_value: str, height: int = 44, multiline: bo
             font-size:12px;
             line-height:1.35;
             outline:none;
+            overflow:auto;
           "></textarea>
         """
-        comp_height = 155
+        comp_height = 175
+        align_items = "start"
     else:
         field_html = """
           <input id="txt" readonly style="
@@ -1506,19 +1508,28 @@ def render_copy_box(label: str, text_value: str, height: int = 44, multiline: bo
             outline:none;
           "/>
         """
-        comp_height = height
+        comp_height = 90
+        align_items = "end"
 
     html = f"""
-    <div style="width:100%; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="flex:1; min-width:0;">
-          <div style="font-size:12px; color:rgba(229,231,235,0.75); margin:0 0 6px 2px;">{safe_label}</div>
+    <div style="width:100%; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0;">
+      <div style="font-size:12px; color:rgba(229,231,235,0.75); margin:0 0 6px 2px;">{safe_label}</div>
+
+      <!-- ✅ GRID LAYOUT (fixes overlap) -->
+      <div style="
+        display:grid;
+        grid-template-columns: 1fr 90px;
+        gap:10px;
+        align-items:{align_items};
+        width:100%;
+      ">
+        <div style="min-width:0;">
           {field_html}
         </div>
 
         <button id="btn" style="
           height:40px;
-          padding:0 14px;
+          width:90px;
           border-radius:10px;
           border:1px solid rgba(255,255,255,0.18);
           background:rgba(255,255,255,0.08);
@@ -1548,7 +1559,7 @@ def render_copy_box(label: str, text_value: str, height: int = 44, multiline: bo
               btn.textContent = "Copied ✅";
               setTimeout(()=>btn.textContent="Copy", 1400);
             }} catch(e2) {{
-              btn.textContent = "Copy failed";
+              btn.textContent = "Failed";
               setTimeout(()=>btn.textContent="Copy", 1400);
             }}
           }}
