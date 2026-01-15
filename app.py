@@ -487,6 +487,36 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:#fff;
     }
 
+    /* ✅ Responsive fix: prevent overlap on narrow screens */
+    @media (max-width: 720px) {
+    
+      /* stack left + right controls vertically */
+      #bt-block .dw-controls{
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+      }
+    
+      /* make right controls start from left so they don’t collide */
+      #bt-block .right{
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        white-space: normal;
+        gap: 10px;
+      }
+    
+      /* allow pager controls to wrap nicely */
+      #bt-block .dw-pager{
+        flex-wrap: wrap;
+        white-space: normal;
+      }
+    
+      /* make search input fill the row */
+      #bt-block .dw-input{
+        width: 100%;
+        max-width: none;
+      }
+    }
+
     /* Rows/Page dropdown */
     #bt-block .dw-select{
       appearance:none; -webkit-appearance:none; -moz-appearance:none;
