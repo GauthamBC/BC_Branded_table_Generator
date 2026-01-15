@@ -256,7 +256,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 
-<body style="margin:0;">
+<body style="margin:0; overflow:auto;">
 
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
@@ -284,13 +284,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
       --cell-align:center;
 
-      /* tighter controls everywhere */
+      /* ✅ Controls sizing */
       --ctrl-font: 13px;
       --ctrl-pad-y: 7px;
       --ctrl-pad-x: 10px;
       --ctrl-radius: 10px;
       --ctrl-gap: 8px;
+
+      /* ✅ Table scroll height (increase so 10 rows fits better) */
+      --table-max-h: 680px;
     }
+
     .vi-table-embed.align-left { --cell-align:left; }
     .vi-table-embed.align-center { --cell-align:center; }
     .vi-table-embed.align-right { --cell-align:right; }
@@ -368,13 +372,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
       --gutter: 12px;
-      --table-max-h: 720px;
-      --vbar-w: 6px; --vbar-w-hover: 8px;
       padding: 10px var(--gutter);
       padding-top: 10px;
     }
 
-    /* ✅ Controls always in a single row: left + right */
+    /* ✅ Controls row */
     #bt-block .dw-controls{
       display:grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -396,19 +398,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .right{
       justify-content:flex-end;
       gap: var(--ctrl-gap);
-      flex-wrap:nowrap;      /* prevents “wrapping into search area” */
+      flex-wrap:nowrap;
       white-space:nowrap;
       position:relative;
     }
 
-    #bt-block .dw-pager{
-      display:flex;
-      align-items:center;
-      gap: var(--ctrl-gap);
-      flex-wrap:nowrap;
-      white-space:nowrap;
-    }
-
+    #bt-block .dw-pager,
     #bt-block .dw-embed{
       display:flex;
       align-items:center;
@@ -429,7 +424,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       transition:.15s ease;
     }
 
-    /* ✅ Search shrinks earlier so it doesn’t collide with right side */
+    /* Search */
     #bt-block .dw-input{
       width: clamp(120px, 34vw, 240px);
       max-width: 240px;
@@ -448,7 +443,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:#fff;
     }
 
-    /* ✅ Rows/Page dropdown compact (stops “bleeding”) */
+    /* Rows/Page dropdown */
     #bt-block .dw-select{
       appearance:none; -webkit-appearance:none; -moz-appearance:none;
       padding-right: 18px;
@@ -460,6 +455,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
     }
 
+    /* Buttons */
     #bt-block .dw-btn{
       background:var(--brand-500);
       color:#fff;
@@ -475,11 +471,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
-
-    /* Prev/Next tighter */
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
-    /* ✅ Embed/Download button compact and consistent */
+    /* Embed/Download button */
     #bt-block .dw-btn.dw-download{
       background:#ffffff;
       color:var(--brand-700);
@@ -494,7 +488,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:var(--brand-600);
     }
 
-    /* Download menu (popover) */
+    /* ✅ Download menu (vertical stack) */
     #bt-block .dw-download-menu{
       position:absolute;
       right:0;
@@ -506,8 +500,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
       z-index: 50;
-    
-      /* ✅ FORCE vertical stacked menu */
+
       display:flex;
       flex-direction:column;
       align-items:stretch;
@@ -519,9 +512,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:#6b7280;
       margin:0 0 8px 2px;
     }
+
     #bt-block .dw-download-menu .dw-menu-btn{
       width:100%;
-      display:block;              /* ✅ ensures vertical stacking */
+      display:block;
       text-align:left;
       border-radius:10px;
       border:1px solid rgba(0,0,0,.10);
@@ -529,10 +523,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:#111827;
       padding:10px 10px;
       cursor:pointer;
-      margin:0;                   /* ✅ prevent weird spacing conflicts */
+      margin:0;
       font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     }
-
     #bt-block .dw-download-menu .dw-menu-btn:hover{
       background:var(--brand-50);
       border-color: rgba(var(--brand-500-rgb), .35);
@@ -548,52 +541,50 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-field.has-value .dw-clear{display:flex}
     #bt-block .dw-clear:hover{background:var(--brand-100)}
 
-    /* Card & table */
-    /* ✅ Card & Scroll Container (FIXED) */
-#bt-block .dw-card{
-  background: var(--bg);
-  border: 0;
-  box-shadow: none;
-  margin: 0;
-  width: 100%;
+    /* ✅ Card wrapper MUST NOT CLIP scrollbars */
+    #bt-block .dw-card{
+      background: var(--bg);
+      border: 0;
+      box-shadow: none;
+      margin: 0;
+      width: 100%;
+      overflow: visible;
+    }
 
-  /* ✅ IMPORTANT: don't clip scrollbars */
-  overflow: visible;
-}
+    /* ✅ REAL vertical + horizontal scroll + branded slim bars */
+    #bt-block .dw-scroll{
+      max-height: min(var(--table-max-h, 680px), calc(100vh - 240px));
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x pan-y;
 
-/* ✅ Table scroll container = vertical + horizontal scrolling */
-#bt-block .dw-scroll{
-  max-height: var(--table-max-h, 520px);
-  overflow: auto;                      /* ✅ BOTH vertical + horizontal */
-  -webkit-overflow-scrolling: touch;   /* ✅ iOS smooth scrolling */
-  touch-action: pan-x pan-y;           /* ✅ makes swipe scroll work */
-  overscroll-behavior: contain;
+      /* ✅ IMPORTANT: allow “table scroll ends → page scroll continues” */
+      overscroll-behavior: auto;
 
-  /* ✅ Firefox */
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) transparent;
-}
+      scrollbar-gutter: stable both-edges;
 
-/* ✅ Webkit branded slim scrollbars (Chrome/Edge/Safari) */
-#bt-block .dw-scroll::-webkit-scrollbar{
-  width: 8px;   /* vertical */
-  height: 8px;  /* horizontal */
-}
+      /* Firefox */
+      scrollbar-width: thin;
+      scrollbar-color: var(--scroll-thumb) transparent;
+    }
 
-#bt-block .dw-scroll::-webkit-scrollbar-track{
-  background: transparent;
-}
-
-#bt-block .dw-scroll::-webkit-scrollbar-thumb{
-  background: var(--scroll-thumb);     /* ✅ BRANDED GREEN */
-  border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-#bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
-  background: var(--brand-600);
-}
+    /* Chrome/Edge/Safari */
+    #bt-block .dw-scroll::-webkit-scrollbar{
+      width: 8px;
+      height: 8px;
+    }
+    #bt-block .dw-scroll::-webkit-scrollbar-track{
+      background: transparent;
+    }
+    #bt-block .dw-scroll::-webkit-scrollbar-thumb{
+      background: var(--scroll-thumb);
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
+      background: var(--brand-600);
+    }
 
     #bt-block table.dw-table {
       width: 100%;
@@ -659,47 +650,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
-    #bt-block .dw-scroll{
-  max-height:var(--table-max-h,360px);
-  overflow-y:auto;
-  overflow-x:auto;
-  -webkit-overflow-scrolling: touch;
-
-  /* ✅ prevents layout shift when scrollbar appears */
-  scrollbar-gutter: stable both-edges;
-
-  /* ✅ Firefox */
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) var(--brand-100);
-}
-
-/* ✅ Chrome / Edge / Android */
-#bt-block .dw-scroll::-webkit-scrollbar{
-  width: 8px;
-  height: 8px;
-}
-
-#bt-block .dw-scroll::-webkit-scrollbar-track{
-  background: var(--brand-100);
-  border-radius: 9999px;
-}
-
-#bt-block .dw-scroll::-webkit-scrollbar-thumb{
-  background: var(--scroll-thumb);
-  border-radius: 9999px;
-  border: 0;                 /* ✅ IMPORTANT: don't shrink thumb */
-}
-
-#bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
-  background: var(--brand-600);
-}
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
       background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
     }
 
-    /* ✅ Footer ALWAYS visible (sticky) */
+    /* ✅ Footer always visible */
     .vi-table-embed .vi-footer {
       display:block;
       padding:10px 14px 8px;
@@ -737,7 +694,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     .vi-hide{ display:none !important; }
 
-    /* EXPORT MODE for capture: ONLY table + logo */
+    /* EXPORT MODE (table + logo only) */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{
@@ -761,7 +718,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
   </style>
 
-  <!-- Header (optional) -->
+  <!-- Header -->
   <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
     <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
     <span class="subtitle">[[SUBTITLE]]</span>
@@ -778,7 +735,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       </div>
 
       <div class="right">
-        <!-- Pager group -->
+        <!-- Pager -->
         <div class="dw-pager [[PAGER_VIS_CLASS]]">
           <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
           <select id="bt-size" class="dw-select">
@@ -795,7 +752,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
         </div>
 
-        <!-- Embed/Download group -->
+        <!-- Embed/Download -->
         <div class="dw-embed [[EMBED_VIS_CLASS]]">
           <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
@@ -830,7 +787,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     </div>
   </div>
 
-  <!-- Footer (optional) -->
+  <!-- Footer -->
   <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
       <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
@@ -885,14 +842,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
 
-    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0; // 0 = All
+    let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
     let filter = '';
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
-    // Sorting always on
     const heads = Array.from(table.tHead.rows[0].cells);
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -992,6 +948,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
 
       shown.forEach(r=>{ r.style.display='table-row'; });
+
+      /* ✅ reset scroll to top after changing pages */
+      scroller.scrollTop = 0;
     }
 
     if(hasSearch){
@@ -1027,7 +986,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    // Download Menu Toggle
     function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
     function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
 
@@ -1046,7 +1004,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
-    // DOM PNG EXPORT
+    /* ===== PNG EXPORT ===== */
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -1105,7 +1063,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         cloneScroller.style.overflow = 'visible';
         cloneScroller.style.overflowX = 'visible';
         cloneScroller.style.overflowY = 'visible';
-        cloneScroller.classList.add('no-scroll');
+        cloneScroller.classList.add('no-scroll'); /* ✅ KEEP THIS */
       }
 
       const w = Math.max(900, Math.ceil(targetWidth || 1200));
@@ -1166,25 +1124,16 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     async function downloadDomPng(mode){
       try{
         hideMenu();
-
-        if(!window.html2canvas){
-          console.warn("html2canvas failed to load.");
-          return;
-        }
+        if(!window.html2canvas) return;
 
         const widget = document.querySelector('section.vi-table-embed');
-        if(!widget){
-          console.warn("Widget not found.");
-          return;
-        }
+        if(!widget) return;
 
         const stage = document.createElement('div');
         stage.style.position = 'fixed';
         stage.style.left = '-100000px';
         stage.style.top = '0';
         stage.style.background = '#ffffff';
-        stage.style.padding = '0';
-        stage.style.margin = '0';
         stage.style.zIndex = '-1';
 
         const clone = widget.cloneNode(true);
@@ -1208,7 +1157,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
-    // Copy FULL HTML (NOT iframe)
     function getFullHtml(){
       const html = document.documentElement ? document.documentElement.outerHTML : "";
       return "<!doctype html>\n" + html;
