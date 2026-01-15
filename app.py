@@ -1,6 +1,7 @@
 import base64
 import datetime
 import html as html_mod
+import json
 import re
 import time
 from collections.abc import Mapping
@@ -250,15 +251,6 @@ def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str
         return r.status_code == 200
     except Exception:
         return False
-
-
-def compute_github_file_url(user: str, repo: str, filename: str, branch: str = "main") -> str:
-    user = (user or "").strip()
-    repo = (repo or "").strip()
-    filename = (filename or "").lstrip("/").strip()
-    if not (user and repo and filename):
-        return ""
-    return f"https://github.com/{user}/{repo}/blob/{branch}/{filename}"
 
 
 # =========================================================
@@ -1260,6 +1252,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </html>
 """
 
+
 # =========================================================
 # Generator
 # =========================================================
@@ -1472,6 +1465,102 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 ></iframe>"""
 
 
+# ✅ NEW: Copy button components for URL + iframe (no extra packages needed)
+def render_copy_box(label: str, text_value: str, height: int = 44, multiline: bool = False):
+    """
+    Renders a read-only field + Copy button using a small HTML component.
+    Works even when Streamlit inputs are disabled.
+    """
+    safe_text = json.dumps(text_value or "")
+    safe_label = html_mod.escape(label)
+
+    if multiline:
+        field_html = f"""
+          <textarea id="txt" readonly style="
+            width:100%;
+            height:120px;
+            resize:none;
+            border-radius:10px;
+            border:1px solid rgba(255,255,255,0.15);
+            background:rgba(255,255,255,0.06);
+            color:#e5e7eb;
+            padding:12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+            font-size:12px;
+            line-height:1.35;
+            outline:none;
+          "></textarea>
+        """
+        comp_height = 155
+    else:
+        field_html = """
+          <input id="txt" readonly style="
+            width:100%;
+            height:40px;
+            border-radius:10px;
+            border:1px solid rgba(255,255,255,0.15);
+            background:rgba(255,255,255,0.06);
+            color:#e5e7eb;
+            padding:0 12px;
+            font-size:13px;
+            outline:none;
+          "/>
+        """
+        comp_height = height
+
+    html = f"""
+    <div style="width:100%; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; color:rgba(229,231,235,0.75); margin:0 0 6px 2px;">{safe_label}</div>
+          {field_html}
+        </div>
+
+        <button id="btn" style="
+          height:40px;
+          padding:0 14px;
+          border-radius:10px;
+          border:1px solid rgba(255,255,255,0.18);
+          background:rgba(255,255,255,0.08);
+          color:#e5e7eb;
+          cursor:pointer;
+          font-weight:600;
+          white-space:nowrap;
+        ">Copy</button>
+      </div>
+
+      <script>
+        const v = {safe_text};
+        const txt = document.getElementById("txt");
+        const btn = document.getElementById("btn");
+        if(txt) txt.value = v;
+
+        async function doCopy() {{
+          try {{
+            await navigator.clipboard.writeText(v || "");
+            btn.textContent = "Copied ✅";
+            setTimeout(()=>btn.textContent="Copy", 1400);
+          }} catch(e) {{
+            try {{
+              txt.focus();
+              txt.select();
+              document.execCommand("copy");
+              btn.textContent = "Copied ✅";
+              setTimeout(()=>btn.textContent="Copy", 1400);
+            }} catch(e2) {{
+              btn.textContent = "Copy failed";
+              setTimeout(()=>btn.textContent="Copy", 1400);
+            }}
+          }}
+        }}
+
+        btn.addEventListener("click", doCopy);
+      </script>
+    </div>
+    """
+    components.html(html, height=comp_height)
+
+
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -1490,8 +1579,8 @@ def reset_widget_state_for_new_upload():
         "bt_widget_name_locked_value",
         "bt_df_uploaded",
         "bt_df_confirmed",
-        # ✅ NEW: overwrite protection keys
-        "bt_override_existing_page",
+        # ✅ override flow keys
+        "bt_allow_swap",
         "bt_swap_confirm_text",
     ]
     for k in keys_to_clear:
@@ -1529,8 +1618,8 @@ def ensure_confirm_state_exists():
     # embed button checkbox default ON
     st.session_state.setdefault("bt_show_embed", True)
 
-    # ✅ NEW defaults
-    st.session_state.setdefault("bt_override_existing_page", False)
+    # ✅ override flow
+    st.session_state.setdefault("bt_allow_swap", False)
     st.session_state.setdefault("bt_swap_confirm_text", "")
 
 
@@ -1788,7 +1877,7 @@ with left_col:
         if github_username_input and github_username_input != "Select a user...":
             effective_github_user = github_username_input.strip().lower()
 
-        # ✅ NEW: Installation token from GitHub App
+        # ✅ Installation token from GitHub App
         installation_token = ""
         app_installed = False
 
@@ -1815,6 +1904,7 @@ with left_col:
         st.session_state["bt_gh_repo"] = auto_repo
         repo_name = auto_repo
 
+        # Widget file name
         widget_file_name = st.text_input(
             "Widget Name (file)",
             value=st.session_state.get("bt_widget_file_name", "table.html"),
@@ -1827,66 +1917,45 @@ with left_col:
             widget_file_name = widget_file_name + ".html"
             st.session_state["bt_widget_file_name"] = widget_file_name
 
-        # =========================================================
-        # ✅ SAFETY CHECK: Existing page protection (OVERRIDE + SWAP)
-        # =========================================================
+        # File existence check
         file_exists = False
         existing_pages_url = ""
-        existing_github_file_url = ""
-
         if effective_github_user and installation_token and repo_name and widget_file_name:
-            file_exists = github_file_exists(
-                effective_github_user,
-                repo_name,
-                installation_token,
-                widget_file_name,
-                branch="main",
-            )
+            file_exists = github_file_exists(effective_github_user, repo_name, installation_token, widget_file_name, branch="main")
             if file_exists:
                 existing_pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
-                existing_github_file_url = compute_github_file_url(effective_github_user, repo_name, widget_file_name, branch="main")
 
-        override_existing = False
-        swap_confirmed = False
+        # ✅ override logic (SWAP)
+        allow_swap = bool(st.session_state.get("bt_allow_swap", False))
+        swap_text = (st.session_state.get("bt_swap_confirm_text", "") or "").strip().upper()
 
         if file_exists:
             st.warning("⚠️ A page with this file name already exists. Publishing will overwrite it if you allow swap.")
-
-            # ✅ Show ONE link only (clean UX)
             if existing_pages_url:
                 st.markdown(f"✅ **Existing Page:** {existing_pages_url}")
 
-            st.caption("To overwrite safely, you must enable override and type SWAP.")
-
-            override_existing = st.checkbox(
+            st.caption("To overwrite safely, you must enable override and type **SWAP**.")
+            st.checkbox(
                 "Yes, I want to override (replace) the existing page",
-                value=bool(st.session_state.get("bt_override_existing_page", False)),
-                key="bt_override_existing_page",
+                value=allow_swap,
+                key="bt_allow_swap",
             )
-
-            if override_existing:
-                swap_text = st.text_input(
-                    "Type SWAP to confirm overwrite",
+            if st.session_state.get("bt_allow_swap", False):
+                st.text_input(
+                    'Type "SWAP" to confirm override',
                     value=st.session_state.get("bt_swap_confirm_text", ""),
                     key="bt_swap_confirm_text",
-                    help="This prevents accidental overwrites. Type exactly: SWAP",
-                ).strip()
+                )
 
-                swap_confirmed = (swap_text == "SWAP")
-                if not swap_confirmed:
-                    st.caption("⛔ Override selected, but SWAP confirmation is missing.")
+        swap_confirmed = (not file_exists) or (st.session_state.get("bt_allow_swap", False) and swap_text == "SWAP")
 
-        # ✅ Publishing allowed only when:
-        # - file DOES NOT exist
-        # OR
-        # - file exists AND user checked override AND typed SWAP
         can_publish = bool(
             html_generated
             and effective_github_user
             and repo_name
             and widget_file_name
             and installation_token
-            and (not file_exists or (override_existing and swap_confirmed))
+            and swap_confirmed
         )
 
         publish_clicked = st.button(
@@ -1905,12 +1974,8 @@ with left_col:
                 missing.append("file name")
             if effective_github_user and not installation_token:
                 missing.append("GitHub App installed for this user")
-
-            if file_exists and (not override_existing):
-                missing.append("confirm override (checkbox)")
-            if file_exists and override_existing and (not swap_confirmed):
-                missing.append('type "SWAP" to confirm overwrite')
-
+            if file_exists and not swap_confirmed:
+                missing.append("confirm override (checkbox + SWAP)")
             if missing:
                 st.caption("To enable publishing: " + ", ".join(missing) + ".")
 
@@ -1919,10 +1984,6 @@ with left_col:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
                     raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
-
-                # ✅ Backend safety guard (prevents any accidental overwrite)
-                if file_exists and not (override_existing and swap_confirmed):
-                    raise RuntimeError('This page already exists. Enable override + type "SWAP" to confirm overwrite.')
 
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
@@ -1947,7 +2008,6 @@ with left_col:
                 pages_url = compute_pages_url(effective_github_user, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
 
-                # IMPORTANT: iframe code stays EMPTY until we have a real published URL
                 st.session_state["bt_iframe_code"] = build_iframe_snippet(
                     pages_url,
                     height=int(st.session_state.get("bt_iframe_height", 800)),
@@ -1958,7 +2018,16 @@ with left_col:
             except Exception as e:
                 st.error(f"Publish / IFrame generation failed: {e}")
 
+        # =========================================================
+        # ✅ OUTPUTS (COPY BUTTONS + CLEAR OUTPUTS)
+        # =========================================================
         st.markdown("#### Outputs")
+
+        # ✅ Clear button (ONLY clears if clicked)
+        if st.button("🧹 Clear IFrame / Outputs", use_container_width=True):
+            st.session_state["bt_last_published_url"] = ""
+            st.session_state["bt_iframe_code"] = ""
+            st.success("Outputs cleared. Publish again when ready.")
 
         published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
         iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
@@ -1967,17 +2036,7 @@ with left_col:
         if not published_url_val:
             iframe_val = ""
 
-        st.text_input(
-            "Published URL",
-            value=published_url_val,
-            disabled=True,
-            placeholder="(empty until published)",
-        )
-
-        st.text_area(
-            "IFrame Code",
-            value=iframe_val,
-            height=160,
-            disabled=True,
-            placeholder="(empty until published)",
-        )
+        # ✅ Copy-friendly outputs
+        render_copy_box("Published URL", published_url_val, multiline=False)
+        st.markdown("")
+        render_copy_box("IFrame Code", iframe_val, multiline=True)
