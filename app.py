@@ -740,8 +740,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     #bt-block .dw-cell{
       white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: normal;
+      word-break: normal;
       line-height: 1.35;
 
       display:-webkit-box;
