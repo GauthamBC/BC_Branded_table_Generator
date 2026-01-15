@@ -1853,7 +1853,8 @@ with left_col:
             except Exception as e:
                 token_to_use = ""
                 auth_mode = ""
-        
+                
+        installation_token = token_to_use
         if token_to_use:
             if auth_mode == "pat":
                 st.caption("✅ Using GitHub PAT for publishing. Publishing is enabled.")
