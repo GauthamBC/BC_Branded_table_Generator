@@ -478,6 +478,39 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       color:var(--text);
       box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
     }
+    /* ✅ Mobile squeeze so everything fits in one row */
+    @media (max-width: 520px){
+    
+      /* tighten spacing + make buttons slightly smaller */
+      #bt-block{
+        --ctrl-gap: 6px;
+        --ctrl-font: 12px;
+        --ctrl-pad-y: 6px;
+        --ctrl-pad-x: 8px;
+      }
+    
+      /* shrink search input more so right side fits */
+      #bt-block .dw-input{
+        max-width: 140px;
+        min-width: 85px;
+      }
+    
+      /* hide "Rows/Page" label (big space saver) */
+      #bt-block .dw-pager .dw-status{
+        display:none;
+      }
+    
+      /* shorten Embed / Download button text */
+      #bt-block .dw-btn.dw-download{
+        font-size: 0;            /* hides original text */
+        padding-inline: 10px;
+      }
+      #bt-block .dw-btn.dw-download::after{
+        content:"Embed";
+        font-size: 12px;
+        font-weight: 600;
+      }
+    }
     #bt-block .dw-input::placeholder{color:#9AA4B2}
     #bt-block .dw-input:focus,
     #bt-block .dw-select:focus{
@@ -515,7 +548,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     
     /* ✅ ONLY stack on *very* tiny screens */
-    @media (max-width: 420px){
+    @media (max-width: 330px){
       #bt-block .dw-controls{
         grid-template-columns: 1fr;
         row-gap: 10px;
