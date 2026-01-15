@@ -35,8 +35,8 @@ GITHUB_APP_SLUG = str(get_secret("GITHUB_APP_SLUG", "")).strip().lower()  # e.g.
 
 # ✅ Publishing always happens under ONE account (Earned Media)
 # Put this in Streamlit secrets if you want (recommended):
-# PUBLISH_OWNER = "earnedmedia"
-PUBLISH_OWNER = str(get_secret("PUBLISH_OWNER", "earnedmedia")).strip().lower()
+# PUBLISH_OWNER = "BetterCollective26"
+PUBLISH_OWNER = str(get_secret("PUBLISH_OWNER", "BetterCollective26")).strip().lower()
 
 # =========================================================
 # Repo Auto-Naming (Full Brand Name + Month + Year)
