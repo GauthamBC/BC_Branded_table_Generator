@@ -2283,28 +2283,28 @@ with left_col:
 
             if show_tabs:
             # ✅ Show Published Page FIRST (above tabs)
-            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-            if published_url_val:
-                st.caption("Published Page")
-                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-        
-            # ✅ Then show the two output tabs
-            html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
-        
-            with html_tab:
-                html_code_val = (st.session_state.get("bt_html_code") or "").strip()
-                if not html_code_val:
-                    st.info("Click **Confirm & Save** to generate HTML.")
-                else:
-                    st.caption("HTML Code")
-                    _lines = html_code_val.splitlines()
-                    _preview = "\n".join(_lines[:5]).strip()
-                    if _preview:
-                        st.code(_preview + "\n…", language="html")
+                published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+                if published_url_val:
+                    st.caption("Published Page")
+                    st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+            
+                # ✅ Then show the two output tabs
+                html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
+            
+                with html_tab:
+                    html_code_val = (st.session_state.get("bt_html_code") or "").strip()
+                    if not html_code_val:
+                        st.info("Click **Confirm & Save** to generate HTML.")
                     else:
-                        st.code("", language="html")
-        
-            with iframe_tab:
-                iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-                st.caption("IFrame Code")
-                st.code(iframe_val or "", language="html")
+                        st.caption("HTML Code")
+                        _lines = html_code_val.splitlines()
+                        _preview = "\n".join(_lines[:5]).strip()
+                        if _preview:
+                            st.code(_preview + "\n…", language="html")
+                        else:
+                            st.code("", language="html")
+            
+                with iframe_tab:
+                    iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+                    st.caption("IFrame Code")
+                    st.code(iframe_val or "", language="html")
