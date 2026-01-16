@@ -1701,6 +1701,22 @@ def simulate_progress(label: str, total_sleep: float = 0.35):
 
 
 def draft_config_from_state() -> dict:
+    bar_cols = st.session_state.get("bt_bar_columns", []) or []
+
+    # ✅ Build overrides LIVE from session_state (works for preview instantly)
+    live_overrides = {}
+    for col in bar_cols:
+        enabled = bool(st.session_state.get(f"bt_bar_override_enabled_{col}", False))
+        raw = str(st.session_state.get(f"bt_bar_max_override_{col}", "") or "").strip()
+
+        if enabled and raw:
+            try:
+                v = float(raw)
+                if v > 0:
+                    live_overrides[col] = v
+            except Exception:
+                pass  # ignore invalid input
+
     return {
         "brand": st.session_state.get("brand_table", "Action Network"),
         "title": st.session_state.get("bt_widget_title", "Table 1"),
@@ -1716,8 +1732,10 @@ def draft_config_from_state() -> dict:
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_embed": st.session_state.get("bt_show_embed", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
-        "bar_columns": st.session_state.get("bt_bar_columns", []),
-        "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}),
+
+        # ✅ bars
+        "bar_columns": bar_cols,
+        "bar_max_overrides": live_overrides,  # ✅ LIVE + instant preview
         "bar_fixed_w": st.session_state.get("bt_bar_fixed_w", 200),
     }
 
@@ -2135,33 +2153,32 @@ with left_col:
                 help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
             )
 
-            # ✅ Optional max overrides per bar column
+                    # ✅ Optional max overrides per bar column (LIVE PREVIEW)
             selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
-            st.session_state.setdefault("bt_bar_max_overrides", {})
 
             if selected_bar_cols:
-                st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
+                st.caption("Optional: Enable a max per bar column (updates preview instantly).")
+
                 for col in selected_bar_cols:
-                    existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
+                    # ✅ Ensure keys exist
+                    st.session_state.setdefault(f"bt_bar_override_enabled_{col}", False)
+                    st.session_state.setdefault(f"bt_bar_max_override_{col}", "")
 
-                    max_str = st.text_input(
-                        f"{col} max (optional)",
-                        value=str(existing_val) if existing_val is not None else "",
-                        placeholder="Example: 100",
-                        key=f"bt_bar_max_override_{col}",
-                    ).strip()
+                    left_ck, right_in = st.columns([1, 4], vertical_alignment="center")
 
-                    if max_str == "":
-                        st.session_state["bt_bar_max_overrides"][col] = ""
-                    else:
-                        try:
-                            num_val = float(max_str)
-                            if num_val > 0:
-                                st.session_state["bt_bar_max_overrides"][col] = num_val
-                            else:
-                                st.session_state["bt_bar_max_overrides"][col] = ""
-                        except Exception:
-                            st.session_state["bt_bar_max_overrides"][col] = ""
+                    with left_ck:
+                        st.checkbox(
+                            "Use max",
+                            key=f"bt_bar_override_enabled_{col}",
+                        )
+
+                    with right_in:
+                        st.text_input(
+                            f"{col} max",
+                            key=f"bt_bar_max_override_{col}",
+                            placeholder="Example: 100",
+                            disabled=not st.session_state.get(f"bt_bar_override_enabled_{col}", False),
+                        )
 
         # ✅ Confirm/Save at the bottom
         st.button(
