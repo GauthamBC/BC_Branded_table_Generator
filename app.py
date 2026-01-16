@@ -2256,8 +2256,30 @@ with left_col:
 
                 html_final = st.session_state.get("bt_html_code", "")
                 if html_final:
-                    st.markdown("#### HTML (from last Confirm & Save)")
-                    st.code(html_final, language="html")
+                    st.markdown("#### HTML Code")
+
+
+                    # ✅ Keep preview small (5 lines) so the page doesn't become super long
+
+                    _full_html = html_final or ""
+
+                    _preview_lines = _full_html.splitlines()[:5]
+
+                    _preview = "\n".join(_preview_lines).strip()
+
+
+                    if _full_html and _preview:
+
+                        st.code(_preview + "\n...", language="html")
+
+                    else:
+
+                        st.code("", language="html")
+
+
+                    with st.expander("Show full HTML (copy from here)", expanded=False):
+
+                        st.code(_full_html, language="html")
                 else:
                     st.warning("No generated HTML found. Click **Confirm & Save** first.")
 
@@ -2321,7 +2343,5 @@ with left_col:
             st.caption("Published URL")
             if published_url_val:
                 st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-            st.code(published_url_val or "", language="text")
-
             st.caption("IFrame Code")
             st.code(iframe_val or "", language="html")
