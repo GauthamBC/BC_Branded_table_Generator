@@ -330,6 +330,10 @@ def get_brand_meta(brand: str) -> dict:
         meta["brand_class"] = "brand-aceodds"
         meta["logo_url"] = "https://i.postimg.cc/RVhccmQc/aceodds-logo-original-1.png"
         meta["logo_alt"] = "AceOdds Logo"
+    elif brand_clean == "BOLAVIP":
+        meta["brand_class"] = "brand-bolavip"
+        meta["logo_url"] = "https://i.postimg.cc/KzqsN24t/bolavip-logo-black.png"
+        meta["logo_alt"] = "BOLAVIP Logo"
     return meta
 
 # =========================================================
@@ -402,6 +406,23 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --stripe:var(--brand-50);
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-500);
+      --footer-border: rgba(var(--brand-500-rgb), 0.40);
+    }
+
+    .vi-table-embed.brand-bolavip{
+      --brand-50:#FFF1F2;
+      --brand-100:#FFE1E4;
+      --brand-300:#FDA4AF;
+      --brand-500:#D81F30;  /* ✅ Base */
+      --brand-600:#BE1B2A;
+      --brand-700:#9F1622;
+      --brand-900:#5F0C12;
+      --brand-500-rgb: 216, 31, 48;
+
+      --header-bg:var(--brand-600);
+      --stripe:var(--brand-50);
+      --hover:var(--brand-100);
+      --scroll-thumb:var(--brand-600);
       --footer-border: rgba(var(--brand-500-rgb), 0.40);
     }
 
@@ -824,6 +845,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-rotogrinders .vi-footer img{
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
       height:32px;
+    }
+    .vi-table-embed.brand-bolavip .vi-footer img{
+      filter: none !important;
+      height: 28px;
+      width: auto;
+      display: inline-block;
     }
 
     .vi-table-embed.brand-aceodds .vi-footer img{
@@ -1710,7 +1737,14 @@ st.markdown(
 
 st.title("Branded Table Generator")
 
-brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders", "AceOdds"]
+brand_options = [
+    "Action Network",
+    "VegasInsider",
+    "Canada Sports Betting",
+    "RotoGrinders",
+    "AceOdds",
+    "BOLAVIP", 
+]
 st.session_state.setdefault("brand_table", "Action Network")
 if st.session_state["brand_table"] not in brand_options:
     st.session_state["brand_table"] = "Action Network"
