@@ -47,6 +47,7 @@ BRAND_REPO_PREFIX_FULL = {
     "Canada Sports Betting": "CanadaSportsBetting",
     "VegasInsider": "VegasInsider",
     "RotoGrinders": "RotoGrinders",
+    "AceOdds": "AceOdds",
 }
 
 MONTH_CODE = {
@@ -325,7 +326,10 @@ def get_brand_meta(brand: str) -> dict:
         meta["brand_class"] = "brand-rotogrinders"
         meta["logo_url"] = "https://i.postimg.cc/PrcJnQtK/RG-logo-Fn.png"
         meta["logo_alt"] = "RotoGrinders Logo"
-
+    elif brand_clean == "AceOdds":
+        meta["brand_class"] = "brand-aceodds"
+        meta["logo_url"] = "https://i.postimg.cc/RVhccmQc/aceodds-logo-original-1.png"
+        meta["logo_alt"] = "AceOdds Logo"
     return meta
 
 # =========================================================
@@ -433,6 +437,23 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --hover:var(--brand-100);
       --scroll-thumb:var(--brand-600);
       --footer-border: rgba(1, 89, 209, 0.40);
+    }
+
+    vi-table-embed.brand-aceodds{
+      --brand-50:#F1F3F7;
+      --brand-100:#D9DEE8;
+      --brand-300:#AEB8CB;
+      --brand-500:#364464;  /* ✅ Base */
+      --brand-600:#2E3A56;
+      --brand-700:#242E45;
+      --brand-900:#131A2B;
+      --brand-500-rgb: 54, 68, 100;
+
+      --header-bg:var(--brand-600);
+      --stripe:var(--brand-50);
+      --hover:var(--brand-100);
+      --scroll-thumb:var(--brand-600);
+      --footer-border: rgba(var(--brand-500-rgb), 0.40);
     }
 
     /* Header block */
@@ -803,6 +824,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.brand-rotogrinders .vi-footer img{
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
       height:32px;
+    }
+
+    .vi-table-embed.brand-aceodds .vi-footer img{
+      filter: none !important;
+      height: 28px;
+      width: auto;
+      display: inline-block;
     }
 
     .vi-hide{ display:none !important; }
@@ -1630,7 +1658,7 @@ st.markdown(
 
 st.title("Branded Table Generator")
 
-brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
+brand_options = ["Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders", "AceOdds"]
 st.session_state.setdefault("brand_table", "Action Network")
 if st.session_state["brand_table"] not in brand_options:
     st.session_state["brand_table"] = "Action Network"
