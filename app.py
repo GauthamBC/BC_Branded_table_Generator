@@ -1934,6 +1934,7 @@ with left_col:
     # ---------- CONFIGURE TAB ----------
     with tab_config:
         st.markdown("#### Edit table contents")
+        st.caption("⚠️ Please **Confirm & Save** after making any changes to the table.")
 
         sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
@@ -2044,10 +2045,11 @@ with left_col:
             )
 
         # ✅ Move Confirm/Save to the bottom of the settings panel (better UX)
-        st.button(
-            "Confirm & Save",
+       st.button(
+            "✅ Confirm & Save",
             key="bt_confirm_btn",
             use_container_width=True,
+            type="primary",  # ✅ makes it highlighted
             on_click=do_confirm_snapshot,
         )
 
