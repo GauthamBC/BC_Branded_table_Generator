@@ -901,6 +901,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
             <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
             <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
             <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+            <button type="button" class="dw-menu-btn" id="dw-dl-csv">Download CSV</button>
             <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
           </div>
         </div>
