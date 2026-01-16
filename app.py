@@ -18,6 +18,7 @@ import streamlit.components.v1 as components
 # ✅ "Created by" tracking list (UI only)
 PUBLISH_USERS = ["gauthambc", "amybc", "benbc", "kathybc"]
 
+
 def get_secret(key: str, default=""):
     try:
         if hasattr(st, "secrets") and key in st.secrets:
@@ -25,6 +26,7 @@ def get_secret(key: str, default=""):
     except Exception:
         pass
     return default
+
 
 # ✅ GitHub App Secrets (store these in Streamlit secrets)
 GITHUB_APP_ID = str(get_secret("GITHUB_APP_ID", "")).strip()
@@ -66,6 +68,7 @@ MONTH_CODE = {
     12: "d",  # Dec
 }
 
+
 def suggested_repo_name(brand: str) -> str:
     b = (brand or "").strip()
     prefix = BRAND_REPO_PREFIX_FULL.get(b, "ActionNetwork")
@@ -73,6 +76,7 @@ def suggested_repo_name(brand: str) -> str:
     mm = MONTH_CODE.get(now.month, "x")
     yy = str(now.year)[-2:]
     return f"{prefix}t{mm}{yy}"
+
 
 # =========================================================
 # GitHub Helpers
@@ -307,6 +311,7 @@ def write_github_json(owner: str, repo: str, token: str, path: str, payload: dic
     content = json.dumps(payload or {}, indent=2, ensure_ascii=False)
     upload_file_to_github(owner, repo, token, path, content, message, branch=branch)
 
+
 # =========================================================
 # Brand Metadata
 # =========================================================
@@ -346,6 +351,7 @@ def get_brand_meta(brand: str) -> dict:
         meta["logo_url"] = "https://i.postimg.cc/KzqsN24t/bolavip-logo-black.png"
         meta["logo_alt"] = "BOLAVIP Logo"
     return meta
+
 
 # =========================================================
 # HTML Template (UPDATED)
@@ -1482,12 +1488,14 @@ def generate_table_html_from_df(
     show_footer: bool = True,
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
-
     # ✅ NEW: render selected numeric columns as bars
     bar_columns: list[str] | None = None,
+    # ✅ NEW: optional overrides (e.g. Final Score out of 100)
+    bar_max_overrides: dict | None = None,
 ) -> str:
     df = df.copy()
     bar_columns_set = set(bar_columns or [])
+    bar_max_overrides = bar_max_overrides or {}
 
     def parse_number(v) -> float:
         try:
@@ -1498,10 +1506,23 @@ def generate_table_html_from_df(
         except Exception:
             return 0.0
 
-    # ✅ Pre-compute max for each selected bar column
+    # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
     for col in df.columns:
         if col in bar_columns_set:
+            override_val = bar_max_overrides.get(col)
+
+            # ✅ If user supplied "out of X", use it
+            try:
+                if override_val is not None and str(override_val).strip() != "":
+                    ov = float(str(override_val).strip())
+                    if ov > 0:
+                        bar_max[col] = ov
+                        continue
+            except Exception:
+                pass
+
+            # ✅ Otherwise fallback to existing auto-max logic
             try:
                 vals = df[col].apply(parse_number)
                 m = float(vals.max()) if len(vals) else 0.0
@@ -1614,6 +1635,7 @@ def generate_table_html_from_df(
     )
     return html
 
+
 # =========================================================
 # UI Helpers
 # =========================================================
@@ -1652,9 +1674,10 @@ def draft_config_from_state() -> dict:
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_embed": st.session_state.get("bt_show_embed", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
-
         # ✅ NEW
         "bar_columns": st.session_state.get("bt_bar_columns", []),
+        # ✅ NEW
+        "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}),
     }
 
 
@@ -1678,9 +1701,10 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
         cell_align=cfg["cell_align"],
-
         # ✅ NEW
         bar_columns=cfg.get("bar_columns", []),
+        # ✅ NEW
+        bar_max_overrides=cfg.get("bar_max_overrides", {}),
     )
 
 
@@ -1745,10 +1769,10 @@ def reset_widget_state_for_new_upload():
         "bt_df_uploaded",
         "bt_df_confirmed",
         "bt_allow_swap",
-
         # ✅ NEW
         "bt_bar_columns",
-
+        # ✅ NEW
+        "bt_bar_max_overrides",
         # ✅ NEW embed tab state
         "bt_embed_started",
         "bt_embed_show_html",
@@ -1791,6 +1815,8 @@ def ensure_confirm_state_exists():
 
     # ✅ NEW
     st.session_state.setdefault("bt_bar_columns", [])
+    # ✅ NEW
+    st.session_state.setdefault("bt_bar_max_overrides", {})
 
 
 def do_confirm_snapshot():
@@ -1807,6 +1833,7 @@ def do_confirm_snapshot():
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
+
 
 # =========================================================
 # Streamlit App
@@ -1928,8 +1955,6 @@ with right_col:
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
     components.html(live_preview_html, height=820, scrolling=True)
-
-# ===================== Left: Tabs =====================
 
 # ===================== Left: Tabs =====================
 with left_col:
@@ -2064,6 +2089,35 @@ with left_col:
                 help="Select numeric columns to show as bar charts inside the table cells.",
             )
 
+            # ✅ NEW: Optional "Out of what?" per selected bar column
+            selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+            st.session_state.setdefault("bt_bar_max_overrides", {})
+
+            if selected_bar_cols:
+                st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
+                for col in selected_bar_cols:
+                    existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
+
+                    max_str = st.text_input(
+                        f"{col} max (optional)",
+                        value=str(existing_val) if existing_val is not None else "",
+                        placeholder="Example: 100",
+                        key=f"bt_bar_max_override_{col}",
+                    ).strip()
+
+                    # Store clean values (blank = auto)
+                    if max_str == "":
+                        st.session_state["bt_bar_max_overrides"][col] = ""
+                    else:
+                        try:
+                            num_val = float(max_str)
+                            if num_val > 0:
+                                st.session_state["bt_bar_max_overrides"][col] = num_val
+                            else:
+                                st.session_state["bt_bar_max_overrides"][col] = ""
+                        except Exception:
+                            st.session_state["bt_bar_max_overrides"][col] = ""
+
         # ✅ Confirm/Save at the bottom (highlighted)
         st.button(
             "Confirm & Save",
@@ -2144,7 +2198,6 @@ with left_col:
                 if GITHUB_APP_SLUG:
                     st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
 
-
             # Auto repo based on brand + month + year (locked)
             current_brand = st.session_state.get("brand_table", "")
             repo_name = suggested_repo_name(current_brand)
@@ -2191,7 +2244,6 @@ with left_col:
                 )
 
             allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-
 
             swap_confirmed = (not file_exists) or allow_swap
             can_publish = bool(
@@ -2282,28 +2334,23 @@ with left_col:
             )
 
             if show_tabs:
-            # ✅ Show Published Page FIRST (above tabs)
+                # ✅ Show Published Page FIRST (above tabs)
                 published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
                 if published_url_val:
                     st.caption("Published Page")
                     st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-            
+
                 # ✅ Then show the two output tabs
                 html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
-            
+
                 with html_tab:
                     html_code_val = (st.session_state.get("bt_html_code") or "").strip()
                     if not html_code_val:
                         st.info("Click **Confirm & Save** to generate HTML.")
                     else:
                         st.caption("HTML Code")
-                        _lines = html_code_val.splitlines()
-                        _preview = "\n".join(_lines[:5]).strip()
-                        if _preview:
-                            st.code(_preview + "\n…", language="html")
-                        else:
-                            st.code("", language="html")
-            
+                        st.code(html_code_val, language="html")
+
                 with iframe_tab:
                     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
                     st.caption("IFrame Code")
