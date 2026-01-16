@@ -1745,7 +1745,6 @@ def reset_widget_state_for_new_upload():
         "bt_df_uploaded",
         "bt_df_confirmed",
         "bt_allow_swap",
-        "bt_swap_confirm_text",
 
         # ✅ NEW
         "bt_bar_columns",
@@ -1789,7 +1788,6 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_show_embed", True)
 
     st.session_state.setdefault("bt_allow_swap", False)
-    st.session_state.setdefault("bt_swap_confirm_text", "")
 
     # ✅ NEW
     st.session_state.setdefault("bt_bar_columns", [])
@@ -2090,6 +2088,8 @@ with left_col:
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
 
+        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
+
         # Step 1: Table name (required)
         start_disabled = not created_by_user
         st.session_state.setdefault("bt_embed_started", True)
@@ -2105,7 +2105,7 @@ with left_col:
                 "Give a table name in few words",
                 value=st.session_state.get("bt_table_name_words", ""),
                 key="bt_table_name_words",
-                placeholder="Example: Supermoon top 10 states",
+                placeholder="Example: Best Super Bowl Cities",
             ).strip()
 
             # Convert words -> safe filename
@@ -2117,10 +2117,7 @@ with left_col:
                 widget_file_name = safe + ".html"
 
             st.session_state["bt_widget_file_name"] = widget_file_name
-
-            if widget_file_name:
-                st.caption(f"File name: **{widget_file_name}**")
-            else:
+            if not widget_file_name:
                 st.info("Enter a table name to generate your embed page.")
 
             # Publishing owner (backend only)
@@ -2144,15 +2141,11 @@ with left_col:
                     auth_mode = ""
 
             installation_token = token_to_use
-            if installation_token:
-                if auth_mode == "pat":
-                    st.caption("✅ Using GitHub PAT for publishing. Publishing is enabled.")
-                else:
-                    st.caption("✅ Using GitHub App installation token. Publishing is enabled.")
-            else:
+            if not installation_token:
                 st.caption("❌ No publishing token found (PAT or GitHub App).")
                 if GITHUB_APP_SLUG:
                     st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
+
 
             # Auto repo based on brand + month + year (locked)
             current_brand = st.session_state.get("brand_table", "")
@@ -2179,40 +2172,30 @@ with left_col:
                         existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
                     except Exception:
                         existing_meta = {}
+            # Override logic (simple)
+            embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
 
-            # Override logic (SWAP)
-            allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-            swap_text = (st.session_state.get("bt_swap_confirm_text", "") or "").strip().upper()
-
-            if file_exists:
-                st.warning("⚠️ A page with this table name already exists. Publishing will overwrite it if you allow swap.")
+            if file_exists and not embed_done:
+                st.info("ℹ️ A page with this table name already exists.")
                 if existing_pages_url:
-                    st.markdown(f"✅ **Existing Page:** {existing_pages_url}")
-
+                    st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
                 if existing_meta:
-                    st.info(
-                        f"📌 Existing info → Brand: **{existing_meta.get('brand','?')}** | "
-                        f"Created by: **{existing_meta.get('created_by','?')}** | "
+                    st.caption(
+                        f"Existing info → Brand: {existing_meta.get('brand','?')} | "
+                        f"Created by: {existing_meta.get('created_by','?')} | "
                         f"UTC: {existing_meta.get('created_at_utc','?')}"
                     )
 
-                st.caption("To overwrite safely, enable override and type **SWAP**.")
                 st.checkbox(
-                    "Yes, I want to override (replace) the existing page",
-                    value=allow_swap,
+                    "Overwrite existing page",
+                    value=bool(st.session_state.get("bt_allow_swap", False)),
                     key="bt_allow_swap",
                 )
-                if st.session_state.get("bt_allow_swap", False):
-                    st.text_input(
-                        'Type "SWAP" to confirm override',
-                        value=st.session_state.get("bt_swap_confirm_text", ""),
-                        key="bt_swap_confirm_text",
-                    )
 
-            swap_confirmed = (not file_exists) or (
-                st.session_state.get("bt_allow_swap", False) and swap_text == "SWAP"
-            )
+            allow_swap = bool(st.session_state.get("bt_allow_swap", False))
 
+
+            swap_confirmed = (not file_exists) or allow_swap
             can_publish = bool(
                 html_generated
                 and publish_owner
