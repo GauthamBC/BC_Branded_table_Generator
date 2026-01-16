@@ -1928,22 +1928,12 @@ with right_col:
 
 # ===================== Left: Tabs =====================
 with left_col:
-    tab_config, tab_html, tab_iframe = st.tabs(["Configure", "HTML", "IFrame"])
+    # ✅ Renamed "Configure" tab to be more descriptive
+    tab_config, tab_html, tab_iframe = st.tabs(["Edit table contents", "HTML", "IFrame"])
 
     # ---------- CONFIGURE TAB ----------
     with tab_config:
-        st.markdown("#### Table Setup")
-
-        st.button(
-            "✅ Confirm And Save (Generate HTML For Publishing)",
-            key="bt_confirm_btn",
-            use_container_width=True,
-            on_click=do_confirm_snapshot,
-        )
-
-        if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-            st.session_state["bt_confirm_flash"] = False
+        st.markdown("#### Edit table contents")
 
         sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
@@ -2055,6 +2045,18 @@ with left_col:
 
         st.markdown("---")
         st.caption("Inside the table: **Embed / Download → Copy HTML** copies the full HTML of the widget (not an iframe).")
+
+        # ✅ Move Confirm/Save to the bottom of the settings panel (better UX)
+        st.button(
+            "✅ Confirm And Save (Generate HTML For Publishing)",
+            key="bt_confirm_btn",
+            use_container_width=True,
+            on_click=do_confirm_snapshot,
+        )
+
+        if st.session_state.get("bt_confirm_flash", False):
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+            st.session_state["bt_confirm_flash"] = False
 
     # ---------- HTML TAB ----------
     with tab_html:
