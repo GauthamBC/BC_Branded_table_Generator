@@ -1703,7 +1703,7 @@ def simulate_progress(label: str, total_sleep: float = 0.35):
 def draft_config_from_state() -> dict:
     bar_cols = st.session_state.get("bt_bar_columns", []) or []
 
-    # ✅ Build overrides LIVE from session_state (works for preview instantly)
+    # ✅ LIVE overrides only applied when the Apply button was clicked
     live_overrides = {}
     for col in bar_cols:
         enabled = bool(st.session_state.get(f"bt_bar_override_enabled_{col}", False))
@@ -1715,7 +1715,7 @@ def draft_config_from_state() -> dict:
                 if v > 0:
                     live_overrides[col] = v
             except Exception:
-                pass  # ignore invalid input
+                pass
 
     return {
         "brand": st.session_state.get("brand_table", "Action Network"),
@@ -1735,7 +1735,7 @@ def draft_config_from_state() -> dict:
 
         # ✅ bars
         "bar_columns": bar_cols,
-        "bar_max_overrides": live_overrides,  # ✅ LIVE + instant preview
+        "bar_max_overrides": live_overrides,  # ✅ only when Apply pressed
         "bar_fixed_w": st.session_state.get("bt_bar_fixed_w", 200),
     }
 
@@ -2153,46 +2153,34 @@ with left_col:
                 help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
             )
 
-                    # ✅ Optional max overrides per bar column (LIVE PREVIEW)
-            selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+    # ✅ Optional max overrides per bar column
+selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+st.session_state.setdefault("bt_bar_max_overrides", {})
 
-            if selected_bar_cols:
-                st.caption("Optional: Enable a max per bar column (updates preview instantly).")
+if selected_bar_cols:
+    st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
+    for col in selected_bar_cols:
+        existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
 
-                for col in selected_bar_cols:
-                    # ✅ Ensure keys exist
-                    st.session_state.setdefault(f"bt_bar_override_enabled_{col}", False)
-                    st.session_state.setdefault(f"bt_bar_max_override_{col}", "")
+        max_str = st.text_input(
+            f"{col} max (optional)",
+            value=str(existing_val) if existing_val is not None else "",
+            placeholder="Example: 100",
+            key=f"bt_bar_max_override_{col}",
+        ).strip()
 
-                    left_ck, right_in = st.columns([1, 4], vertical_alignment="center")
-
-                    with left_ck:
-                        st.checkbox(
-                            "Use max",
-                            key=f"bt_bar_override_enabled_{col}",
-                        )
-
-                    with right_in:
-                        st.text_input(
-                            f"{col} max",
-                            key=f"bt_bar_max_override_{col}",
-                            placeholder="Example: 100",
-                            disabled=not st.session_state.get(f"bt_bar_override_enabled_{col}", False),
-                        )
-
-        # ✅ Confirm/Save at the bottom
-        st.button(
-            "Confirm & Save",
-            key="bt_confirm_btn",
-            use_container_width=True,
-            type="primary",
-            on_click=do_confirm_snapshot,
-        )
-
-        if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-            st.session_state["bt_confirm_flash"] = False
-
+        if max_str == "":
+            st.session_state["bt_bar_max_overrides"][col] = ""
+        else:
+            try:
+                num_val = float(max_str)
+                if num_val > 0:
+                    st.session_state["bt_bar_max_overrides"][col] = num_val
+                else:
+                    st.session_state["bt_bar_max_overrides"][col] = ""
+            except Exception:
+                st.session_state["bt_bar_max_overrides"][col] = ""
+            
     # ---------- EMBED TAB ----------
     with tab_embed:
         st.markdown("#### Get Embed Script")
