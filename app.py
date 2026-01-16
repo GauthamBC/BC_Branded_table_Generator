@@ -439,7 +439,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --footer-border: rgba(1, 89, 209, 0.40);
     }
 
-    vi-table-embed.brand-aceodds{
+    .vi-table-embed.brand-aceodds{
       --brand-50:#F1F3F7;
       --brand-100:#D9DEE8;
       --brand-300:#AEB8CB;
