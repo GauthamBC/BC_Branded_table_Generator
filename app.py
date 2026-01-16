@@ -48,6 +48,7 @@ BRAND_REPO_PREFIX_FULL = {
     "VegasInsider": "VegasInsider",
     "RotoGrinders": "RotoGrinders",
     "AceOdds": "AceOdds",
+    "BOLAVIP": "BOLAVIP",
 }
 
 MONTH_CODE = {
@@ -83,6 +84,7 @@ def github_headers(token: str) -> dict:
     headers["X-GitHub-Api-Version"] = "2022-11-28"
     return headers
 
+
 def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
     """
     Create a short-lived JWT for GitHub App authentication.
@@ -92,8 +94,8 @@ def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
 
     now = int(time.time())
     payload = {
-        "iat": now - 30,          # helps with clock skew
-        "exp": now + (9 * 60),    # <= 10 mins
+        "iat": now - 30,  # helps with clock skew
+        "exp": now + (9 * 60),  # <= 10 mins
         "iss": app_id,
     }
 
@@ -101,6 +103,7 @@ def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
     if isinstance(token, bytes):
         token = token.decode("utf-8", errors="ignore")
     return token
+
 
 def get_installation_id_for_user(username: str) -> int:
     """
@@ -128,6 +131,7 @@ def get_installation_id_for_user(username: str) -> int:
 
     raise RuntimeError(f"Error checking GitHub App installation: {r.status_code} {r.text}")
 
+
 @st.cache_data(ttl=50 * 60)
 def get_installation_token_for_user(username: str) -> str:
     """
@@ -152,6 +156,7 @@ def get_installation_token_for_user(username: str) -> str:
     data = r.json() or {}
     return str(data.get("token", "")).strip()
 
+
 def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
     api_base = "https://api.github.com"
 
@@ -159,7 +164,7 @@ def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
     r = requests.get(
         f"{api_base}/repos/{owner}/{repo}",
         headers=github_headers(install_token),
-        timeout=20
+        timeout=20,
     )
 
     if r.status_code == 200:
@@ -193,6 +198,7 @@ def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
 
     return True
 
+
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
     api_base = "https://api.github.com"
     headers = github_headers(token)
@@ -209,6 +215,7 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, json=payload, timeout=20)
     if r.status_code not in (201, 202):
         raise RuntimeError(f"Error Enabling GitHub Pages: {r.status_code} {r.text}")
+
 
 def upload_file_to_github(
     owner: str,
@@ -241,11 +248,13 @@ def upload_file_to_github(
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Error Uploading File: {r.status_code} {r.text}")
 
+
 def trigger_pages_build(owner: str, repo: str, token: str) -> bool:
     api_base = "https://api.github.com"
     headers = github_headers(token)
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages/builds", headers=headers, timeout=20)
     return r.status_code in (201, 202)
+
 
 def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str = "main") -> bool:
     """True if a file exists at path in repo."""
@@ -260,6 +269,7 @@ def github_file_exists(owner: str, repo: str, token: str, path: str, branch: str
         return r.status_code == 200
     except Exception:
         return False
+
 
 def read_github_json(owner: str, repo: str, token: str, path: str, branch: str = "main") -> dict:
     """Read a JSON file from GitHub. If missing, return {}."""
@@ -290,6 +300,7 @@ def read_github_json(owner: str, repo: str, token: str, path: str, branch: str =
         return json.loads(raw)
     except Exception:
         return {}
+
 
 def write_github_json(owner: str, repo: str, token: str, path: str, payload: dict, message: str, branch: str = "main") -> None:
     """Write a JSON file into GitHub."""
@@ -794,6 +805,34 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       text-overflow:ellipsis;
     }
 
+    /* ✅ Bar cells (NEW) */
+    #bt-block .dw-bar-wrap{ width: 100%; display:block; }
+    #bt-block .dw-bar-track{
+      width:100%;
+      height: 18px;
+      background: rgba(0,0,0,.06);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    #bt-block .dw-bar-fill{
+      height:100%;
+      background: var(--brand-600);
+      border-radius: 6px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      padding-right: 6px;
+      min-width: 0px;
+      white-space: nowrap;
+      transition: width .2s ease;
+    }
+    #bt-block .dw-bar-label{
+      font-size: 12px;
+      font-weight: 700;
+      color:#ffffff;
+      line-height: 1;
+    }
+
     /* Body rows zebra (injected) */
     [[STRIPE_CSS]]
 
@@ -846,43 +885,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
       height:32px;
     }
-    .vi-table-embed.brand-bolavip .vi-footer img{
-      filter: none !important;
-      height: 28px;
-      width: auto;
-      display: inline-block;
-    }
-
-    .vi-table-embed.brand-aceodds .vi-footer img{
-      filter: none !important;
-      height: 28px;
-      width: auto;
-      display: inline-block;
-    }
+    .vi-table-embed.brand-bolavip .vi-footer img{ filter: none !important; height: 28px; width: auto; display: inline-block; }
+    .vi-table-embed.brand-aceodds .vi-footer img{ filter: none !important; height: 28px; width: auto; display: inline-block; }
 
     .vi-hide{ display:none !important; }
 
     /* EXPORT MODE (table + logo only) */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
-    .vi-table-embed.export-mode #bt-block .dw-page-status{
-      display:none !important;
-    }
-    .vi-table-embed.export-mode #bt-block .dw-scroll{
-      max-height:none !important;
-      height:auto !important;
-      overflow:visible !important;
-    }
+    .vi-table-embed.export-mode #bt-block .dw-page-status{ display:none !important; }
+    .vi-table-embed.export-mode #bt-block .dw-scroll{ max-height:none !important; height:auto !important; overflow:visible !important; }
     .vi-table-embed.export-mode #bt-block thead th{ position:static !important; }
     .vi-table-embed.export-mode #bt-block tbody tr:hover,
-    .vi-table-embed.export-mode #bt-block tbody tr:hover td{
-      transform:none !important;
-      box-shadow:none !important;
-    }
-    .vi-table-embed.export-mode #bt-block table.dw-table{
-      table-layout:fixed !important;
-      width:100% !important;
-    }
+    .vi-table-embed.export-mode #bt-block tbody tr:hover td{ transform:none !important; box-shadow:none !important; }
+    .vi-table-embed.export-mode #bt-block table.dw-table{ table-layout:fixed !important; width:100% !important; }
     .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
   </style>
 
@@ -1198,54 +1214,55 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     function escapeCsvCell(value){
-  const s = (value ?? "").toString().replace(/\r?\n/g, " ").trim();
-  if (/[",\n]/.test(s)) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
+      const s = (value ?? "").toString().replace(/\r?\n/g, " ").trim();
+      if (/[",\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
 
-function downloadCsv(){
-  try{
-    hideMenu();
+    function downloadCsv(){
+      try{
+        hideMenu();
 
-    const headsText = heads.map(th => escapeCsvCell(th.innerText || th.textContent || ""));
-    const headerLine = headsText.join(",");
+        const headsText = heads.map(th => escapeCsvCell(th.innerText || th.textContent || ""));
+        const headerLine = headsText.join(",");
 
-    const ordered = Array.from(tb.rows).filter(r => !r.classList.contains("dw-empty"));
+        const ordered = Array.from(tb.rows).filter(r => !r.classList.contains("dw-empty"));
 
-    // ✅ "ALL rows that match the current search filter" (not just current page)
-    const filteredRows = ordered.filter(matchesFilter);
+        // ✅ "ALL rows that match the current search filter" (not just current page)
+        const filteredRows = ordered.filter(matchesFilter);
 
-    const lines = [headerLine];
+        const lines = [headerLine];
 
-    filteredRows.forEach(tr => {
-      const cells = Array.from(tr.cells).map(td => {
-        const txt = td.innerText || td.textContent || "";
-        return escapeCsvCell(txt);
-      });
-      lines.push(cells.join(","));
-    });
+        filteredRows.forEach(tr => {
+          const cells = Array.from(tr.cells).map(td => {
+            const txt = td.innerText || td.textContent || "";
+            return escapeCsvCell(txt);
+          });
+          lines.push(cells.join(","));
+        });
 
-    const csv = lines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+        const csv = lines.join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
 
-    const base = getFilenameBase(document.querySelector("section.vi-table-embed") || document.body);
-    const filename = (base || "table").slice(0, 70) + ".csv";
+        const base = getFilenameBase(document.querySelector("section.vi-table-embed") || document.body);
+        const filename = (base || "table").slice(0, 70) + ".csv";
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
 
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
-  }catch(err){
-    console.error("CSV export failed:", err);
-  }
-}
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      }catch(err){
+        console.error("CSV export failed:", err);
+      }
+    }
+
     function showRowsInClone(clone, mode){
       const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
       if(!cloneTb) return;
@@ -1446,6 +1463,7 @@ def guess_column_type(series: pd.Series) -> str:
             continue
     return "num" if numeric_like >= max(3, len(sample) // 2) else "text"
 
+
 def generate_table_html_from_df(
     df: pd.DataFrame,
     title: str,
@@ -1464,8 +1482,32 @@ def generate_table_html_from_df(
     show_footer: bool = True,
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
+
+    # ✅ NEW: render selected numeric columns as bars
+    bar_columns: list[str] | None = None,
 ) -> str:
     df = df.copy()
+    bar_columns_set = set(bar_columns or [])
+
+    def parse_number(v) -> float:
+        try:
+            s = "" if pd.isna(v) else str(v)
+            s = s.replace(",", "")
+            s = re.sub(r"[^0-9.\-]", "", s)
+            return float(s) if s else 0.0
+        except Exception:
+            return 0.0
+
+    # ✅ Pre-compute max for each selected bar column
+    bar_max = {}
+    for col in df.columns:
+        if col in bar_columns_set:
+            try:
+                vals = df[col].apply(parse_number)
+                m = float(vals.max()) if len(vals) else 0.0
+                bar_max[col] = m if m > 0 else 1.0
+            except Exception:
+                bar_max[col] = 1.0
 
     head_cells = []
     for col in df.columns:
@@ -1481,7 +1523,28 @@ def generate_table_html_from_df(
             val = "" if pd.isna(row[col]) else str(row[col])
             safe_val = html_mod.escape(val)
             safe_title = html_mod.escape(val, quote=True)
-            cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
+
+            # ✅ If chosen for bars & numeric-like -> render as bar cell
+            if col in bar_columns_set and guess_column_type(df[col]) == "num":
+                num_val = parse_number(row[col])
+                denom = bar_max.get(col, 1.0) or 1.0
+                pct = max(0.0, min(100.0, (num_val / denom) * 100.0))
+
+                cells.append(
+                    f"""
+                    <td>
+                      <div class=\"dw-bar-wrap\" title=\"{safe_title}\">
+                        <div class=\"dw-bar-track\">
+                          <div class=\"dw-bar-fill\" style=\"width:{pct:.2f}%\">
+                            <span class=\"dw-bar-label\">{safe_val}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    """
+                )
+            else:
+                cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
         row_html_snippets.append("            <tr>" + "".join(cells) + "</tr>")
 
     table_rows_html = "\n".join(row_html_snippets)
@@ -1558,6 +1621,7 @@ def stable_config_hash(cfg: dict) -> str:
     keys = sorted(cfg.keys())
     return "|".join([f"{k}={repr(cfg.get(k))}" for k in keys])
 
+
 def simulate_progress(label: str, total_sleep: float = 0.35):
     ph = st.empty()
     ph.caption(label)
@@ -1570,6 +1634,7 @@ def simulate_progress(label: str, total_sleep: float = 0.35):
     time.sleep(0.05)
     ph.empty()
     prog.empty()
+
 
 def draft_config_from_state() -> dict:
     return {
@@ -1587,7 +1652,11 @@ def draft_config_from_state() -> dict:
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_embed": st.session_state.get("bt_show_embed", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
+
+        # ✅ NEW
+        "bar_columns": st.session_state.get("bt_bar_columns", []),
     }
+
 
 def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
     meta = get_brand_meta(cfg["brand"])
@@ -1609,7 +1678,11 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
         cell_align=cfg["cell_align"],
+
+        # ✅ NEW
+        bar_columns=cfg.get("bar_columns", []),
     )
+
 
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
@@ -1617,19 +1690,21 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     filename = (filename or "").lstrip("/").strip() or "branded_table.html"
     return f"https://{user}.github.io/{repo}/{filename}"
 
+
 def build_iframe_snippet(url: str, height: int = 800) -> str:
     url = (url or "").strip()
     if not url:
         return ""
     h = int(height) if height else 800
     return f"""<iframe
-  src="{html_mod.escape(url, quote=True)}"
-  width="100%"
-  height="{h}"
-  style="border:0; border-radius:12px; overflow:hidden;"
-  loading="lazy"
-  referrerpolicy="no-referrer-when-downgrade"
+  src=\"{html_mod.escape(url, quote=True)}\"
+  width=\"100%\"
+  height=\"{h}\"
+  style=\"border:0; border-radius:12px; overflow:hidden;\"
+  loading=\"lazy\"
+  referrerpolicy=\"no-referrer-when-downgrade\"
 ></iframe>"""
+
 
 def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
     """
@@ -1649,6 +1724,7 @@ def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float =
         time.sleep(interval_sec)
 
     return False
+
 
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
@@ -1670,10 +1746,14 @@ def reset_widget_state_for_new_upload():
         "bt_df_confirmed",
         "bt_allow_swap",
         "bt_swap_confirm_text",
+
+        # ✅ NEW
+        "bt_bar_columns",
     ]
     for k in keys_to_clear:
         if k in st.session_state:
             del st.session_state[k]
+
 
 def ensure_confirm_state_exists():
     if "bt_confirmed_cfg" not in st.session_state:
@@ -1705,6 +1785,10 @@ def ensure_confirm_state_exists():
 
     st.session_state.setdefault("bt_allow_swap", False)
     st.session_state.setdefault("bt_swap_confirm_text", "")
+
+    # ✅ NEW
+    st.session_state.setdefault("bt_bar_columns", [])
+
 
 def do_confirm_snapshot():
     st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
@@ -1743,7 +1827,7 @@ brand_options = [
     "Canada Sports Betting",
     "RotoGrinders",
     "AceOdds",
-    "BOLAVIP", 
+    "BOLAVIP",
 ]
 st.session_state.setdefault("brand_table", "Action Network")
 if st.session_state["brand_table"] not in brand_options:
@@ -1917,6 +2001,25 @@ with left_col:
                 help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
             )
 
+            # ✅ NEW: Bar Columns (numeric only)
+            numeric_cols = []
+            try:
+                df_for_cols = st.session_state.get("bt_df_uploaded")
+                if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty:
+                    for c in df_for_cols.columns:
+                        if guess_column_type(df_for_cols[c]) == "num":
+                            numeric_cols.append(c)
+            except Exception:
+                numeric_cols = []
+
+            st.multiselect(
+                "Columns To Display As Bars",
+                options=numeric_cols,
+                default=st.session_state.get("bt_bar_columns", []),
+                key="bt_bar_columns",
+                help="Select numeric columns to show as bar charts inside the table cells.",
+            )
+
         st.markdown("---")
         st.caption("Inside the table: **Embed / Download → Copy HTML** copies the full HTML of the widget (not an iframe).")
 
@@ -1973,7 +2076,7 @@ with left_col:
         # ✅ Installation token from GitHub App (ONLY for the publish owner)
         token_to_use = ""
         auth_mode = ""
-        
+
         # ✅ Prefer PAT if provided
         if GITHUB_PAT:
             token_to_use = GITHUB_PAT
@@ -1986,7 +2089,7 @@ with left_col:
             except Exception as e:
                 token_to_use = ""
                 auth_mode = ""
-                
+
         installation_token = token_to_use
         if token_to_use:
             if auth_mode == "pat":
@@ -1997,7 +2100,11 @@ with left_col:
             st.caption("❌ No publishing token found (PAT or GitHub App).")
 
             app_installed = False
-            st.caption(f"⚠️ GitHub App check failed for publishing owner: {e}")
+            # NOTE: variable `e` only exists if exception occurs above; keeping your original display behavior
+            try:
+                st.caption(f"⚠️ GitHub App check failed for publishing owner: {e}")
+            except Exception:
+                st.caption("⚠️ GitHub App check failed for publishing owner.")
 
             if app_installed:
                 st.caption("✅ GitHub App is installed for the publishing account. Publishing is enabled.")
@@ -2131,11 +2238,11 @@ with left_col:
 
                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                 st.session_state["bt_last_published_url"] = pages_url
-                
+
                 # ✅ WAIT UNTIL PAGE IS LIVE (NOT 404) BEFORE SHOWING IFRAME
                 with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
                     live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
-                
+
                 if live:
                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
                         pages_url,
