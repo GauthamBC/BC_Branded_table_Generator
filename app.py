@@ -964,6 +964,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
     const btnTop10 = embedWrap ? embedWrap.querySelector('#dw-dl-top10') : null;
     const btnBottom10 = embedWrap ? embedWrap.querySelector('#dw-dl-bottom10') : null;
+    const btnCsv = embedWrap ? embedWrap.querySelector('#dw-dl-csv') : null;
     const btnEmbed = embedWrap ? embedWrap.querySelector('#dw-embed-script') : null;
     const menuTitle = embedWrap ? embedWrap.querySelector('#dw-menu-title') : null;
 
@@ -1169,6 +1170,55 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         .slice(0,60) || 'table';
     }
 
+    function escapeCsvCell(value){
+  const s = (value ?? "").toString().replace(/\r?\n/g, " ").trim();
+  if (/[",\n]/.test(s)) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function downloadCsv(){
+  try{
+    hideMenu();
+
+    const headsText = heads.map(th => escapeCsvCell(th.innerText || th.textContent || ""));
+    const headerLine = headsText.join(",");
+
+    const ordered = Array.from(tb.rows).filter(r => !r.classList.contains("dw-empty"));
+
+    // ✅ "ALL rows that match the current search filter" (not just current page)
+    const filteredRows = ordered.filter(matchesFilter);
+
+    const lines = [headerLine];
+
+    filteredRows.forEach(tr => {
+      const cells = Array.from(tr.cells).map(td => {
+        const txt = td.innerText || td.textContent || "";
+        return escapeCsvCell(txt);
+      });
+      lines.push(cells.join(","));
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const base = getFilenameBase(document.querySelector("section.vi-table-embed") || document.body);
+    const filename = (base || "table").slice(0, 70) + ".csv";
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }catch(err){
+    console.error("CSV export failed:", err);
+  }
+}
     function showRowsInClone(clone, mode){
       const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
       if(!cloneTb) return;
@@ -1338,6 +1388,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     if(hasEmbed && btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
     if(hasEmbed && btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
+    if(hasEmbed && btnCsv) btnCsv.addEventListener('click', downloadCsv);
     if(hasEmbed && btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
 
     renderPage();
