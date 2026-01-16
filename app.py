@@ -2043,12 +2043,9 @@ with left_col:
                 help="Select numeric columns to show as bar charts inside the table cells.",
             )
 
-        st.markdown("---")
-        st.caption("Inside the table: **Embed / Download → Copy HTML** copies the full HTML of the widget (not an iframe).")
-
         # ✅ Move Confirm/Save to the bottom of the settings panel (better UX)
         st.button(
-            "✅ Confirm And Save (Generate HTML For Publishing)",
+            "Confirm & Save",
             key="bt_confirm_btn",
             use_container_width=True,
             on_click=do_confirm_snapshot,
@@ -2061,12 +2058,12 @@ with left_col:
     # ---------- HTML TAB ----------
     with tab_html:
         st.markdown("#### HTML (From Confirmed Snapshot)")
-        st.caption("HTML updates only when you click **Confirm And Save**.")
+        st.caption("HTML updates only when you click **Confirm & Save**.")
 
         html_code = st.session_state.get("bt_html_code", "")
 
         if not html_code:
-            st.info("Click Confirm And Save to generate HTML.")
+            st.info("Click Confirm & Save to generate HTML.")
         else:
             st.success("HTML is ready (from the latest confirmed snapshot).")
 
@@ -2074,7 +2071,7 @@ with left_col:
             "HTML Code",
             value=html_code,
             height=520,
-            placeholder="Confirm And Save to generate HTML here.",
+            placeholder="Confirm & Save to generate HTML here.",
         )
 
     # ---------- IFRAME TAB ----------
@@ -2083,7 +2080,7 @@ with left_col:
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         if not html_generated:
-            st.warning("Click **Confirm And Save** to generate HTML before publishing.")
+            st.warning("Click **Confirm & Save** to generate HTML before publishing.")
 
         # ✅ "Created by" tracking (global)
         created_by_user = (st.session_state.get("bt_created_by_user") or "").strip().lower()
@@ -2236,7 +2233,7 @@ with left_col:
             try:
                 html_final = st.session_state.get("bt_html_code", "")
                 if not html_final:
-                    raise RuntimeError("No generated HTML found. Click Confirm And Save first.")
+                    raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
 
                 simulate_progress("Publishing to GitHub…", total_sleep=0.35)
 
