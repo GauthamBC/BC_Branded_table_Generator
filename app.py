@@ -1934,7 +1934,7 @@ with left_col:
     # ---------- CONFIGURE TAB ----------
     with tab_config:
         st.markdown("#### Edit table contents")
-        st.markdown("🚨 **Please Confirm & Save after making any changes to the table**")
+        st.markdown("🚨 **Please Confirm & Save after making any changes to the table**❗️❗️")
 
         sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
