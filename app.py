@@ -2092,7 +2092,7 @@ with left_col:
 
         # Step 1: Table name (required)
         start_disabled = not created_by_user
-        st.session_state.setdefault("bt_embed_started", True)
+        st.session_state["bt_embed_started"] = True
         if start_disabled:
             st.info("Select **Created by (tracking only)** at the top to continue.")
 
