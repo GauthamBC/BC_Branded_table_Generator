@@ -2090,19 +2090,11 @@ with left_col:
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
 
-        # Step 1: start
+        # Step 1: Table name (required)
         start_disabled = not created_by_user
-        if st.button(
-            "Get HTML/Iframe",
-            key="bt_start_embed",
-            use_container_width=True,
-            disabled=start_disabled,
-        ):
-            st.session_state["bt_embed_started"] = True
-            st.session_state["bt_embed_show_html"] = False
-
+        st.session_state.setdefault("bt_embed_started", True)
         if start_disabled:
-            st.info("Select **Created by** at the top to continue.")
+            st.info("Select **Created by (tracking only)** at the top to continue.")
 
         if st.session_state.get("bt_embed_started", False):
             if not html_generated:
@@ -2251,39 +2243,11 @@ with left_col:
                     st.caption("To enable publishing: " + ", ".join(missing) + ".")
 
             if publish_clicked:
-                # Always show HTML immediately
-                st.session_state["bt_embed_show_html"] = True
-
-                html_final = st.session_state.get("bt_html_code", "")
-                if html_final:
-                    st.markdown("#### HTML Code")
-
-
-                    # ✅ Keep preview small (5 lines) so the page doesn't become super long
-
-                    _full_html = html_final or ""
-
-                    _preview_lines = _full_html.splitlines()[:5]
-
-                    _preview = "\n".join(_preview_lines).strip()
-
-
-                    if _full_html and _preview:
-
-                        st.code(_preview + "\n...", language="html")
-
-                    else:
-
-                        st.code("", language="html")
-
-
-                    with st.expander("Show full HTML (copy from here)", expanded=False):
-
-                        st.code(_full_html, language="html")
-                else:
-                    st.warning("No generated HTML found. Click **Confirm & Save** first.")
+                # Show the output tabs right after a click
+                st.session_state["bt_embed_tabs_visible"] = True
 
                 try:
+                    html_final = st.session_state.get("bt_html_code", "")
                     if not html_final:
                         raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
 
@@ -2309,6 +2273,7 @@ with left_col:
                     pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                     st.session_state["bt_last_published_url"] = pages_url
 
+                    # Wait until GitHub Pages stops returning 404
                     with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
@@ -2325,23 +2290,52 @@ with left_col:
                 except Exception as e:
                     st.error(f"Publish / IFrame generation failed: {e}")
 
-            # Outputs (always visible if available)
-            st.markdown("#### Outputs")
+            # ---------------------------------------------------------
+            # Tabs: HTML Code + IFrame (prevents endless scrolling)
+            # ---------------------------------------------------------
+            show_tabs = bool(
+                st.session_state.get("bt_embed_tabs_visible", False)
+                or (st.session_state.get("bt_html_code") or "").strip()
+                or (st.session_state.get("bt_iframe_code") or "").strip()
+                or (st.session_state.get("bt_last_published_url") or "").strip()
+            )
 
-            if st.button("🧹 Clear IFrame / Outputs", use_container_width=True, key="bt_clear_outputs"):
-                st.session_state["bt_last_published_url"] = ""
-                st.session_state["bt_iframe_code"] = ""
-                st.success("Outputs cleared. Publish again when ready.")
-                st.rerun()
+            if show_tabs:
+                html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
 
-            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-            iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+                with html_tab:
+                    html_code_val = (st.session_state.get("bt_html_code") or "").strip()
+                    if not html_code_val:
+                        st.info("Click **Confirm & Save** to generate HTML.")
+                    else:
+                        st.caption("HTML Code")
+                        _lines = html_code_val.splitlines()
+                        _preview = "\n".join(_lines[:5]).strip()
+                        if _preview:
+                            st.code(_preview + "\n…", language="html")
+                        else:
+                            st.code("", language="html")
 
-            if not published_url_val:
-                iframe_val = ""
+                        with st.expander("Show full HTML (copy from here)", expanded=False):
+                            st.code(html_code_val, language="html")
 
-            st.caption("Published URL")
-            if published_url_val:
-                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-            st.caption("IFrame Code")
-            st.code(iframe_val or "", language="html")
+                with iframe_tab:
+                    st.markdown("#### Outputs")
+
+                    if st.button("🧹 Clear IFrame / Outputs", use_container_width=True, key="bt_clear_outputs"):
+                        st.session_state["bt_last_published_url"] = ""
+                        st.session_state["bt_iframe_code"] = ""
+                        st.success("Outputs cleared. Publish again when ready.")
+                        st.rerun()
+
+                    published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+                    iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+
+                    st.caption("Published Page")
+                    if published_url_val:
+                        st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+                    else:
+                        st.info("Publish to generate the hosted page + iframe.")
+
+                    st.caption("IFrame Code")
+                    st.code(iframe_val or "", language="html")
