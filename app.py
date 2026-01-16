@@ -1821,6 +1821,43 @@ st.markdown(
 
 st.title("Branded Table Generator")
 
+# =========================================================
+# ✅ Global "Created by" (mandatory before upload)
+# =========================================================
+allowed_users = list(PUBLISH_USERS)
+created_by_options = ["Select a user..."] + allowed_users
+
+st.session_state.setdefault("bt_created_by_user_select", "Select a user...")
+
+created_by_input_global = st.selectbox(
+    "Created by (tracking only)",
+    options=created_by_options,
+    key="bt_created_by_user_select",
+)
+
+created_by_user_global = ""
+if created_by_input_global and created_by_input_global != "Select a user...":
+    created_by_user_global = created_by_input_global.strip().lower()
+
+# store globally (used later in Publish tab)
+st.session_state["bt_created_by_user"] = created_by_user_global
+
+# =========================================================
+# ✅ Upload CSV (disabled until "Created by" selected)
+# =========================================================
+uploaded_file = st.file_uploader(
+    "Upload Your CSV File",
+    type=["csv"],
+    disabled=not bool(created_by_user_global),
+)
+
+if not created_by_user_global:
+    st.info("Select **Created by** to enable CSV upload.")
+    st.stop()
+
+# =========================================================
+# ✅ Global Brand selector (shown after upload)
+# =========================================================
 brand_options = [
     "Action Network",
     "VegasInsider",
@@ -1829,11 +1866,19 @@ brand_options = [
     "AceOdds",
     "BOLAVIP",
 ]
-st.session_state.setdefault("brand_table", "Action Network")
-if st.session_state["brand_table"] not in brand_options:
-    st.session_state["brand_table"] = "Action Network"
 
-uploaded_file = st.file_uploader("Upload Your CSV File", type=["csv"])
+brand_select_options = ["Choose a brand..."] + brand_options
+st.session_state.setdefault("brand_table", "Choose a brand...")
+
+brand_selected_global = st.selectbox(
+    "Brand",
+    options=brand_select_options,
+    key="brand_table",
+)
+
+if brand_selected_global == "Choose a brand...":
+    st.info("Choose a **Brand** to load the table preview.")
+    st.stop()
 if uploaded_file is None:
     st.info("Upload A CSV To Start.")
     st.stop()
@@ -1900,19 +1945,7 @@ with left_col:
             st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
             st.session_state["bt_confirm_flash"] = False
 
-        sub_brand, sub_head, sub_body = st.tabs(["Brand", "Header / Footer", "Body"])
-
-        with sub_brand:
-            current_brand = st.session_state.get("brand_table", "Action Network")
-            if current_brand not in brand_options:
-                current_brand = "Action Network"
-
-            st.selectbox(
-                "Brand",
-                options=brand_options,
-                index=brand_options.index(current_brand),
-                key="brand_table",
-            )
+        sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
 
         with sub_head:
             show_header = st.checkbox(
@@ -2050,26 +2083,12 @@ with left_col:
         if not html_generated:
             st.warning("Click **Confirm And Save** to generate HTML before publishing.")
 
-        # ✅ "Created by" tracking (UI)
-        allowed_users = list(PUBLISH_USERS)
-        username_options = ["Select a user..."] + allowed_users
-
-        saved_user = st.session_state.get("bt_gh_user", "Select a user...")
-        if saved_user not in username_options:
-            saved_user = "Select a user..."
-
-        created_by_input = st.selectbox(
-            "Created by (tracking only)",
-            options=username_options,
-            index=username_options.index(saved_user),
-            key="bt_gh_user",  # keep same key
-            disabled=False,
-        )
-
-        created_by_user = ""
-        if created_by_input and created_by_input != "Select a user...":
-            created_by_user = created_by_input.strip().lower()
-
+        # ✅ "Created by" tracking (global)
+        created_by_user = (st.session_state.get("bt_created_by_user") or "").strip().lower()
+        if not created_by_user:
+            st.warning('Select "Created by" above to enable publishing.')
+        else:
+            st.caption(f"✅ Created by: {created_by_user}")
         # ✅ Publishing owner (backend only)
         publish_owner = (PUBLISH_OWNER or "").strip().lower()
 
