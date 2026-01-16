@@ -2045,7 +2045,7 @@ with left_col:
             )
 
         # ✅ Move Confirm/Save to the bottom of the settings panel (better UX)
-       st.button(
+        st.button(
             "✅ Confirm & Save",
             key="bt_confirm_btn",
             use_container_width=True,
