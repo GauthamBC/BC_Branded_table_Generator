@@ -37,8 +37,6 @@ GITHUB_PAT = str(get_secret("GITHUB_PAT", "")).strip()
 GITHUB_APP_SLUG = str(get_secret("GITHUB_APP_SLUG", "")).strip().lower()  # e.g. "bcdprpagehoster"
 
 # ✅ Publishing always happens under ONE account (Earned Media)
-# Put this in Streamlit secrets if you want (recommended):
-# PUBLISH_OWNER = "BetterCollective26"
 PUBLISH_OWNER = str(get_secret("PUBLISH_OWNER", "BetterCollective26")).strip().lower()
 
 # =========================================================
@@ -811,32 +809,49 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       text-overflow:ellipsis;
     }
 
-    /* ✅ Bar cells (NEW) */
+    /* =======================================================
+       ✅ FIXED TRACK + SCALED FILL + MIN LENGTH (NEW)
+       ======================================================= */
     #bt-block .dw-bar-wrap{ width: 100%; display:block; }
+
     #bt-block .dw-bar-track{
+      position: relative;
       width:100%;
       height: 18px;
-      background: rgba(0,0,0,.06);
+      background: rgba(0,0,0,.07);
       border-radius: 6px;
       overflow: hidden;
     }
+
     #bt-block .dw-bar-fill{
-      height:100%;
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
       background: var(--brand-600);
       border-radius: 6px;
+      transition: width .2s ease;
+    }
+
+    /* label always visible above bar fill */
+    #bt-block .dw-bar-text{
+      position: relative;
+      z-index: 2;
+      height: 100%;
       display:flex;
       align-items:center;
       justify-content:flex-end;
       padding-right: 6px;
-      min-width: 0px;
-      white-space: nowrap;
-      transition: width .2s ease;
     }
-    #bt-block .dw-bar-label{
+
+    #bt-block .dw-bar-pill{
       font-size: 12px;
-      font-weight: 700;
-      color:#ffffff;
+      font-weight: 750;
       line-height: 1;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.55);
+      color: #ffffff;
+      white-space: nowrap;
     }
 
     /* Body rows zebra (injected) */
@@ -1195,7 +1210,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
-    /* ===== PNG EXPORT (unchanged) ===== */
+    /* ===== PNG EXPORT + CSV EXPORT (UNCHANGED) ===== */
     async function waitForFontsAndImages(el){
       if (document.fonts && document.fonts.ready){
         try { await document.fonts.ready; } catch(e){}
@@ -1235,8 +1250,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         const headerLine = headsText.join(",");
 
         const ordered = Array.from(tb.rows).filter(r => !r.classList.contains("dw-empty"));
-
-        // ✅ "ALL rows that match the current search filter" (not just current page)
         const filteredRows = ordered.filter(matchesFilter);
 
         const lines = [headerLine];
@@ -1269,177 +1282,34 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
-    function showRowsInClone(clone, mode){
-      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
-      if(!cloneTb) return;
-
-      const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const visiblePositions = [];
-      for(let i=0;i<ordered.length;i++){
-        if(matchesFilter(ordered[i])) visiblePositions.push(i);
-      }
-
-      const keep = new Set();
-      if(mode === 'top10'){
-        visiblePositions.slice(0, 10).forEach(i => keep.add(i));
-      }else if(mode === 'bottom10'){
-        visiblePositions.slice(-10).forEach(i => keep.add(i));
-      }
-
-      cloneRows.forEach((r, i)=>{
-        r.style.display = keep.has(i) ? 'table-row' : 'none';
-      });
-
-      const empty = cloneTb.querySelector('.dw-empty');
-      if(empty) empty.style.display='none';
-    }
-
-    async function captureCloneToPng(clone, stage, filename, targetWidth){
-      const cloneScroller = clone.querySelector('.dw-scroll');
-
-      if(cloneScroller){
-        cloneScroller.style.maxHeight = 'none';
-        cloneScroller.style.height = 'auto';
-        cloneScroller.style.overflow = 'visible';
-        cloneScroller.style.overflowX = 'visible';
-        cloneScroller.style.overflowY = 'visible';
-        cloneScroller.classList.add('no-scroll');
-      }
-
-      const w = Math.max(900, Math.ceil(targetWidth || 1200));
-      clone.style.maxWidth = 'none';
-      clone.style.width = w + 'px';
-
-      await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
-      await waitForFontsAndImages(clone);
-
-      const fullH = Math.ceil(Math.max(
-        clone.scrollHeight || 0,
-        clone.offsetHeight || 0,
-        clone.getBoundingClientRect().height || 0
-      ));
-
-      const MAX_CAPTURE_AREA = 28_000_000;
-      const area = Math.ceil(w) * Math.ceil(fullH);
-      if(area > MAX_CAPTURE_AREA){
-        stage.remove();
-        console.warn("PNG export skipped: capture area too large.", { w, fullH, area });
-        return;
-      }
-
-      const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
-
-      const canvas = await window.html2canvas(clone, {
-        backgroundColor: '#ffffff',
-        scale,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        width: Math.ceil(w),
-        height: Math.ceil(fullH),
-        windowWidth: Math.ceil(w),
-        windowHeight: Math.ceil(fullH),
-        scrollX: 0,
-        scrollY: 0,
-      });
-
-      canvas.toBlob((blob)=>{
-        if(!blob){
-          stage.remove();
-          console.warn("PNG export failed: no blob returned.");
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename + '.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 1500);
-        stage.remove();
-      }, 'image/png');
-    }
-
-    async function downloadDomPng(mode){
-      try{
-        hideMenu();
-        if(!window.html2canvas) return;
-
-        const widget = document.querySelector('section.vi-table-embed');
-        if(!widget) return;
-
-        const stage = document.createElement('div');
-        stage.style.position = 'fixed';
-        stage.style.left = '-100000px';
-        stage.style.top = '0';
-        stage.style.background = '#ffffff';
-        stage.style.zIndex = '-1';
-
-        const clone = widget.cloneNode(true);
-        clone.classList.add('export-mode');
-        clone.querySelectorAll('script').forEach(s => s.remove());
-
-        stage.appendChild(clone);
-        document.body.appendChild(stage);
-
-        showRowsInClone(clone, mode);
-
-        const base = getFilenameBase(clone);
-        const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
-        const filename = (base + suffix).slice(0, 70);
-
-        const targetWidth = widget.getBoundingClientRect()?.width || 1200;
-        await captureCloneToPng(clone, stage, filename, targetWidth);
-
-      }catch(err){
-        console.error("PNG export failed:", err);
-      }
-    }
-
-    function getFullHtml(){
-      const html = document.documentElement ? document.documentElement.outerHTML : "";
-      return "<!doctype html>\n" + html;
-    }
-
-    async function copyToClipboard(text){
-      try{
-        if(navigator.clipboard && navigator.clipboard.writeText){
-          await navigator.clipboard.writeText(text);
-          return true;
-        }
-      }catch(e){}
-      try{
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly','');
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-        return true;
-      }catch(e){
-        return false;
-      }
-    }
-
     async function onEmbedClick(){
       hideMenu();
-      const code = getFullHtml();
-      const ok = await copyToClipboard(code);
-      if(menuTitle){
-        menuTitle.textContent = ok ? 'HTML copied!' : 'Copy failed (try again)';
-        setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
+      const html = document.documentElement ? document.documentElement.outerHTML : "";
+      const code = "<!doctype html>\n" + html;
+
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(code);
+          if(menuTitle){
+            menuTitle.textContent = 'HTML copied!';
+            setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
+          }
+        }
+      }catch(e){
+        if(menuTitle){
+          menuTitle.textContent = 'Copy failed (try again)';
+          setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
+        }
       }
     }
 
-    if(hasEmbed && btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
-    if(hasEmbed && btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
-    if(hasEmbed && btnCsv) btnCsv.addEventListener('click', downloadCsv);
-    if(hasEmbed && btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
+    const btnTop10 = document.getElementById('dw-dl-top10');
+    const btnBottom10 = document.getElementById('dw-dl-bottom10');
+    const btnCsv = document.getElementById('dw-dl-csv');
+    const btnEmbed = document.getElementById('dw-embed-script');
+
+    if(btnCsv) btnCsv.addEventListener('click', downloadCsv);
+    if(btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
 
     renderPage();
   })();
@@ -1470,6 +1340,18 @@ def guess_column_type(series: pd.Series) -> str:
     return "num" if numeric_like >= max(3, len(sample) // 2) else "text"
 
 
+def looks_like_percent_col(col_name: str, series: pd.Series) -> bool:
+    """
+    ✅ Used for auto max=100 behavior.
+    If column values contain %, or name implies rate/percent, we treat it like a percent column.
+    """
+    name = (col_name or "").lower()
+    if any(k in name for k in ["rate", "pct", "percent", "%"]):
+        return True
+    sample = series.dropna().astype(str).head(25).tolist()
+    return any("%" in v for v in sample)
+
+
 def generate_table_html_from_df(
     df: pd.DataFrame,
     title: str,
@@ -1488,14 +1370,18 @@ def generate_table_html_from_df(
     show_footer: bool = True,
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
-    # ✅ NEW: render selected numeric columns as bars
+    # ✅ render selected numeric columns as bars
     bar_columns: list[str] | None = None,
-    # ✅ NEW: optional overrides (e.g. Final Score out of 100)
+    # ✅ optional overrides (e.g. out of 100)
     bar_max_overrides: dict | None = None,
 ) -> str:
     df = df.copy()
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
+
+    # ✅ These two are the magic sauce for "bars always look decent"
+    MIN_FILL_PCT = 12.0  # adjust 10–18 if you want
+    MAX_FILL_PCT = 100.0
 
     def parse_number(v) -> float:
         try:
@@ -1506,29 +1392,39 @@ def generate_table_html_from_df(
         except Exception:
             return 0.0
 
-    # ✅ Pre-compute max for each selected bar column (with optional override)
-    bar_max = {}
+    # ✅ Pre-compute max for each selected bar column (override → else percent=100 → else auto max)
+    bar_max: dict[str, float] = {}
     for col in df.columns:
-        if col in bar_columns_set:
-            override_val = bar_max_overrides.get(col)
+        if col not in bar_columns_set:
+            continue
 
-            # ✅ If user supplied "out of X", use it
-            try:
-                if override_val is not None and str(override_val).strip() != "":
-                    ov = float(str(override_val).strip())
-                    if ov > 0:
-                        bar_max[col] = ov
-                        continue
-            except Exception:
-                pass
+        override_val = bar_max_overrides.get(col)
 
-            # ✅ Otherwise fallback to existing auto-max logic
-            try:
-                vals = df[col].apply(parse_number)
-                m = float(vals.max()) if len(vals) else 0.0
-                bar_max[col] = m if m > 0 else 1.0
-            except Exception:
-                bar_max[col] = 1.0
+        # ✅ If user supplied "out of X", use it
+        try:
+            if override_val is not None and str(override_val).strip() != "":
+                ov = float(str(override_val).strip())
+                if ov > 0:
+                    bar_max[col] = ov
+                    continue
+        except Exception:
+            pass
+
+        # ✅ Percent columns default to 100
+        try:
+            if looks_like_percent_col(col, df[col]):
+                bar_max[col] = 100.0
+                continue
+        except Exception:
+            pass
+
+        # ✅ Otherwise use max value from the column
+        try:
+            vals = df[col].apply(parse_number)
+            m = float(vals.max()) if len(vals) else 0.0
+            bar_max[col] = m if m > 0 else 1.0
+        except Exception:
+            bar_max[col] = 1.0
 
     head_cells = []
     for col in df.columns:
@@ -1545,19 +1441,26 @@ def generate_table_html_from_df(
             safe_val = html_mod.escape(val)
             safe_title = html_mod.escape(val, quote=True)
 
-            # ✅ If chosen for bars & numeric-like -> render as bar cell
+            # ✅ Bar columns: fixed track + scaled fill + min length
             if col in bar_columns_set and guess_column_type(df[col]) == "num":
                 num_val = parse_number(row[col])
-                denom = bar_max.get(col, 1.0) or 1.0
-                pct = max(0.0, min(100.0, (num_val / denom) * 100.0))
+                denom = float(bar_max.get(col, 1.0) or 1.0)
+
+                pct_raw = (num_val / denom) * 100.0 if denom else 0.0
+                pct = max(0.0, min(MAX_FILL_PCT, pct_raw))
+
+                # ✅ enforce minimum fill for non-zero values
+                if num_val > 0 and pct > 0:
+                    pct = max(MIN_FILL_PCT, pct)
 
                 cells.append(
                     f"""
                     <td>
-                      <div class=\"dw-bar-wrap\" title=\"{safe_title}\">
-                        <div class=\"dw-bar-track\">
-                          <div class=\"dw-bar-fill\" style=\"width:{pct:.2f}%\">
-                            <span class=\"dw-bar-label\">{safe_val}</span>
+                      <div class="dw-bar-wrap" title="{safe_title}">
+                        <div class="dw-bar-track">
+                          <div class="dw-bar-fill" style="width:{pct:.2f}%"></div>
+                          <div class="dw-bar-text">
+                            <span class="dw-bar-pill">{safe_val}</span>
                           </div>
                         </div>
                       </div>
@@ -1566,6 +1469,7 @@ def generate_table_html_from_df(
                 )
             else:
                 cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
+
         row_html_snippets.append("            <tr>" + "".join(cells) + "</tr>")
 
     table_rows_html = "\n".join(row_html_snippets)
@@ -1674,9 +1578,7 @@ def draft_config_from_state() -> dict:
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_embed": st.session_state.get("bt_show_embed", True),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
-        # ✅ NEW
         "bar_columns": st.session_state.get("bt_bar_columns", []),
-        # ✅ NEW
         "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}),
     }
 
@@ -1701,9 +1603,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
         cell_align=cfg["cell_align"],
-        # ✅ NEW
         bar_columns=cfg.get("bar_columns", []),
-        # ✅ NEW
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
     )
 
@@ -1721,12 +1621,12 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
         return ""
     h = int(height) if height else 800
     return f"""<iframe
-  src=\"{html_mod.escape(url, quote=True)}\"
-  width=\"100%\"
-  height=\"{h}\"
-  style=\"border:0; border-radius:12px; overflow:hidden;\"
-  loading=\"lazy\"
-  referrerpolicy=\"no-referrer-when-downgrade\"
+  src="{html_mod.escape(url, quote=True)}"
+  width="100%"
+  height="{h}"
+  style="border:0; border-radius:12px; overflow:hidden;"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade"
 ></iframe>"""
 
 
@@ -1769,11 +1669,8 @@ def reset_widget_state_for_new_upload():
         "bt_df_uploaded",
         "bt_df_confirmed",
         "bt_allow_swap",
-        # ✅ NEW
         "bt_bar_columns",
-        # ✅ NEW
         "bt_bar_max_overrides",
-        # ✅ NEW embed tab state
         "bt_embed_started",
         "bt_embed_show_html",
         "bt_table_name_input",
@@ -1810,12 +1707,9 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_widget_name_locked_value", "")
 
     st.session_state.setdefault("bt_show_embed", True)
-
     st.session_state.setdefault("bt_allow_swap", False)
 
-    # ✅ NEW
     st.session_state.setdefault("bt_bar_columns", [])
-    # ✅ NEW
     st.session_state.setdefault("bt_bar_max_overrides", {})
 
 
@@ -1909,6 +1803,7 @@ brand_selected_global = st.selectbox(
 if brand_selected_global == "Choose a brand...":
     st.info("Choose a **Brand** to load the table preview.")
     st.stop()
+
 if uploaded_file is None:
     st.info("Upload A CSV To Start.")
     st.stop()
@@ -1940,7 +1835,6 @@ left_col, right_col = st.columns([1, 3], gap="large")
 with right_col:
     draft_cfg_hash = stable_config_hash(draft_config_from_state())
     confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
-
     show_banner = (draft_cfg_hash != confirmed_cfg_hash)
 
     h_left, h_right = st.columns([2, 3], vertical_alignment="center")
@@ -1964,7 +1858,6 @@ with left_col:
     with tab_edit:
         st.markdown("#### Edit table contents")
 
-        # 🚨 Reminder line
         st.markdown(
             """
             <div style="
@@ -2070,7 +1963,7 @@ with left_col:
                 help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
             )
 
-            # ✅ NEW: Bar Columns (numeric only)
+            # ✅ numeric columns list
             numeric_cols = []
             try:
                 df_for_cols = st.session_state.get("bt_df_uploaded")
@@ -2089,9 +1982,15 @@ with left_col:
                 help="Select numeric columns to show as bar charts inside the table cells.",
             )
 
-            # ✅ NEW: Optional "Out of what?" per selected bar column
+            # ✅ Max overrides (preview updates instantly)
             selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
             st.session_state.setdefault("bt_bar_max_overrides", {})
+
+            # cleanup removed cols from overrides
+            if isinstance(st.session_state["bt_bar_max_overrides"], dict):
+                st.session_state["bt_bar_max_overrides"] = {
+                    k: v for k, v in st.session_state["bt_bar_max_overrides"].items() if k in selected_bar_cols
+                }
 
             if selected_bar_cols:
                 st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
@@ -2105,20 +2004,16 @@ with left_col:
                         key=f"bt_bar_max_override_{col}",
                     ).strip()
 
-                    # Store clean values (blank = auto)
                     if max_str == "":
                         st.session_state["bt_bar_max_overrides"][col] = ""
                     else:
                         try:
                             num_val = float(max_str)
-                            if num_val > 0:
-                                st.session_state["bt_bar_max_overrides"][col] = num_val
-                            else:
-                                st.session_state["bt_bar_max_overrides"][col] = ""
+                            st.session_state["bt_bar_max_overrides"][col] = num_val if num_val > 0 else ""
                         except Exception:
                             st.session_state["bt_bar_max_overrides"][col] = ""
 
-        # ✅ Confirm/Save at the bottom (highlighted)
+        # ✅ Confirm/Save snapshot for publishing
         st.button(
             "Confirm & Save",
             key="bt_confirm_btn",
@@ -2135,19 +2030,15 @@ with left_col:
     with tab_embed:
         st.markdown("#### Get Embed Script")
 
-        # Setup state for this tab
         st.session_state.setdefault("bt_embed_started", False)
         st.session_state.setdefault("bt_embed_show_html", False)
 
         html_generated = bool(st.session_state.get("bt_html_generated", False))
         created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-
         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
 
-        # Step 1: Table name (required)
-        start_disabled = not created_by_user
         st.session_state["bt_embed_started"] = True
-        if start_disabled:
+        if not created_by_user:
             st.info("Select **Created by (tracking only)** at the top to continue.")
 
         if st.session_state.get("bt_embed_started", False):
@@ -2162,7 +2053,6 @@ with left_col:
                 placeholder="Example: Best Super Bowl Cities",
             ).strip()
 
-            # Convert words -> safe filename
             widget_file_name = ""
             if table_name_words:
                 safe = re.sub(r"[^A-Za-z0-9\-\_\s]", "", table_name_words).strip()
@@ -2172,25 +2062,16 @@ with left_col:
 
             st.session_state["bt_widget_file_name"] = widget_file_name
 
-            # Publishing owner (backend only)
             publish_owner = (PUBLISH_OWNER or "").strip().lower()
 
-            # Installation token from GitHub App (ONLY for the publish owner)
             token_to_use = ""
-            auth_mode = ""
-
-            # Prefer PAT if provided
             if GITHUB_PAT:
                 token_to_use = GITHUB_PAT
-                auth_mode = "pat"
             else:
-                # fallback to GitHub App installation token
                 try:
                     token_to_use = get_installation_token_for_user(publish_owner)
-                    auth_mode = "app" if token_to_use else ""
                 except Exception:
                     token_to_use = ""
-                    auth_mode = ""
 
             installation_token = token_to_use
             if not installation_token:
@@ -2198,12 +2079,10 @@ with left_col:
                 if GITHUB_APP_SLUG:
                     st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
 
-            # Auto repo based on brand + month + year (locked)
             current_brand = st.session_state.get("brand_table", "")
             repo_name = suggested_repo_name(current_brand)
             st.session_state["bt_gh_repo"] = repo_name
 
-            # File existence check (in publish owner repo)
             file_exists = False
             existing_pages_url = ""
             existing_meta = {}
@@ -2223,8 +2102,6 @@ with left_col:
                         existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
                     except Exception:
                         existing_meta = {}
-            # Override logic (simple)
-            embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
 
             if file_exists and not embed_done:
                 st.info("ℹ️ A page with this table name already exists.")
@@ -2244,8 +2121,8 @@ with left_col:
                 )
 
             allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-
             swap_confirmed = (not file_exists) or allow_swap
+
             can_publish = bool(
                 html_generated
                 and publish_owner
@@ -2262,21 +2139,7 @@ with left_col:
                 disabled=not can_publish,
             )
 
-            if not can_publish:
-                missing = []
-                if not html_generated:
-                    missing.append("Confirm & Save")
-                if not table_name_words:
-                    missing.append("table name")
-                if publish_owner and not installation_token:
-                    missing.append("publishing token")
-                if file_exists and not swap_confirmed:
-                    missing.append("confirm override (checkbox + SWAP)")
-                if missing:
-                    st.caption("To enable publishing: " + ", ".join(missing) + ".")
-
             if publish_clicked:
-                # Show the output tabs right after a click
                 st.session_state["bt_embed_tabs_visible"] = True
 
                 try:
@@ -2306,15 +2169,11 @@ with left_col:
                     pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                     st.session_state["bt_last_published_url"] = pages_url
 
-                    # Wait until GitHub Pages stops returning 404
                     with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                     if live:
-                        st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                            pages_url,
-                            height=int(st.session_state.get("bt_iframe_height", 800)),
-                        )
+                        st.session_state["bt_iframe_code"] = build_iframe_snippet(pages_url, height=800)
                         st.success("✅ Page is live. IFrame is ready.")
                     else:
                         st.session_state["bt_iframe_code"] = ""
@@ -2323,9 +2182,6 @@ with left_col:
                 except Exception as e:
                     st.error(f"Publish / IFrame generation failed: {e}")
 
-            # ---------------------------------------------------------
-            # Tabs: HTML Code + IFrame (prevents endless scrolling)
-            # ---------------------------------------------------------
             show_tabs = bool(
                 st.session_state.get("bt_embed_tabs_visible", False)
                 or (st.session_state.get("bt_html_code") or "").strip()
@@ -2334,13 +2190,11 @@ with left_col:
             )
 
             if show_tabs:
-                # ✅ Show Published Page FIRST (above tabs)
                 published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
                 if published_url_val:
                     st.caption("Published Page")
                     st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
 
-                # ✅ Then show the two output tabs
                 html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
 
                 with html_tab:
