@@ -2117,8 +2117,6 @@ with left_col:
                 widget_file_name = safe + ".html"
 
             st.session_state["bt_widget_file_name"] = widget_file_name
-            if not widget_file_name:
-                st.info("Enter a table name to generate your embed page.")
 
             # Publishing owner (backend only)
             publish_owner = (PUBLISH_OWNER or "").strip().lower()
