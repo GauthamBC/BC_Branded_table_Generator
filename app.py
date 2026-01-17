@@ -907,6 +907,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:center;
       gap:12px;
       height:100%;
+      width:100%;
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
@@ -2070,16 +2071,16 @@ with left_col:
                     disabled=not show_footer,
                 )
 
-            st.number_input(
-                "Logo height (px)",
-                min_value=16,
-                max_value=90,
-                value=int(st.session_state.get("bt_footer_logo_h", 36)),
-                step=2,
-                key="bt_footer_logo_h",
-                disabled=not show_footer,
-                help="Adjust the logo height. Footer height stays fixed.",
-            )
+                st.number_input(
+                    "Logo height (px)",
+                    min_value=16,
+                    max_value=90,
+                    value=int(st.session_state.get("bt_footer_logo_h", 36)),
+                    step=2,
+                    key="bt_footer_logo_h",
+                    disabled=not show_footer,
+                    help="Adjust the logo height. Footer height stays fixed.",
+                )
 
         with sub_body:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
