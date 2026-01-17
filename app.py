@@ -2000,21 +2000,7 @@ with left_col:
     with tab_edit:
         st.markdown("#### Edit table contents")
 
-        st.markdown(
-            """
-            <div style="
-              padding:8px 10px;
-              border-radius:12px;
-              background:#FEE2E2;
-              border:1px solid rgba(220,38,38,.35);
-              color:#7F1D1D;
-              font-size:13px;
-              font-weight:600;">
-              ❗ Please <span style="color:#DC2626;font-weight:800;">Confirm &amp; Save</span> after making any changes to the table.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        
 
         # ✅ Fixed-height settings panel (keeps left controls from extending below the preview)
         SETTINGS_PANEL_HEIGHT = 650  # px (adjust to taste)
