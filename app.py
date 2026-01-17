@@ -1787,36 +1787,43 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 def inject_focus_css(html: str, mode: str) -> str:
     """Inject CSS into the generated HTML for a 'focus' preview without affecting published HTML."""
     mode = (mode or "").strip().lower()
+
     css_map = {
-        "header": """
-          .vi-table-embed #bt-block,
-          .vi-table-embed .vi-footer { display:none !important; }
-          .vi-table-embed .vi-table-header { display:flex !important; }
-        """,
-        "controls": """
-          .vi-table-embed .vi-footer { display:none !important; }
-          .vi-table-embed .dw-card,
-          .vi-table-embed .dw-page-status { display:none !important; }
-          .vi-table-embed #bt-block { padding-bottom: 0 !important; }
-        """,
-        "table": """
-          .vi-table-embed .vi-table-header,
-          .vi-table-embed .vi-footer { display:none !important; }
-        """,
-        "footer": """
-          .vi-table-embed .vi-table-header,
-          .vi-table-embed #bt-block { display:none !important; }
-          .vi-table-embed .vi-footer { position: static !important; }
-        """,
+        "header": (
+            ".vi-table-embed #bt-block, .vi-table-embed .vi-footer { display:none !important; }
+"
+            ".vi-table-embed .vi-table-header { display:flex !important; }
+"
+        ),
+        "controls": (
+            ".vi-table-embed .vi-footer { display:none !important; }
+"
+            ".vi-table-embed .dw-card, .vi-table-embed .dw-page-status { display:none !important; }
+"
+            ".vi-table-embed #bt-block { padding-bottom: 0 !important; }
+"
+        ),
+        "table": (
+            ".vi-table-embed .vi-table-header, .vi-table-embed .vi-footer { display:none !important; }
+"
+        ),
+        "footer": (
+            ".vi-table-embed .vi-table-header, .vi-table-embed #bt-block { display:none !important; }
+"
+            ".vi-table-embed .vi-footer { position: static !important; }
+"
+        ),
     }
 
     extra_css = css_map.get(mode, css_map["table"])
-    injection = f"\n    /* ===== Focus Preview Mode: {mode} ===== */\n    {extra_css}\n"
+    injection = f"
+    /* ===== Focus Preview Mode: {mode} ===== */
+    {extra_css}
+"
 
     # Inject right before </style> (template has a single <style> tag near the top)
     if "</style>" in html:
-        return html.replace("</style>", injection + "
-  </style>", 1)
+        return html.replace("</style>", injection + "  </style>", 1)
     return html
 
 
