@@ -1894,7 +1894,20 @@ st.markdown(
     <style>
       [data-testid="stHeaderAnchor"] { display:none !important; }
       a.header-anchor { display:none !important; }
-    </style>
+    
+      /* ✅ Freeze the left settings panel (like "frozen columns") */
+      div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child{
+        position: sticky;
+        top: 72px;
+        align-self: flex-start;
+        height: calc(100vh - 92px);
+        overflow: auto;
+        padding-bottom: 8px;
+      }
+      div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
+        align-self: flex-start;
+      }
+</style>
     """,
     unsafe_allow_html=True,
 )
@@ -1988,17 +2001,8 @@ left_col, right_col = st.columns([1, 3], gap="large")
 
 # ===================== Right: Live Preview =====================
 with right_col:
-    draft_cfg_hash = stable_config_hash(draft_config_from_state())
-    confirmed_cfg_hash = st.session_state.get("bt_confirmed_hash", "")
 
-    show_banner = (draft_cfg_hash != confirmed_cfg_hash)
-
-    st.markdown("### Preview")
-
-    if show_banner:
-        st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
-    else:
-        st.success("Settings match the confirmed snapshot.")
+        st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
