@@ -2,10 +2,7 @@ import base64
 import datetime
 import html as html_mod
 import json
-import os
 import re
-import tempfile
-import textwrap
 import time
 from collections.abc import Mapping
 
@@ -14,214 +11,6 @@ import pandas as pd
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
-
-# =========================================================
-# Footer Notes Editor (Custom Component)
-# =========================================================
-# A tiny inline Streamlit Component (no separate build) that provides:
-# - A markdown textarea
-# - Bold / Italic buttons that wrap the CURRENT SELECTION with ** ** or * *
-#
-# This keeps your storage format as plain markdown (so your existing HTML
-# render logic continues to work) while giving the UI behavior you want.
-
-_FOOTER_EDITOR_BUILD_DIR = os.path.join(tempfile.gettempdir(), "bt_footer_notes_editor")
-
-
-def _ensure_footer_editor_assets() -> str:
-    os.makedirs(_FOOTER_EDITOR_BUILD_DIR, exist_ok=True)
-    index_path = os.path.join(_FOOTER_EDITOR_BUILD_DIR, "index.html")
-    if os.path.exists(index_path):
-        return _FOOTER_EDITOR_BUILD_DIR
-
-    html = textwrap.dedent(
-        """\
-        <!doctype html>
-        <html lang="en">
-          <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <script src="https://unpkg.com/streamlit-component-lib@latest/dist/streamlit-component-lib.js"></script>
-            <style>
-              :root{
-                --bd: rgba(0,0,0,.12);
-                --bg: #ffffff;
-                --muted: #6b7280;
-                --btn: #ffffff;
-                --btn-bd: rgba(0,0,0,.16);
-                --btn-h: rgba(0,0,0,.05);
-                --radius: 10px;
-                --pad: 10px;
-                --font: system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-              }
-              body{ margin:0; background:transparent; font-family: var(--font); }
-              .wrap{ width:100%; box-sizing:border-box; padding: 2px; }
-              .toolbar{ display:flex; gap:8px; align-items:center; margin: 0 0 8px 0; }
-              .btn{
-                border: 1px solid var(--btn-bd);
-                background: var(--btn);
-                border-radius: var(--radius);
-                height: 38px;
-                width: 44px;
-                cursor:pointer;
-                font: 700 16px/1 var(--font);
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                user-select:none;
-              }
-              .btn:hover{ background: var(--btn-h); }
-              .btn:active{ transform: translateY(1px); }
-              .btn[disabled]{ opacity: .45; cursor: not-allowed; transform:none; }
-              .hint{ font: 12px/1.2 var(--font); color: var(--muted); margin-left:auto; }
-              textarea{
-                width: 100%;
-                min-height: 120px;
-                height: 120px;
-                max-height: 120px;
-                resize: vertical;
-                box-sizing:border-box;
-                padding: var(--pad);
-                border: 1px solid var(--bd);
-                border-radius: 12px;
-                font: 14px/1.35 var(--font);
-                background: var(--bg);
-                outline: none;
-                overflow: auto;
-              }
-              textarea:focus{
-                border-color: rgba(59,130,246,.65);
-                box-shadow: 0 0 0 3px rgba(59,130,246,.18);
-              }
-              textarea[disabled]{
-                background: rgba(0,0,0,.04);
-                color: rgba(0,0,0,.45);
-                cursor: not-allowed;
-              }
-              .wrap.disabled{ opacity: .65; }
-            </style>
-          </head>
-          <body>
-            <div class="wrap" id="wrap">
-              <div class="toolbar">
-                <button class="btn" id="btnBold" type="button" title="Bold"><span style="font-weight:800">B</span></button>
-                <button class="btn" id="btnItalic" type="button" title="Italic"><span style="font-style:italic;font-weight:700">I</span></button>
-                <div class="hint">Select text then click B / I</div>
-              </div>
-              <textarea id="ta" spellcheck="false" placeholder="Type footer notes…"></textarea>
-            </div>
-
-            <script>
-              const { Streamlit } = window.streamlitComponentLib;
-              let currentArgs = { value: "", disabled: false, height: 120 };
-
-              const wrap = document.getElementById('wrap');
-              const ta = document.getElementById('ta');
-              const btnBold = document.getElementById('btnBold');
-              const btnItalic = document.getElementById('btnItalic');
-
-              function setDisabled(disabled){
-                const off = !!disabled;
-                ta.disabled = off;
-                btnBold.disabled = off;
-                btnItalic.disabled = off;
-                wrap.classList.toggle('disabled', off);
-              }
-
-              function setHeight(h){
-                const px = Math.max(80, Math.min(260, parseInt(h || 120, 10) || 120));
-                ta.style.minHeight = px + 'px';
-                ta.style.height = px + 'px';
-                ta.style.maxHeight = px + 'px';
-              }
-
-              function sendValue(){
-                Streamlit.setComponentValue(ta.value || "");
-              }
-
-              function wrapSelection(prefix, suffix){
-                if (ta.disabled) return;
-                const start = ta.selectionStart ?? 0;
-                const end = ta.selectionEnd ?? 0;
-
-                const value = ta.value || "";
-                const before = value.slice(0, start);
-                const sel = value.slice(start, end);
-                const after = value.slice(end);
-
-                if (start === end){
-                  // No selection: insert a placeholder and select it.
-                  const placeholder = prefix === "**" ? "bold" : "italic";
-                  const inserted = prefix + placeholder + suffix;
-                  ta.value = before + inserted + after;
-                  const newStart = start + prefix.length;
-                  const newEnd = newStart + placeholder.length;
-                  ta.focus();
-                  ta.setSelectionRange(newStart, newEnd);
-                  sendValue();
-                  return;
-                }
-
-                // Selection exists: wrap it.
-                ta.value = before + prefix + sel + suffix + after;
-                const newStart = start + prefix.length;
-                const newEnd = end + prefix.length;
-                ta.focus();
-                ta.setSelectionRange(newStart, newEnd);
-                sendValue();
-              }
-
-              btnBold.addEventListener('click', () => wrapSelection('**', '**'));
-              btnItalic.addEventListener('click', () => wrapSelection('*', '*'));
-              ta.addEventListener('input', sendValue);
-
-              Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, (event) => {
-                const args = (event.detail && event.detail.args) ? event.detail.args : {};
-                currentArgs = {
-                  value: (args.value ?? ""),
-                  disabled: !!args.disabled,
-                  height: args.height ?? 120,
-                };
-                setDisabled(currentArgs.disabled);
-                setHeight(currentArgs.height);
-                if (ta.value !== currentArgs.value){
-                  const s = ta.selectionStart;
-                  const e = ta.selectionEnd;
-                  ta.value = currentArgs.value;
-                  // best-effort: restore cursor
-                  try{ ta.setSelectionRange(s, e); }catch(_e){}
-                }
-                Streamlit.setFrameHeight();
-              });
-
-              Streamlit.setComponentReady();
-              Streamlit.setFrameHeight();
-            </script>
-          </body>
-        </html>
-        """
-    )
-
-    with open(index_path, "w", encoding="utf-8") as f:
-        f.write(html)
-
-    return _FOOTER_EDITOR_BUILD_DIR
-
-
-_footer_editor = components.declare_component(
-    "bt_footer_notes_editor",
-    path=_ensure_footer_editor_assets(),
-)
-
-
-def footer_notes_editor(value: str = "", *, key: str, height: int = 120, disabled: bool = False) -> str:
-    """Return the editor's markdown string."""
-    try:
-        height_i = int(height)
-    except Exception:
-        height_i = 120
-    height_i = max(80, min(260, height_i))
-    return _footer_editor(value=value or "", disabled=bool(disabled), height=height_i, key=key, default=value or "")
 
 # =========================================================
 # 0) Publishing Users + Secrets (GITHUB APP)
@@ -2379,17 +2168,140 @@ with left_col:
                 if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
                     st.session_state["bt_footer_logo_align"] = "Right"
 
-                st.caption("Select text in the box, then click **B** or **I** to format.")
+                st.caption("Use **Ctrl/⌘ + B** for bold and **Ctrl/⌘ + I** for italic — or use the buttons.")
 
-                # Custom editor: wraps the CURRENT SELECTION with markdown markers.
-                new_notes = footer_notes_editor(
-                    st.session_state.get("bt_footer_notes", ""),
-                    key="bt_footer_notes_editor",
-                    height=120,
+                # Editable markdown textarea (Streamlit native)
+                st.text_area(
+                    "Footer notes",
+                    value=st.session_state.get("bt_footer_notes", ""),
+                    key="bt_footer_notes",
+                    height=140,
                     disabled=not (show_footer and show_footer_notes),
+                    help="Bold: **text**  •  Italic: *text*",
                 )
-                if new_notes is not None:
-                    st.session_state["bt_footer_notes"] = new_notes
+
+                # JS toolbar + keyboard shortcuts that WRAP the current selection in the textarea.
+                # (Works by modifying the textarea value in the browser and firing an input event so
+                # Streamlit updates session_state automatically.)
+                components.html(
+                    """
+                    <script>
+                    (function(){
+                      const TOOLBAR_ID = 'bt-footer-notes-toolbar-v1';
+                      if (document.getElementById(TOOLBAR_ID)) return;
+
+                      function findTextarea(){
+                        // Streamlit sets aria-label equal to the widget label.
+                        return document.querySelector('textarea[aria-label="Footer notes"]');
+                      }
+
+                      function wrapSelection(ta, left, right, placeholder){
+                        const start = ta.selectionStart ?? 0;
+                        const end = ta.selectionEnd ?? 0;
+                        const v = ta.value || '';
+                        const sel = v.slice(start, end);
+
+                        if (!sel){
+                          const insert = left + (placeholder || '') + right;
+                          ta.value = v.slice(0, start) + insert + v.slice(end);
+                          const a = start + left.length;
+                          const b = a + (placeholder || '').length;
+                          ta.focus();
+                          try{ ta.setSelectionRange(a, b); }catch(e){}
+                        } else {
+                          ta.value = v.slice(0, start) + left + sel + right + v.slice(end);
+                          ta.focus();
+                          try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
+                        }
+
+                        ta.dispatchEvent(new Event('input', { bubbles:true }));
+                      }
+
+                      function mount(ta){
+                        if (!ta || ta.dataset.btNotesReady === '1') return;
+                        ta.dataset.btNotesReady = '1';
+
+                        // Place toolbar right above the textarea.
+                        const wrap = ta.closest('div');
+                        if (!wrap) return;
+
+                        const toolbar = document.createElement('div');
+                        toolbar.id = TOOLBAR_ID;
+                        toolbar.style.display = 'flex';
+                        toolbar.style.gap = '8px';
+                        toolbar.style.margin = '6px 0 10px 0';
+
+                        const mkBtn = (label, title, onClick) => {
+                          const b = document.createElement('button');
+                          b.type = 'button';
+                          b.title = title;
+                          b.textContent = label;
+                          b.style.height = '36px';
+                          b.style.width = '36px';
+                          b.style.borderRadius = '10px';
+                          b.style.border = '1px solid rgba(0,0,0,.12)';
+                          b.style.background = '#ffffff';
+                          b.style.cursor = 'pointer';
+                          b.style.fontWeight = '800';
+                          b.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
+                          return b;
+                        };
+
+                        const boldBtn = mkBtn('𝐁', 'Bold (Ctrl/⌘+B)', ()=> wrapSelection(ta, '**', '**', 'bold'));
+                        const italBtn = mkBtn('𝑰', 'Italic (Ctrl/⌘+I)', ()=> wrapSelection(ta, '*', '*', 'italic'));
+
+                        toolbar.appendChild(boldBtn);
+                        toolbar.appendChild(italBtn);
+
+                        // Insert toolbar before the textarea wrapper.
+                        wrap.parentElement.insertBefore(toolbar, wrap);
+
+                        // Keyboard shortcuts
+                        ta.addEventListener('keydown', (e)=>{
+                          const isMac = navigator.platform.toUpperCase().includes('MAC');
+                          const mod = isMac ? e.metaKey : e.ctrlKey;
+                          if(!mod) return;
+                          const k = (e.key || '').toLowerCase();
+                          if(k === 'b'){
+                            e.preventDefault();
+                            wrapSelection(ta, '**', '**', 'bold');
+                          }
+                          if(k === 'i'){
+                            e.preventDefault();
+                            wrapSelection(ta, '*', '*', 'italic');
+                          }
+                        });
+
+                        // Disable toolbar buttons when textarea is disabled
+                        const syncDisabled = ()=>{
+                          const dis = ta.disabled;
+                          boldBtn.disabled = dis;
+                          italBtn.disabled = dis;
+                          boldBtn.style.opacity = dis ? '0.5' : '1';
+                          italBtn.style.opacity = dis ? '0.5' : '1';
+                          boldBtn.style.cursor = dis ? 'not-allowed' : 'pointer';
+                          italBtn.style.cursor = dis ? 'not-allowed' : 'pointer';
+                        };
+                        syncDisabled();
+                        const obs = new MutationObserver(syncDisabled);
+                        obs.observe(ta, { attributes:true, attributeFilter:['disabled'] });
+                      }
+
+                      // Wait for Streamlit to render the textarea
+                      const start = Date.now();
+                      const timer = setInterval(()=>{
+                        const ta = findTextarea();
+                        if (ta){
+                          clearInterval(timer);
+                          mount(ta);
+                        }
+                        if (Date.now() - start > 6000) clearInterval(timer);
+                      }, 120);
+                    })();
+                    </script>
+                    """,
+                    height=1,
+                )
         with sub_body:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
                 st.checkbox(
