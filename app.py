@@ -1880,6 +1880,36 @@ st.markdown(
     <style>
       [data-testid="stHeaderAnchor"] { display:none !important; }
       a.header-anchor { display:none !important; }
+
+      /* ✅ Multiselect = ONE ROW of chips + horizontal scrolling */
+      div[data-testid="stMultiSelect"] div[role="combobox"] {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        min-height: 46px;
+        align-items: center;
+      }
+
+      /* prevent inner wrapping */
+      div[data-testid="stMultiSelect"] div[role="combobox"] > div {
+        flex-wrap: nowrap !important;
+        white-space: nowrap !important;
+      }
+
+      /* chips stay inline */
+      div[data-testid="stMultiSelect"] div[role="combobox"] div[data-baseweb="tag"] {
+        flex: 0 0 auto !important;
+        max-width: none !important;
+      }
+
+      /* small horizontal scrollbar */
+      div[data-testid="stMultiSelect"] div[role="combobox"]::-webkit-scrollbar {
+        height: 6px;
+      }
+      div[data-testid="stMultiSelect"] div[role="combobox"]::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+      }
     </style>
     """,
     unsafe_allow_html=True,
