@@ -1632,58 +1632,58 @@ def do_confirm_snapshot():
 # =========================================================
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 
-# CSS: Multiselect chips in ONE ROW + horizontal scroll
+# CSS: Multiselect chips in ONE ROW + horizontal scroll (no vertical stacking)
 st.markdown(
     """
     <style>
       [data-testid="stHeaderAnchor"] { display:none !important; }
       a.header-anchor { display:none !important; }
 
-      /* Multiselect chips = ONE ROW + horizontal scroll */
+      /* The outer multiselect box */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] {
         display: flex !important;
-        flex-wrap: nowrap !important;
+        align-items: center !important;
+        min-height: 46px !important;
+        overflow: hidden !important;   /* IMPORTANT: hide overflow here */
+      }
 
-        overflow-x: auto !important;
-        overflow-y: hidden !important;
-
+      /* The container that holds the chips (THIS is the key fix) */
+      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;     /* NO wrapping */
+        overflow-x: auto !important;      /* Horizontal scroll */
+        overflow-y: hidden !important;    /* No vertical scroll */
         white-space: nowrap !important;
         max-width: 100% !important;
 
-        align-items: center !important;
-        min-height: 46px !important;
-
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
-        scrollbar-gutter: stable both-edges;
-        touch-action: pan-x;
       }
 
-      /* Prevent inner stuff from wrapping */
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] > div {
+      /* Prevent any nested wrapping */
+      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"] > div {
         display: flex !important;
         flex-wrap: nowrap !important;
         white-space: nowrap !important;
       }
 
-      /* Each chip stays inline */
+      /* Chips must stay inline */
       div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
         flex: 0 0 auto !important;
-        flex-shrink: 0 !important;
         max-width: none !important;
       }
 
-      /* Keep the input from forcing wrap */
+      /* Prevent the input cursor from forcing a new line */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] input {
         flex: 0 0 120px !important;
         min-width: 80px !important;
       }
 
-      /* Scrollbar styling */
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"]::-webkit-scrollbar {
+      /* Optional: tiny scrollbar */
+      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"]::-webkit-scrollbar {
         height: 6px;
       }
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"]::-webkit-scrollbar-thumb {
+      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"]::-webkit-scrollbar-thumb {
         border-radius: 999px;
       }
     </style>
