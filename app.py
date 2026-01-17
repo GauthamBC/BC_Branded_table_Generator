@@ -1816,9 +1816,9 @@ def inject_focus_css(html: str, mode: str) -> str:
     }
 
     extra_css = css_map.get(mode, css_map["table"])
-    injection = f"
-    /* ===== Focus Preview Mode: {mode} ===== */
-    {extra_css}
+    injection = "
+    /* ===== Focus Preview Mode: " + mode + " ===== */
+    " + extra_css + "
 "
 
     # Inject right before </style> (template has a single <style> tag near the top)
