@@ -1632,20 +1632,14 @@ def do_confirm_snapshot():
 # =========================================================
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 
-# ✅ CSS includes the FIXED Multiselect One-row Scroll
+# CSS: Multiselect chips in ONE ROW + horizontal scroll
 st.markdown(
     """
     <style>
       [data-testid="stHeaderAnchor"] { display:none !important; }
       a.header-anchor { display:none !important; }
 
-      st.markdown(
-    """
-    <style>
-      [data-testid="stHeaderAnchor"] { display:none !important; }
-      a.header-anchor { display:none !important; }
-
-      /* ✅ Multiselect chips = ONE ROW + horizontal scroll (correct element) */
+      /* Multiselect chips = ONE ROW + horizontal scroll */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] {
         display: flex !important;
         flex-wrap: nowrap !important;
@@ -1665,27 +1659,27 @@ st.markdown(
         touch-action: pan-x;
       }
 
-      /* ✅ Prevent inner stuff from wrapping */
+      /* Prevent inner stuff from wrapping */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] > div {
         display: flex !important;
         flex-wrap: nowrap !important;
         white-space: nowrap !important;
       }
 
-      /* ✅ Each chip stays inline */
+      /* Each chip stays inline */
       div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
         flex: 0 0 auto !important;
         flex-shrink: 0 !important;
         max-width: none !important;
       }
 
-      /* ✅ Keep the input from forcing a wrap */
+      /* Keep the input from forcing wrap */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] input {
         flex: 0 0 120px !important;
         min-width: 80px !important;
       }
 
-      /* ✅ Scrollbar styling */
+      /* Scrollbar styling */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"]::-webkit-scrollbar {
         height: 6px;
       }
