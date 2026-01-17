@@ -2027,7 +2027,7 @@ with right_col:
 
     show_banner = (draft_cfg_hash != confirmed_cfg_hash)
 
-        st.markdown("### Preview")
+    st.markdown("### Preview")
 
         if show_banner:
             st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
