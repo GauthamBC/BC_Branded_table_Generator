@@ -2016,159 +2016,166 @@ with left_col:
             unsafe_allow_html=True,
         )
 
+        # ✅ Fixed-height settings panel (keeps left controls from extending below the preview)
+        SETTINGS_PANEL_HEIGHT = 650  # px (adjust to taste)
+
         sub_head, sub_footer, sub_body, sub_bars = st.tabs(["Header", "Footer", "Body", "Bars"])
 
         with sub_head:
-            show_header = st.checkbox(
-                "Show Header Box",
-                value=st.session_state.get("bt_show_header", True),
-                key="bt_show_header",
-            )
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                show_header = st.checkbox(
+                    "Show Header Box",
+                    value=st.session_state.get("bt_show_header", True),
+                    key="bt_show_header",
+                )
 
-            st.text_input(
-                "Table Title",
-                value=st.session_state.get("bt_widget_title", "Table 1"),
-                key="bt_widget_title",
-                disabled=not show_header,
-            )
-            st.text_input(
-                "Table Subtitle",
-                value=st.session_state.get("bt_widget_subtitle", "Subheading"),
-                key="bt_widget_subtitle",
-                disabled=not show_header,
-            )
+                st.text_input(
+                    "Table Title",
+                    value=st.session_state.get("bt_widget_title", "Table 1"),
+                    key="bt_widget_title",
+                    disabled=not show_header,
+                )
+                st.text_input(
+                    "Table Subtitle",
+                    value=st.session_state.get("bt_widget_subtitle", "Subheading"),
+                    key="bt_widget_subtitle",
+                    disabled=not show_header,
+                )
 
-            st.checkbox(
-                "Center Title And Subtitle",
-                value=st.session_state.get("bt_center_titles", False),
-                key="bt_center_titles",
-                disabled=not show_header,
-            )
-            st.checkbox(
-                "Branded Title Colour",
-                value=st.session_state.get("bt_branded_title_color", True),
-                key="bt_branded_title_color",
-                disabled=not show_header,
-            )
+                st.checkbox(
+                    "Center Title And Subtitle",
+                    value=st.session_state.get("bt_center_titles", False),
+                    key="bt_center_titles",
+                    disabled=not show_header,
+                )
+                st.checkbox(
+                    "Branded Title Colour",
+                    value=st.session_state.get("bt_branded_title_color", True),
+                    key="bt_branded_title_color",
+                    disabled=not show_header,
+                )
 
         with sub_footer:
-            show_footer = st.checkbox(
-                "Show Footer (Logo)",
-                value=st.session_state.get("bt_show_footer", True),
-                key="bt_show_footer",
-            )
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                show_footer = st.checkbox(
+                    "Show Footer (Logo)",
+                    value=st.session_state.get("bt_show_footer", True),
+                    key="bt_show_footer",
+                )
 
-            st.selectbox(
-                "Footer Logo Alignment",
-                options=["Right", "Center", "Left"],
-                index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Center")),
-                key="bt_footer_logo_align",
-                disabled=not show_footer,
-            )
+                st.selectbox(
+                    "Footer Logo Alignment",
+                    options=["Right", "Center", "Left"],
+                    index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Center")),
+                    key="bt_footer_logo_align",
+                    disabled=not show_footer,
+                )
 
         with sub_body:
-            st.checkbox(
-                "Striped Rows",
-                value=st.session_state.get("bt_striped_rows", True),
-                key="bt_striped_rows",
-            )
-            st.selectbox(
-                "Table Content Alignment",
-                options=["Center", "Left", "Right"],
-                index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
-                key="bt_cell_align",
-            )
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                st.checkbox(
+                    "Striped Rows",
+                    value=st.session_state.get("bt_striped_rows", True),
+                    key="bt_striped_rows",
+                )
+                st.selectbox(
+                    "Table Content Alignment",
+                    options=["Center", "Left", "Right"],
+                    index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
+                    key="bt_cell_align",
+                )
 
-            st.checkbox(
-                "Show Search",
-                value=st.session_state.get("bt_show_search", True),
-                key="bt_show_search",
-            )
+                st.checkbox(
+                    "Show Search",
+                    value=st.session_state.get("bt_show_search", True),
+                    key="bt_show_search",
+                )
 
-            show_pager = st.checkbox(
-                "Show Pager (Rows/Page + Prev/Next)",
-                value=st.session_state.get("bt_show_pager", True),
-                key="bt_show_pager",
-                help="If Off, the table will show all rows by default (but Embed/Download can still remain ON).",
-            )
+                show_pager = st.checkbox(
+                    "Show Pager (Rows/Page + Prev/Next)",
+                    value=st.session_state.get("bt_show_pager", True),
+                    key="bt_show_pager",
+                    help="If Off, the table will show all rows by default (but Embed/Download can still remain ON).",
+                )
 
-            st.checkbox(
-                "Show Page Numbers (Page X Of Y)",
-                value=st.session_state.get("bt_show_page_numbers", True),
-                key="bt_show_page_numbers",
-                disabled=not show_pager,
-            )
+                st.checkbox(
+                    "Show Page Numbers (Page X Of Y)",
+                    value=st.session_state.get("bt_show_page_numbers", True),
+                    key="bt_show_page_numbers",
+                    disabled=not show_pager,
+                )
 
-            st.checkbox(
-                "Show Embed / Download Button",
-                value=st.session_state.get("bt_show_embed", True),
-                key="bt_show_embed",
-                help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
-            )
+                st.checkbox(
+                    "Show Embed / Download Button",
+                    value=st.session_state.get("bt_show_embed", True),
+                    key="bt_show_embed",
+                    help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
+                )
 
         with sub_bars:
-            st.markdown("#### Bars")
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                st.markdown("#### Bars")
 
-            # ✅ Bar Columns (numeric only)
-            numeric_cols = []
-            try:
-                df_for_cols = st.session_state.get("bt_df_uploaded")
-                if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty:
-                    for c in df_for_cols.columns:
-                        if guess_column_type(df_for_cols[c]) == "num":
-                            numeric_cols.append(c)
-            except Exception:
+                # ✅ Bar Columns (numeric only)
                 numeric_cols = []
+                try:
+                    df_for_cols = st.session_state.get("bt_df_uploaded")
+                    if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty:
+                        for c in df_for_cols.columns:
+                            if guess_column_type(df_for_cols[c]) == "num":
+                                numeric_cols.append(c)
+                except Exception:
+                    numeric_cols = []
 
-            # ✅ Use current selection to control disabled state
-            selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
-            st.session_state.setdefault("bt_bar_max_overrides", {})
+                # ✅ Use current selection to control disabled state
+                selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+                st.session_state.setdefault("bt_bar_max_overrides", {})
 
-            st.number_input(
-                "Bar track width (px)",
-                min_value=120,
-                max_value=360,
-                value=int(st.session_state.get("bt_bar_fixed_w", 200)),
-                step=10,
-                key="bt_bar_fixed_w",
-                disabled=(len(selected_bar_cols) == 0),
-                help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
-            )
+                st.number_input(
+                    "Bar track width (px)",
+                    min_value=120,
+                    max_value=360,
+                    value=int(st.session_state.get("bt_bar_fixed_w", 200)),
+                    step=10,
+                    key="bt_bar_fixed_w",
+                    disabled=(len(selected_bar_cols) == 0),
+                    help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
+                )
 
-            st.multiselect(
-                "Columns To Display As Bars",
-                options=numeric_cols,
-                default=st.session_state.get("bt_bar_columns", []),
-                key="bt_bar_columns",
-                help="Select numeric columns to show as bar charts inside the table cells.",
-            )
+                st.multiselect(
+                    "Columns To Display As Bars",
+                    options=numeric_cols,
+                    default=st.session_state.get("bt_bar_columns", []),
+                    key="bt_bar_columns",
+                    help="Select numeric columns to show as bar charts inside the table cells.",
+                )
 
-            # Re-read selection after multiselect (so overrides UI updates immediately)
-            selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+                # Re-read selection after multiselect (so overrides UI updates immediately)
+                selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
 
-            if selected_bar_cols:
-                st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
-                for col in selected_bar_cols:
-                    existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
+                if selected_bar_cols:
+                    st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
+                    for col in selected_bar_cols:
+                        existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
 
-                    max_str = st.text_input(
-                        f"{col} max (optional)",
-                        value=str(existing_val) if existing_val is not None else "",
-                        placeholder="Example: 100",
-                        key=f"bt_bar_max_override_{col}",
-                    ).strip()
+                        max_str = st.text_input(
+                            f"{col} max (optional)",
+                            value=str(existing_val) if existing_val is not None else "",
+                            placeholder="Example: 100",
+                            key=f"bt_bar_max_override_{col}",
+                        ).strip()
 
-                    if max_str == "":
-                        st.session_state["bt_bar_max_overrides"][col] = ""
-                    else:
-                        try:
-                            num_val = float(max_str)
-                            if num_val > 0:
-                                st.session_state["bt_bar_max_overrides"][col] = num_val
-                            else:
-                                st.session_state["bt_bar_max_overrides"][col] = ""
-                        except Exception:
+                        if max_str == "":
                             st.session_state["bt_bar_max_overrides"][col] = ""
+                        else:
+                            try:
+                                num_val = float(max_str)
+                                if num_val > 0:
+                                    st.session_state["bt_bar_max_overrides"][col] = num_val
+                                else:
+                                    st.session_state["bt_bar_max_overrides"][col] = ""
+                            except Exception:
+                                st.session_state["bt_bar_max_overrides"][col] = ""
 
         # ✅ Confirm/Save at the bottom
         st.button(
