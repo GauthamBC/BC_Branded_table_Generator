@@ -4,6 +4,7 @@ import html as html_mod
 import json
 import re
 import time
+import html  # add near the top of file if not already
 from collections.abc import Mapping
 
 import jwt  # ✅ PyJWT
@@ -1944,13 +1945,86 @@ with left_col:
             except Exception:
                 numeric_cols = []
 
-            st.multiselect(
-                "Columns To Display As Bars",
-                options=numeric_cols,
-                default=st.session_state.get("bt_bar_columns", []),
-                key="bt_bar_columns",
-                help="Select numeric columns to show as bar charts inside the table cells.",
-            )
+# --- Bar Columns Picker (stable + horizontal scroll chips) ---
+st.session_state.setdefault("bt_bar_columns", [])
+
+# Add dropdown
+add_choice = st.selectbox(
+    "Add a column to display as a bar",
+    options=["Select a column..."] + numeric_cols,
+    key="bt_bar_add_choice",
+)
+
+c1, c2 = st.columns([1, 1])
+
+with c1:
+    if st.button("➕ Add", use_container_width=True, disabled=(add_choice == "Select a column...")):
+        if add_choice not in st.session_state["bt_bar_columns"]:
+            st.session_state["bt_bar_columns"].append(add_choice)
+
+with c2:
+    if st.button("🧹 Clear all", use_container_width=True, disabled=(len(st.session_state["bt_bar_columns"]) == 0)):
+        st.session_state["bt_bar_columns"] = []
+
+# Remove dropdown
+remove_choice = st.selectbox(
+    "Remove a selected bar column",
+    options=["Select a column..."] + st.session_state["bt_bar_columns"],
+    key="bt_bar_remove_choice",
+)
+
+if st.button("➖ Remove", use_container_width=True, disabled=(remove_choice == "Select a column...")):
+    st.session_state["bt_bar_columns"] = [c for c in st.session_state["bt_bar_columns"] if c != remove_choice]
+
+# --- Horizontal scrolling chip tray (always 1 row) ---
+selected_cols = st.session_state["bt_bar_columns"]
+
+chips = "".join(
+    f"<span class='chip'>{html.escape(c)}</span>"
+    for c in selected_cols
+)
+
+components.html(
+    f"""
+    <style>
+      .chip-tray {{
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        gap: 8px;
+        padding: 10px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.12);
+      }}
+      .chip {{
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 10px;
+        background: #ff4b4b;
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+      }}
+      .chip-tray::-webkit-scrollbar {{
+        height: 6px;
+      }}
+      .chip-tray::-webkit-scrollbar-thumb {{
+        border-radius: 999px;
+        background: rgba(255,255,255,0.25);
+      }}
+    </style>
+
+    <div class="chip-tray">
+      {chips if chips else "<span style='color:rgba(255,255,255,0.6)'>No bar columns selected.</span>"}
+    </div>
+    """,
+    height=70,
+)
 
             st.number_input(
                 "Bar track width (px)",
