@@ -2119,13 +2119,9 @@ with left_col:
             except Exception:
                 numeric_cols = []
 
-            st.multiselect(
-                "Columns To Display As Bars",
-                options=numeric_cols,
-                default=st.session_state.get("bt_bar_columns", []),
-                key="bt_bar_columns",
-                help="Select numeric columns to show as bar charts inside the table cells.",
-            )
+            # ✅ Use current selection to control disabled state
+            selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+            st.session_state.setdefault("bt_bar_max_overrides", {})
 
             st.number_input(
                 "Bar track width (px)",
@@ -2134,12 +2130,20 @@ with left_col:
                 value=int(st.session_state.get("bt_bar_fixed_w", 200)),
                 step=10,
                 key="bt_bar_fixed_w",
+                disabled=(len(selected_bar_cols) == 0),
                 help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
             )
 
-            # ✅ Optional max overrides per bar column (kept here since it's bar-related)
+            st.multiselect(
+                "Columns To Display As Bars",
+                options=numeric_cols,
+                default=st.session_state.get("bt_bar_columns", []),
+                key="bt_bar_columns",
+                help="Select numeric columns to show as bar charts inside the table cells.",
+            )
+
+            # Re-read selection after multiselect (so overrides UI updates immediately)
             selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
-            st.session_state.setdefault("bt_bar_max_overrides", {})
 
             if selected_bar_cols:
                 st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
