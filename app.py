@@ -1783,40 +1783,6 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
 ></iframe>"""
 
 
-
-def inject_focus_css(html: str, mode: str) -> str:
-    """Inject CSS into the generated HTML for a 'focus' preview without affecting published HTML."""
-    mode = (mode or "").strip().lower()
-
-    css_map = {
-        "header": """
-.vi-table-embed #bt-block, .vi-table-embed .vi-footer { display:none !important; }
-.vi-table-embed .vi-table-header { display:flex !important; }
-""",
-        "controls": """
-.vi-table-embed .vi-footer { display:none !important; }
-.vi-table-embed .dw-card, .vi-table-embed .dw-page-status { display:none !important; }
-.vi-table-embed #bt-block { padding-bottom: 0 !important; }
-""",
-        "table": """
-.vi-table-embed .vi-table-header, .vi-table-embed .vi-footer { display:none !important; }
-""",
-        "footer": """
-.vi-table-embed .vi-table-header, .vi-table-embed #bt-block { display:none !important; }
-.vi-table-embed .vi-footer { position: static !important; }
-""",
-    }
-
-    extra_css = css_map.get(mode, css_map["table"])
-
-    injection = "\n    /* ===== Focus Preview Mode: {mode} ===== */\n".format(mode=mode) + extra_css + "\n"
-
-    # Inject right before </style> (template has a single <style> tag near the top)
-    if "</style>" in html:
-        return html.replace("</style>", injection + "  </style>", 1)
-    return html
-
-
 def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
     """
     Returns True when the URL stops returning 404 and returns 200.
@@ -2027,42 +1993,16 @@ with right_col:
 
     show_banner = (draft_cfg_hash != confirmed_cfg_hash)
 
-    st.markdown("### Preview")
+        st.markdown("### Preview")
 
-    if show_banner:
-        st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
-    else:
-        st.success("Settings match the confirmed snapshot.")
+        if show_banner:
+            st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
+        else:
+            st.success("Settings match the confirmed snapshot.")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
-
-    prev_full, prev_focus = st.tabs(["Full table preview", "Preview in focus"])
-
-    with prev_full:
-        components.html(live_preview_html, height=820, scrolling=True)
-
-    with prev_focus:
-        focus_mode = st.selectbox(
-            "Focus preview on",
-            options=["Table", "Header", "Controls", "Footer"],
-            index=0,
-            key="bt_focus_preview_mode",
-            help="Shows a zoomed-in preview of just one section so you don’t need to scroll the full table.",
-        )
-
-        mode_key = (focus_mode or "Table").strip().lower()
-        focus_html = inject_focus_css(live_preview_html, mode_key)
-
-        focus_height = 500
-        if mode_key in ("header", "footer"):
-            focus_height = 220
-        elif mode_key == "controls":
-            focus_height = 260
-        else:
-            focus_height = 520
-
-        components.html(focus_html, height=focus_height, scrolling=True)
+    components.html(live_preview_html, height=820, scrolling=True)
 
 # ===================== Left: Tabs =====================
 with left_col:
