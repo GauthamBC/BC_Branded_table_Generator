@@ -2105,7 +2105,7 @@ with left_col:
                 help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
             )
 
-                    with sub_bars:
+            with sub_bars:
             st.markdown("#### Bars")
 
             # ✅ Bar Columns (numeric only)
