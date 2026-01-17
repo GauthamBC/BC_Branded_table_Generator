@@ -2029,10 +2029,10 @@ with right_col:
 
     st.markdown("### Preview")
 
-        if show_banner:
-            st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
-        else:
-            st.success("Settings match the confirmed snapshot.")
+    if show_banner:
+        st.info("Preview reflects current settings. HTML/Publishing uses the last confirmed snapshot.")
+    else:
+        st.success("Settings match the confirmed snapshot.")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
