@@ -911,6 +911,33 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
+
+    /* Footer notes */
+    .vi-table-embed .footer-inner{
+      justify-content:space-between;
+    }
+    .vi-table-embed .footer-notes{
+      font: 12px/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      color:#6b7280;
+      max-height: 46px;
+      overflow:auto;
+      padding-right: 10px;
+      flex: 1 1 auto;
+    }
+    .vi-table-embed .footer-notes::-webkit-scrollbar{ width: 6px; height: 6px; }
+    .vi-table-embed .footer-notes::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.22); border-radius: 9999px; }
+    .vi-table-embed .footer-logo{
+      flex: 0 0 auto;
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+    }
+
+    /* When logo is LEFT, swap order so notes go to the right */
+    .vi-table-embed.footer-left .footer-inner{ flex-direction: row-reverse; }
+    .vi-table-embed.footer-left .footer-logo{ justify-content:flex-start; }
+
+    /* When centered requested but notes are enabled, we treat it like RIGHT (handled in Python) */
     .vi-table-embed .vi-footer img{height: var(--footer-logo-h); width:auto; display:inline-block; max-height:100%; width:auto; display:inline-block; }
 
     .vi-table-embed.brand-actionnetwork .vi-footer img{
@@ -1012,8 +1039,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
   <!-- Footer -->
   <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
-      <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
-    </div>
+            <div class="footer-notes [[FOOTER_NOTES_VIS_CLASS]]">[[FOOTER_NOTES_HTML]]</div>
+      <div class="footer-logo">
+        <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
+      </div>
+</div>
   </div>
 
   <script>
@@ -1518,6 +1548,10 @@ def generate_table_html_from_df(
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
     footer_logo_h: int = 36,
+    # ✅ Footer notes
+    show_footer_notes: bool = False,
+    footer_notes: str = \"\",
+
     # ✅ Bars
     bar_columns: list[str] | None = None,
     bar_max_overrides: dict | None = None,
@@ -1540,6 +1574,16 @@ def generate_table_html_from_df(
     except Exception:
         footer_logo_h = 36
     footer_logo_h = max(16, min(90, footer_logo_h))
+    # Footer notes (simple markdown: **bold** and *italic*)
+    show_footer_notes = bool(show_footer_notes)
+    footer_notes = (footer_notes or "").strip()
+    footer_notes_html = ""
+    if show_footer_notes and footer_notes:
+        escaped = html_mod.escape(footer_notes)
+        escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+        escaped = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", escaped)
+        escaped = escaped.replace("\n", "<br>")
+        footer_notes_html = escaped
 
     def parse_number(v) -> float:
         try:
@@ -1646,6 +1690,8 @@ def generate_table_html_from_df(
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
 
     footer_logo_align = (footer_logo_align or "Center").strip().lower()
+    if show_footer_notes and footer_logo_align == "center":
+        footer_logo_align = "right"
     if footer_logo_align == "center":
         footer_align_class = "footer-center"
     elif footer_logo_align == "left":
@@ -1685,6 +1731,8 @@ def generate_table_html_from_df(
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
+        .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
+        .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
     )
     return html
 
@@ -1723,6 +1771,8 @@ def draft_config_from_state() -> dict:
         "show_footer": st.session_state.get("bt_show_footer", True),
         "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Center"),
         "footer_logo_h": st.session_state.get("bt_footer_logo_h", 36),
+        "show_footer_notes": st.session_state.get("bt_show_footer_notes", False),
+        "footer_notes": st.session_state.get("bt_footer_notes", ""),
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
@@ -1754,6 +1804,8 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
         footer_logo_h=cfg.get("footer_logo_h", 36),
+        show_footer_notes=cfg.get("show_footer_notes", False),
+        footer_notes=cfg.get("footer_notes", ""),
         cell_align=cfg["cell_align"],
         bar_columns=cfg.get("bar_columns", []),
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
@@ -1852,6 +1904,9 @@ def ensure_confirm_state_exists():
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
     st.session_state.setdefault("bt_footer_logo_h", 36)
+
+    st.session_state.setdefault("bt_show_footer_notes", False)
+    st.session_state.setdefault("bt_footer_notes", "")
     st.session_state.setdefault("bt_gh_user", "Select a user...")
     st.session_state.setdefault("bt_widget_file_name", "table.html")
 
@@ -2002,7 +2057,7 @@ left_col, right_col = st.columns([1, 3], gap="large")
 # ===================== Right: Live Preview =====================
 with right_col:
 
-    st.markdown("### Preview")
+        st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
@@ -2081,12 +2136,13 @@ with left_col:
 
                 st.selectbox(
                     "Footer Logo Alignment",
-                    options=["Right", "Center", "Left"],
-                    index=["Right", "Center", "Left"].index(st.session_state.get("bt_footer_logo_align", "Center")),
+                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]),
+                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]).index(
+                        st.session_state.get("bt_footer_logo_align", "Center") if not st.session_state.get("bt_show_footer_notes", False) else (st.session_state.get("bt_footer_logo_align", "Right") if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"] else "Right")
+                    ),
                     key="bt_footer_logo_align",
                     disabled=not show_footer,
                 )
-
                 st.number_input(
                     "Logo height (px)",
                     min_value=16,
@@ -2098,6 +2154,37 @@ with left_col:
                     help="Adjust the logo height. Footer height stays fixed.",
                 )
 
+
+                st.divider()
+
+                show_footer_notes = st.checkbox(
+                    "Show Footer Notes",
+                    value=st.session_state.get("bt_show_footer_notes", False),
+                    key="bt_show_footer_notes",
+                    disabled=not show_footer,
+                    help="Adds a notes area in the footer. When enabled, logo cannot be centered.",
+                )
+
+                if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
+                    st.session_state["bt_footer_logo_align"] = "Right"
+
+                st.caption("Notes support **bold** and *italic*.")
+                cols_notes_btn = st.columns([1, 1, 6])
+                with cols_notes_btn[0]:
+                    if st.button("B", use_container_width=True, disabled=not (show_footer and show_footer_notes)):
+                        st.session_state["bt_footer_notes"] = (st.session_state.get("bt_footer_notes", "") or "") + " **bold** "
+                with cols_notes_btn[1]:
+                    if st.button("I", use_container_width=True, disabled=not (show_footer and show_footer_notes)):
+                        st.session_state["bt_footer_notes"] = (st.session_state.get("bt_footer_notes", "") or "") + " *italic* "
+
+                st.text_area(
+                    "Footer notes",
+                    value=st.session_state.get("bt_footer_notes", ""),
+                    key="bt_footer_notes",
+                    height=120,
+                    disabled=not (show_footer and show_footer_notes),
+                    help="Use **bold** and *italic*. Long notes will scroll in the footer.",
+                )
         with sub_body:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
                 st.checkbox(
