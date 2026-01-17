@@ -2002,7 +2002,7 @@ left_col, right_col = st.columns([1, 3], gap="large")
 # ===================== Right: Live Preview =====================
 with right_col:
 
-    st.markdown("### Preview")
+        st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
@@ -2015,6 +2015,20 @@ with left_col:
     # ---------- EDIT TAB ----------
     with tab_edit:
         st.markdown("#### Edit table contents")
+
+        # ✅ Confirm & Save at the top
+        st.button(
+            "Confirm & Save",
+            key="bt_confirm_btn",
+            use_container_width=True,
+            type="primary",
+            on_click=do_confirm_snapshot,
+        )
+
+        if st.session_state.get("bt_confirm_flash", False):
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+            st.session_state["bt_confirm_flash"] = False
+
 
         
 
@@ -2189,19 +2203,6 @@ with left_col:
                                     st.session_state["bt_bar_max_overrides"][col] = ""
                             except Exception:
                                 st.session_state["bt_bar_max_overrides"][col] = ""
-
-        # ✅ Confirm/Save at the bottom
-        st.button(
-            "Confirm & Save",
-            key="bt_confirm_btn",
-            use_container_width=True,
-            type="primary",
-            on_click=do_confirm_snapshot,
-        )
-
-        if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-            st.session_state["bt_confirm_flash"] = False
 
     # ---------- EMBED TAB ----------
     with tab_embed:
