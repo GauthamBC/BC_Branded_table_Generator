@@ -304,7 +304,15 @@ def read_github_json(owner: str, repo: str, token: str, path: str, branch: str =
         return {}
 
 
-def write_github_json(owner: str, repo: str, token: str, path: str, payload: dict, message: str, branch: str = "main") -> None:
+def write_github_json(
+    owner: str,
+    repo: str,
+    token: str,
+    path: str,
+    payload: dict,
+    message: str,
+    branch: str = "main",
+) -> None:
     """Write a JSON file into GitHub."""
     content = json.dumps(payload or {}, indent=2, ensure_ascii=False)
     upload_file_to_github(owner, repo, token, path, content, message, branch=branch)
@@ -817,12 +825,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* ✅ Ensure bar columns expand to fit the fixed bar width */
     #bt-block th.dw-bar-col,
     #bt-block td.dw-bar-td{
-      min-width: calc(var(--bar-fixed-w) + 70px);
+      min-width: calc(var(--bar-fixed-w) + 90px);
     }
 
     /* ✅ Fixed bar track size (identical for all columns) */
     #bt-block .dw-bar-wrap{
-      width: min(var(--bar-fixed-w), 100%);
+      width: var(--bar-fixed-w);
       margin: 0 auto;
       display:block;
     }
@@ -1477,6 +1485,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </html>
 """
 
+
 # =========================================================
 # Generator
 # =========================================================
@@ -1570,9 +1579,9 @@ def generate_table_html_from_df(
 
         # ✅ add class to bar columns so CSS can force min-width
         is_bar_col = (col in bar_columns_set and col_type == "num")
-        bar_class = " dw-bar-col" if is_bar_col else ""
+        th_cls = "dw-bar-col" if is_bar_col else ""
 
-        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{bar_class.strip()}">{safe_label}</th>')
+        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{th_cls}">{safe_label}</th>')
 
     table_head_html = "\n              ".join(head_cells)
 
@@ -1703,7 +1712,7 @@ def simulate_progress(label: str, total_sleep: float = 0.35):
 def draft_config_from_state() -> dict:
     bar_cols = st.session_state.get("bt_bar_columns", []) or []
 
-    # ✅ LIVE overrides only applied when the Apply button was clicked
+    # ✅ LIVE overrides only applied when Apply/✓ is enabled
     live_overrides = {}
     for col in bar_cols:
         enabled = bool(st.session_state.get(f"bt_bar_override_enabled_{col}", False))
@@ -1735,7 +1744,7 @@ def draft_config_from_state() -> dict:
 
         # ✅ bars
         "bar_columns": bar_cols,
-        "bar_max_overrides": live_overrides,  # ✅ only when Apply pressed
+        "bar_max_overrides": live_overrides,
         "bar_fixed_w": st.session_state.get("bt_bar_fixed_w", 200),
     }
 
@@ -1828,7 +1837,6 @@ def reset_widget_state_for_new_upload():
         "bt_df_confirmed",
         "bt_allow_swap",
         "bt_bar_columns",
-        "bt_bar_max_overrides",
         "bt_bar_fixed_w",
         "bt_embed_started",
         "bt_embed_show_html",
@@ -1836,6 +1844,11 @@ def reset_widget_state_for_new_upload():
     ]
     for k in keys_to_clear:
         if k in st.session_state:
+            del st.session_state[k]
+
+    # ✅ NEW: clear per-column override state
+    for k in list(st.session_state.keys()):
+        if k.startswith("bt_bar_override_enabled_") or k.startswith("bt_bar_max_override_"):
             del st.session_state[k]
 
 
@@ -1869,7 +1882,6 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_allow_swap", False)
 
     st.session_state.setdefault("bt_bar_columns", [])
-    st.session_state.setdefault("bt_bar_max_overrides", {})
     st.session_state.setdefault("bt_bar_fixed_w", 200)
 
 
@@ -2142,7 +2154,7 @@ with left_col:
                 help="Select numeric columns to show as bar charts inside the table cells.",
             )
 
-            # ✅ NEW: fixed bar width
+            # ✅ fixed bar width
             st.number_input(
                 "Bar track width (px)",
                 min_value=120,
@@ -2150,37 +2162,56 @@ with left_col:
                 value=int(st.session_state.get("bt_bar_fixed_w", 200)),
                 step=10,
                 key="bt_bar_fixed_w",
-                help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
+                help="Every bar track will be EXACTLY this width. Bar columns auto-expand to fit it.",
             )
 
-    # ✅ Optional max overrides per bar column
-selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
-st.session_state.setdefault("bt_bar_max_overrides", {})
+            # ✅ Optional max overrides per bar column (ONE LINE each)
+            selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
+            if selected_bar_cols:
+                st.markdown("##### Optional max overrides (instant preview)")
+                st.caption("Type a max → click Apply. Click ✓ again to return to Auto.")
 
-if selected_bar_cols:
-    st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
-    for col in selected_bar_cols:
-        existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
+                for col in selected_bar_cols:
+                    enabled_key = f"bt_bar_override_enabled_{col}"
+                    input_key = f"bt_bar_max_override_{col}"
 
-        max_str = st.text_input(
-            f"{col} max (optional)",
-            value=str(existing_val) if existing_val is not None else "",
-            placeholder="Example: 100",
-            key=f"bt_bar_max_override_{col}",
-        ).strip()
+                    st.session_state.setdefault(enabled_key, False)
+                    st.session_state.setdefault(input_key, "")
 
-        if max_str == "":
-            st.session_state["bt_bar_max_overrides"][col] = ""
-        else:
-            try:
-                num_val = float(max_str)
-                if num_val > 0:
-                    st.session_state["bt_bar_max_overrides"][col] = num_val
-                else:
-                    st.session_state["bt_bar_max_overrides"][col] = ""
-            except Exception:
-                st.session_state["bt_bar_max_overrides"][col] = ""
-            
+                    applied = bool(st.session_state.get(enabled_key, False))
+
+                    c_btn, c_label, c_input = st.columns([0.9, 2.2, 2.9], vertical_alignment="center")
+
+                    with c_btn:
+                        btn_text = "✓" if applied else "Apply"
+                        if st.button(btn_text, key=f"bt_apply_toggle_{col}", use_container_width=True):
+                            if applied:
+                                st.session_state[enabled_key] = False
+                            else:
+                                raw = str(st.session_state.get(input_key, "") or "").strip()
+                                try:
+                                    v = float(raw)
+                                    if v > 0:
+                                        st.session_state[enabled_key] = True
+                                    else:
+                                        st.session_state[enabled_key] = False
+                                        st.toast(f"Enter a valid max for {col} (>0)", icon="⚠️")
+                                except Exception:
+                                    st.session_state[enabled_key] = False
+                                    st.toast(f"Enter a valid max for {col}", icon="⚠️")
+
+                    with c_label:
+                        st.markdown(f"**{col} max:**")
+
+                    with c_input:
+                        st.text_input(
+                            label="",
+                            value=str(st.session_state.get(input_key, "") or ""),
+                            placeholder="Example: 100",
+                            key=input_key,
+                            label_visibility="collapsed",
+                        )
+
     # ---------- EMBED TAB ----------
     with tab_embed:
         st.markdown("#### Get Embed Script")
