@@ -890,23 +890,27 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Footer */
     .vi-table-embed .vi-footer {
-      display:block;
-      padding:10px 14px 8px;
+      display:flex;
+      align-items:center;
+      padding:0 14px;            /* fixed-height footer; no vertical padding */
+      height:64px;               /* ✅ fixed footer height */
       border-top:1px solid var(--footer-border);
       background:linear-gradient(90deg,var(--brand-50),#ffffff);
       position: sticky;
       bottom: 0;
       z-index: 20;
+      overflow:hidden;           /* keep footer height fixed even if logo is large */
     }
     .vi-table-embed .footer-inner{
       display:flex;
       justify-content:flex-end;
       align-items:center;
       gap:12px;
+      height:100%;
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
-    .vi-table-embed .vi-footer img{ height: var(--footer-logo-h); width:auto; display:inline-block; }
+    .vi-table-embed .vi-footer img{height: var(--footer-logo-h); width:auto; display:inline-block; max-height:100%; width:auto; display:inline-block; }
 
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%); width: auto;
@@ -2067,14 +2071,14 @@ with left_col:
                 )
 
             st.number_input(
-                "Footer logo height (px)",
+                "Logo height (px)",
                 min_value=16,
                 max_value=90,
                 value=int(st.session_state.get("bt_footer_logo_h", 36)),
                 step=2,
                 key="bt_footer_logo_h",
                 disabled=not show_footer,
-                help="Adjust the logo height in the footer.",
+                help="Adjust the logo height. Footer height stays fixed.",
             )
 
         with sub_body:
