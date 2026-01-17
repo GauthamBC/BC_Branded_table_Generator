@@ -1900,7 +1900,7 @@ st.markdown(
         position: sticky;
         top: 72px;
         align-self: flex-start;
-        height: calc(100vh - 92px);
+        height: calc(100vh - 120px);
         overflow: auto;
         padding-bottom: 8px;
       }
@@ -2002,11 +2002,21 @@ left_col, right_col = st.columns([1, 3], gap="large")
 # ===================== Right: Live Preview =====================
 with right_col:
 
-    st.markdown("### Preview")
+        st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
-    components.html(live_preview_html, height=820, scrolling=True)
+
+    # ✅ Preview-only CSS: show ~5 rows and make the whole widget (including footer) scroll inside the preview iframe
+    preview_css = """<style>
+      .vi-table-embed .dw-scroll{ max-height:none !important; height:auto !important; overflow:visible !important; }
+      .vi-table-embed .vi-footer{ position: static !important; }
+    </style>"""
+
+    if "</head>" in live_preview_html:
+        live_preview_html = live_preview_html.replace("</head>", preview_css + "\n</head>", 1)
+
+    components.html(live_preview_html, height=520, scrolling=True)
 
 # ===================== Left: Tabs =====================
 with left_col:
@@ -2015,6 +2025,19 @@ with left_col:
     # ---------- EDIT TAB ----------
     with tab_edit:
         st.markdown("#### Edit table contents")
+
+        # ✅ Confirm/Save (pinned at top for all sub-tabs)
+        st.button(
+            "Confirm & Save",
+            key="bt_confirm_btn",
+            use_container_width=True,
+            type="primary",
+            on_click=do_confirm_snapshot,
+        )
+
+        if st.session_state.get("bt_confirm_flash", False):
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+            st.session_state["bt_confirm_flash"] = False
 
         
 
@@ -2189,19 +2212,6 @@ with left_col:
                                     st.session_state["bt_bar_max_overrides"][col] = ""
                             except Exception:
                                 st.session_state["bt_bar_max_overrides"][col] = ""
-
-        # ✅ Confirm/Save at the bottom
-        st.button(
-            "Confirm & Save",
-            key="bt_confirm_btn",
-            use_container_width=True,
-            type="primary",
-            on_click=do_confirm_snapshot,
-        )
-
-        if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-            st.session_state["bt_confirm_flash"] = False
 
     # ---------- EMBED TAB ----------
     with tab_embed:
