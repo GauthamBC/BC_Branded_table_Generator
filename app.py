@@ -1550,7 +1550,7 @@ def generate_table_html_from_df(
     footer_logo_h: int = 36,
     # ✅ Footer notes
     show_footer_notes: bool = False,
-    footer_notes: str = \"\",
+    footer_notes: str = "",
 
     # ✅ Bars
     bar_columns: list[str] | None = None,
