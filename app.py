@@ -1865,12 +1865,12 @@ with left_col:
                             numeric_cols.append(c)
             except Exception:
                 numeric_cols = []
-
-            # --- Bar Columns Picker (stable + horizontal scroll chips) ---
+            # Minimal bar column picker (select + add + horizontal list)
             st.session_state.setdefault("bt_bar_columns", [])
-            selected_cols = st.session_state["bt_bar_columns"]
             
-            # ✅ Only show columns NOT already selected (prevents duplicates + makes adding easy)
+            selected_cols = st.session_state.get("bt_bar_columns", [])
+            
+            # Show only numeric columns that are not already selected
             available_to_add = [c for c in numeric_cols if c not in selected_cols]
             
             add_choice = st.selectbox(
@@ -1879,44 +1879,21 @@ with left_col:
                 key="bt_bar_add_choice",
             )
             
-            c1, c2 = st.columns([1, 1])
-                        
-            with c1:
-                add_disabled = (add_choice == "Select a column...")
-                if st.button("➕ Add", use_container_width=True, disabled=add_disabled):
-                    if add_choice and add_choice != "Select a column...":
-                        # ✅ IMPORTANT: reassign list (do not .append)
-                        st.session_state["bt_bar_columns"] = selected_cols + [add_choice]
+            add_disabled = (add_choice == "Select a column...")
             
-                        # ✅ reset dropdown so user can immediately add another
-                        st.session_state["bt_bar_add_choice"] = "Select a column..."
-
-            with c2:
-                if st.button("🧹 Clear all", use_container_width=True, disabled=(len(selected_cols) == 0)):
-                    st.session_state["bt_bar_columns"] = []
-                    st.session_state["bt_bar_add_choice"] = "Select a column..."
-                    st.session_state["bt_bar_remove_choice"] = "Select a column..."
+            if st.button("Add", use_container_width=True, disabled=add_disabled):
+                current = st.session_state.get("bt_bar_columns", [])
+                if add_choice not in current:
+                    # Reassign list (IMPORTANT: do not append)
+                    st.session_state["bt_bar_columns"] = current + [add_choice]
             
-            # Refresh after any changes
-            selected_cols = st.session_state["bt_bar_columns"]
+                # reset dropdown
+                st.session_state["bt_bar_add_choice"] = "Select a column..."
             
-            remove_choice = st.selectbox(
-                "Remove a selected bar column",
-                options=["Select a column..."] + selected_cols,
-                key="bt_bar_remove_choice",
-            )
-            
-            remove_disabled = (remove_choice == "Select a column...")
-            
-            if st.button("➖ Remove", use_container_width=True, disabled=remove_disabled):
-                if remove_choice and remove_choice != "Select a column...":
-                    st.session_state["bt_bar_columns"] = [c for c in selected_cols if c != remove_choice]
-                    st.session_state["bt_bar_remove_choice"] = "Select a column..."
-            
-            # --- Horizontal scrolling chip tray (always 1 row) ---
+            # Horizontal chip tray (single row + horizontal scroll)
             chips = "".join(
                 f"<span class='chip'>{html.escape(str(c))}</span>"
-                for c in st.session_state["bt_bar_columns"]
+                for c in st.session_state.get("bt_bar_columns", [])
             )
             
             components.html(
