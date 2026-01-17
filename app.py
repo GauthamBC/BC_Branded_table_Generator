@@ -2003,7 +2003,7 @@ with left_col:
         
 
         # ✅ Fixed-height settings panel (keeps left controls from extending below the preview)
-        SETTINGS_PANEL_HEIGHT = 650  # px (adjust to taste)
+        SETTINGS_PANEL_HEIGHT = 590  # px (adjust to taste)
 
         sub_head, sub_footer, sub_body, sub_bars = st.tabs(["Header", "Footer", "Body", "Bars"])
 
