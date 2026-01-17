@@ -1900,7 +1900,7 @@ st.markdown(
         position: sticky;
         top: 72px;
         align-self: flex-start;
-        height: calc(100vh - 120px);
+        height: 520px;
         overflow: auto;
         padding-bottom: 8px;
       }
@@ -2002,15 +2002,14 @@ left_col, right_col = st.columns([1, 3], gap="large")
 # ===================== Right: Live Preview =====================
 with right_col:
 
-    st.markdown("### Preview")
+        st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
 
-    # ✅ Preview-only CSS: show ~5 rows and make the whole widget (including footer) scroll inside the preview iframe
+    # ✅ Preview-only CSS: show ~5 rows in the table scroller, keep header + footer visible
     preview_css = """<style>
-      .vi-table-embed .dw-scroll{ max-height:none !important; height:auto !important; overflow:visible !important; }
-      .vi-table-embed .vi-footer{ position: static !important; }
+      .vi-table-embed{ --table-max-h: 240px !important; }
     </style>"""
 
     if "</head>" in live_preview_html:
