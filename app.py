@@ -2016,7 +2016,7 @@ with left_col:
             unsafe_allow_html=True,
         )
 
-        sub_head, sub_body = st.tabs(["Header / Footer", "Body"])
+        sub_head, sub_body, sub_bars = st.tabs(["Header / Footer", "Body", "Bars"])
 
         with sub_head:
             show_header = st.checkbox(
@@ -2105,6 +2105,9 @@ with left_col:
                 help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
             )
 
+                    with sub_bars:
+            st.markdown("#### Bars")
+
             # ✅ Bar Columns (numeric only)
             numeric_cols = []
             try:
@@ -2124,7 +2127,6 @@ with left_col:
                 help="Select numeric columns to show as bar charts inside the table cells.",
             )
 
-            # ✅ NEW: fixed bar width
             st.number_input(
                 "Bar track width (px)",
                 min_value=120,
@@ -2135,7 +2137,7 @@ with left_col:
                 help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
             )
 
-            # ✅ Optional max overrides per bar column
+            # ✅ Optional max overrides per bar column (kept here since it's bar-related)
             selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
             st.session_state.setdefault("bt_bar_max_overrides", {})
 
@@ -2162,7 +2164,6 @@ with left_col:
                                 st.session_state["bt_bar_max_overrides"][col] = ""
                         except Exception:
                             st.session_state["bt_bar_max_overrides"][col] = ""
-
         # ✅ Confirm/Save at the bottom
         st.button(
             "Confirm & Save",
