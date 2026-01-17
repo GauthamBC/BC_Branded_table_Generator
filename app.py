@@ -4,7 +4,6 @@ import html as html_mod
 import json
 import re
 import time
-import html  # add near the top of file if not already
 from collections.abc import Mapping
 
 import jwt  # ✅ PyJWT
@@ -1225,6 +1224,250 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       });
     }
 
+    /* ===== PNG EXPORT (unchanged) ===== */
+    async function waitForFontsAndImages(el){
+      if (document.fonts && document.fonts.ready){
+        try { await document.fonts.ready; } catch(e){}
+      }
+      const imgs = Array.from(el.querySelectorAll('img'));
+      await Promise.all(imgs.map(img=>{
+        if (img.complete) return Promise.resolve();
+        return new Promise(res=>{
+          img.addEventListener('load', res, { once:true });
+          img.addEventListener('error', res, { once:true });
+        });
+      }));
+    }
+
+    function getFilenameBase(clone){
+      const t = clone.querySelector('.vi-table-header .title')?.textContent || 'table';
+      return (t || 'table')
+        .trim()
+        .replace(/\s+/g,'_')
+        .replace(/[^\w\-]+/g,'')
+        .slice(0,60) || 'table';
+    }
+
+    function escapeCsvCell(value){
+      const s = (value ?? "").toString().replace(/\r?\n/g, " ").trim();
+      if (/[",\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+
+    function downloadCsv(){
+      try{
+        hideMenu();
+
+        const headsText = heads.map(th => escapeCsvCell(th.innerText || th.textContent || ""));
+        const headerLine = headsText.join(",");
+
+        const ordered = Array.from(tb.rows).filter(r => !r.classList.contains("dw-empty"));
+        const filteredRows = ordered.filter(matchesFilter);
+
+        const lines = [headerLine];
+
+        filteredRows.forEach(tr => {
+          const cells = Array.from(tr.cells).map(td => {
+            const txt = td.innerText || td.textContent || "";
+            return escapeCsvCell(txt);
+          });
+          lines.push(cells.join(","));
+        });
+
+        const csv = lines.join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+
+        const base = getFilenameBase(document.querySelector("section.vi-table-embed") || document.body);
+        const filename = (base || "table").slice(0, 70) + ".csv";
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      }catch(err){
+        console.error("CSV export failed:", err);
+      }
+    }
+
+    function showRowsInClone(clone, mode){
+      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
+      if(!cloneTb) return;
+
+      const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      const visiblePositions = [];
+      for(let i=0;i<ordered.length;i++){
+        if(matchesFilter(ordered[i])) visiblePositions.push(i);
+      }
+
+      const keep = new Set();
+      if(mode === 'top10'){
+        visiblePositions.slice(0, 10).forEach(i => keep.add(i));
+      }else if(mode === 'bottom10'){
+        visiblePositions.slice(-10).forEach(i => keep.add(i));
+      }
+
+      cloneRows.forEach((r, i)=>{
+        r.style.display = keep.has(i) ? 'table-row' : 'none';
+      });
+
+      const empty = cloneTb.querySelector('.dw-empty');
+      if(empty) empty.style.display='none';
+    }
+
+    async function captureCloneToPng(clone, stage, filename, targetWidth){
+      const cloneScroller = clone.querySelector('.dw-scroll');
+
+      if(cloneScroller){
+        cloneScroller.style.maxHeight = 'none';
+        cloneScroller.style.height = 'auto';
+        cloneScroller.style.overflow = 'visible';
+        cloneScroller.style.overflowX = 'visible';
+        cloneScroller.style.overflowY = 'visible';
+        cloneScroller.classList.add('no-scroll');
+      }
+
+      const w = Math.max(900, Math.ceil(targetWidth || 1200));
+      clone.style.maxWidth = 'none';
+      clone.style.width = w + 'px';
+
+      await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+      await waitForFontsAndImages(clone);
+
+      const fullH = Math.ceil(Math.max(
+        clone.scrollHeight || 0,
+        clone.offsetHeight || 0,
+        clone.getBoundingClientRect().height || 0
+      ));
+
+      const MAX_CAPTURE_AREA = 28_000_000;
+      const area = Math.ceil(w) * Math.ceil(fullH);
+      if(area > MAX_CAPTURE_AREA){
+        stage.remove();
+        console.warn("PNG export skipped: capture area too large.", { w, fullH, area });
+        return;
+      }
+
+      const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+
+      const canvas = await window.html2canvas(clone, {
+        backgroundColor: '#ffffff',
+        scale,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        width: Math.ceil(w),
+        height: Math.ceil(fullH),
+        windowWidth: Math.ceil(w),
+        windowHeight: Math.ceil(fullH),
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      canvas.toBlob((blob)=>{
+        if(!blob){
+          stage.remove();
+          console.warn("PNG export failed: no blob returned.");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename + '.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1500);
+        stage.remove();
+      }, 'image/png');
+    }
+
+    async function downloadDomPng(mode){
+      try{
+        hideMenu();
+        if(!window.html2canvas) return;
+
+        const widget = document.querySelector('section.vi-table-embed');
+        if(!widget) return;
+
+        const stage = document.createElement('div');
+        stage.style.position = 'fixed';
+        stage.style.left = '-100000px';
+        stage.style.top = '0';
+        stage.style.background = '#ffffff';
+        stage.style.zIndex = '-1';
+
+        const clone = widget.cloneNode(true);
+        clone.classList.add('export-mode');
+        clone.querySelectorAll('script').forEach(s => s.remove());
+
+        stage.appendChild(clone);
+        document.body.appendChild(stage);
+
+        showRowsInClone(clone, mode);
+
+        const base = getFilenameBase(clone);
+        const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
+        const filename = (base + suffix).slice(0, 70);
+
+        const targetWidth = widget.getBoundingClientRect()?.width || 1200;
+        await captureCloneToPng(clone, stage, filename, targetWidth);
+
+      }catch(err){
+        console.error("PNG export failed:", err);
+      }
+    }
+
+    function getFullHtml(){
+      const html = document.documentElement ? document.documentElement.outerHTML : "";
+      return "<!doctype html>\n" + html;
+    }
+
+    async function copyToClipboard(text){
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      }catch(e){}
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly','');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch(e){
+        return false;
+      }
+    }
+
+    async function onEmbedClick(){
+      hideMenu();
+      const code = getFullHtml();
+      const ok = await copyToClipboard(code);
+      if(menuTitle){
+        menuTitle.textContent = ok ? 'HTML copied!' : 'Copy failed (try again)';
+        setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
+      }
+    }
+
+    if(hasEmbed && btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
+    if(hasEmbed && btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
+    if(hasEmbed && btnCsv) btnCsv.addEventListener('click', downloadCsv);
+    if(hasEmbed && btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
+
     renderPage();
   })();
   </script>
@@ -1632,6 +1875,46 @@ def do_confirm_snapshot():
 # Streamlit App
 # =========================================================
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
+st.markdown(
+    """
+    <style>
+      [data-testid="stHeaderAnchor"] { display:none !important; }
+      a.header-anchor { display:none !important; }
+
+      /* ✅ Multiselect = ONE ROW of chips + horizontal scrolling */
+      div[data-testid="stMultiSelect"] div[role="combobox"] {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        min-height: 46px;
+        align-items: center;
+      }
+
+      /* prevent inner wrapping */
+      div[data-testid="stMultiSelect"] div[role="combobox"] > div {
+        flex-wrap: nowrap !important;
+        white-space: nowrap !important;
+      }
+
+      /* chips stay inline */
+      div[data-testid="stMultiSelect"] div[role="combobox"] div[data-baseweb="tag"] {
+        flex: 0 0 auto !important;
+        max-width: none !important;
+      }
+
+      /* small horizontal scrollbar */
+      div[data-testid="stMultiSelect"] div[role="combobox"]::-webkit-scrollbar {
+        height: 6px;
+      }
+      div[data-testid="stMultiSelect"] div[role="combobox"]::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("Branded Table Generator")
 
 # =========================================================
@@ -1865,78 +2148,15 @@ with left_col:
                             numeric_cols.append(c)
             except Exception:
                 numeric_cols = []
-            # Minimal bar column picker (select + add + horizontal list)
-            st.session_state.setdefault("bt_bar_columns", [])
-            
-            selected_cols = st.session_state.get("bt_bar_columns", [])
-            
-            # Show only numeric columns that are not already selected
-            available_to_add = [c for c in numeric_cols if c not in selected_cols]
-            
-            add_choice = st.selectbox(
-                "Add a column to display as a bar",
-                options=["Select a column..."] + available_to_add,
-                key="bt_bar_add_choice",
+
+            st.multiselect(
+                "Columns To Display As Bars",
+                options=numeric_cols,
+                default=st.session_state.get("bt_bar_columns", []),
+                key="bt_bar_columns",
+                help="Select numeric columns to show as bar charts inside the table cells.",
             )
-            
-            add_disabled = (add_choice == "Select a column...")
-            
-            if st.button("Add", use_container_width=True, disabled=add_disabled):
-                current = st.session_state.get("bt_bar_columns", [])
-                if add_choice not in current:
-                    # Reassign list (IMPORTANT: do not append)
-                    st.session_state["bt_bar_columns"] = current + [add_choice]
-            
-                # reset dropdown
-                st.session_state["bt_bar_add_choice"] = "Select a column..."
-            
-            # Horizontal chip tray (single row + horizontal scroll)
-            chips = "".join(
-                f"<span class='chip'>{html.escape(str(c))}</span>"
-                for c in st.session_state.get("bt_bar_columns", [])
-            )
-            
-            components.html(
-                f"""
-                <style>
-                  .chip-tray {{
-                    display: flex;
-                    flex-wrap: nowrap;
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                    white-space: nowrap;
-                    gap: 8px;
-                    padding: 10px;
-                    border-radius: 10px;
-                    background: rgba(255,255,255,0.05);
-                    border: 1px solid rgba(255,255,255,0.12);
-                  }}
-                  .chip {{
-                    flex: 0 0 auto;
-                    display: inline-flex;
-                    align-items: center;
-                    padding: 6px 12px;
-                    border-radius: 10px;
-                    background: #ff4b4b;
-                    color: white;
-                    font-weight: 700;
-                    font-size: 14px;
-                  }}
-                  .chip-tray::-webkit-scrollbar {{
-                    height: 6px;
-                  }}
-                  .chip-tray::-webkit-scrollbar-thumb {{
-                    border-radius: 999px;
-                    background: rgba(255,255,255,0.25);
-                  }}
-                </style>
-            
-                <div class="chip-tray">
-                  {chips if chips else "<span style='color:rgba(255,255,255,0.6)'>No bar columns selected.</span>"}
-                </div>
-                """,
-                height=70,
-            )
+
             st.number_input(
                 "Bar track width (px)",
                 min_value=120,
@@ -1974,7 +2194,6 @@ with left_col:
                                 st.session_state["bt_bar_max_overrides"][col] = ""
                         except Exception:
                             st.session_state["bt_bar_max_overrides"][col] = ""
-
         # ✅ Confirm/Save at the bottom
         st.button(
             "Confirm & Save",
