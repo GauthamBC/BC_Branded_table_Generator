@@ -1632,58 +1632,77 @@ def do_confirm_snapshot():
 # =========================================================
 st.set_page_config(page_title="Branded Table Generator", layout="wide")
 
-# CSS: Multiselect chips in ONE ROW + horizontal scroll (no vertical stacking)
+# CSS: Multiselect chips forced into ONE ROW with horizontal scrolling
 st.markdown(
     """
     <style>
       [data-testid="stHeaderAnchor"] { display:none !important; }
       a.header-anchor { display:none !important; }
 
-      /* The outer multiselect box */
+      /* 1) The multiselect input itself must NOT wrap */
       div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] {
         display: flex !important;
+        flex-wrap: nowrap !important;
         align-items: center !important;
-        min-height: 46px !important;
-        overflow: hidden !important;   /* IMPORTANT: hide overflow here */
-      }
 
-      /* The container that holds the chips (THIS is the key fix) */
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"] {
-        display: flex !important;
-        flex-wrap: nowrap !important;     /* NO wrapping */
-        overflow-x: auto !important;      /* Horizontal scroll */
-        overflow-y: hidden !important;    /* No vertical scroll */
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+
         white-space: nowrap !important;
         max-width: 100% !important;
 
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
       }
 
-      /* Prevent any nested wrapping */
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"] > div {
+      /* 2) Target the common container that holds chips (when available) */
+      div[data-testid="stMultiSelect"] div[data-baseweb="value-container"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+
+        white-space: nowrap !important;
+        max-width: 100% !important;
+      }
+
+      /* 3) Catch-all: FORCE the chip wrapper into one line (works across versions) */
+      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] > div {
         display: flex !important;
         flex-wrap: nowrap !important;
         white-space: nowrap !important;
       }
 
-      /* Chips must stay inline */
+      /* 4) BEST FIX: force "the div that contains tags" to scroll horizontally */
+      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[role="combobox"] div:has(span[data-baseweb="tag"]) {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+
+        white-space: nowrap !important;
+        max-width: 100% !important;
+      }
+
+      /* 5) Each chip must NEVER shrink into a new line */
       div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
         flex: 0 0 auto !important;
         max-width: none !important;
       }
 
-      /* Prevent the input cursor from forcing a new line */
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] input {
-        flex: 0 0 120px !important;
-        min-width: 80px !important;
+      /* 6) Prevent the typing cursor forcing a wrap */
+      div[data-testid="stMultiSelect"] input {
+        flex: 0 0 140px !important;
+        min-width: 100px !important;
       }
 
-      /* Optional: tiny scrollbar */
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"]::-webkit-scrollbar {
+      /* Optional: horizontal scrollbar */
+      div[data-testid="stMultiSelect"] div[role="combobox"]::-webkit-scrollbar {
         height: 6px;
       }
-      div[data-testid="stMultiSelect"] div[data-baseweb="select"] div[data-baseweb="value-container"]::-webkit-scrollbar-thumb {
+      div[data-testid="stMultiSelect"] div[role="combobox"]::-webkit-scrollbar-thumb {
         border-radius: 999px;
       }
     </style>
