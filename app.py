@@ -2003,7 +2003,7 @@ left_col, right_col = st.columns([1, 3], gap="large")
 # ===================== Right: Live Preview =====================
 with right_col:
 
-        st.markdown("### Preview")
+    st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
