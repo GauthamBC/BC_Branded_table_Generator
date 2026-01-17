@@ -404,6 +404,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
       /* ✅ FIXED bar track width (same across ALL bar columns) */
       --bar-fixed-w: [[BAR_FIXED_W]]px;
+
+      /* ✅ Footer logo height */
+      --footer-logo-h: [[FOOTER_LOGO_H]]px;
     }
 
     .vi-table-embed.align-left { --cell-align:left; }
@@ -903,25 +906,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
-    .vi-table-embed .vi-footer img{ height: 36px; width:auto; display:inline-block; }
+    .vi-table-embed .vi-footer img{ height: var(--footer-logo-h); width:auto; display:inline-block; }
 
     .vi-table-embed.brand-actionnetwork .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%);
-      height: 44px;
-      width: auto;
+      filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%); width: auto;
       display: inline-block;
     }
-    .vi-table-embed.brand-vegasinsider .vi-footer img{ filter: none !important; height:24px; }
+    .vi-table-embed.brand-vegasinsider .vi-footer img{ filter: none !important; }
     .vi-table-embed.brand-canadasb .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%);
-      height: 28px;
-    }
+      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%); }
     .vi-table-embed.brand-rotogrinders .vi-footer img{
-      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%);
-      height:32px;
-    }
-    .vi-table-embed.brand-bolavip .vi-footer img{ filter: none !important; height: 28px; width: auto; display: inline-block; }
-    .vi-table-embed.brand-aceodds .vi-footer img{ filter: none !important; height: 28px; width: auto; display: inline-block; }
+      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%); }
+    .vi-table-embed.brand-bolavip .vi-footer img{ filter: none !important; width: auto; display: inline-block; }
+    .vi-table-embed.brand-aceodds .vi-footer img{ filter: none !important; width: auto; display: inline-block; }
 
     .vi-hide{ display:none !important; }
 
@@ -1515,6 +1512,7 @@ def generate_table_html_from_df(
     show_footer: bool = True,
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
+    footer_logo_h: int = 36,
     # ✅ Bars
     bar_columns: list[str] | None = None,
     bar_max_overrides: dict | None = None,
@@ -1530,6 +1528,13 @@ def generate_table_html_from_df(
     except Exception:
         bar_fixed_w = 200
     bar_fixed_w = max(120, min(360, bar_fixed_w))
+
+    # Footer logo height clamp
+    try:
+        footer_logo_h = int(footer_logo_h)
+    except Exception:
+        footer_logo_h = 36
+    footer_logo_h = max(16, min(90, footer_logo_h))
 
     def parse_number(v) -> float:
         try:
@@ -1674,6 +1679,7 @@ def generate_table_html_from_df(
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
+        .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
     )
     return html
 
@@ -1711,6 +1717,7 @@ def draft_config_from_state() -> dict:
         "branded_title_color": st.session_state.get("bt_branded_title_color", True),
         "show_footer": st.session_state.get("bt_show_footer", True),
         "footer_logo_align": st.session_state.get("bt_footer_logo_align", "Center"),
+        "footer_logo_h": st.session_state.get("bt_footer_logo_h", 36),
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
@@ -1741,6 +1748,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         show_header=cfg["show_header"],
         show_footer=cfg["show_footer"],
         footer_logo_align=cfg["footer_logo_align"],
+        footer_logo_h=cfg.get("footer_logo_h", 36),
         cell_align=cfg["cell_align"],
         bar_columns=cfg.get("bar_columns", []),
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
@@ -1838,6 +1846,7 @@ def ensure_confirm_state_exists():
         st.session_state["bt_iframe_code"] = ""
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
+    st.session_state.setdefault("bt_footer_logo_h", 36)
     st.session_state.setdefault("bt_gh_user", "Select a user...")
     st.session_state.setdefault("bt_widget_file_name", "table.html")
 
@@ -2056,6 +2065,17 @@ with left_col:
                     key="bt_footer_logo_align",
                     disabled=not show_footer,
                 )
+
+            st.number_input(
+                "Footer logo height (px)",
+                min_value=16,
+                max_value=90,
+                value=int(st.session_state.get("bt_footer_logo_h", 36)),
+                step=2,
+                key="bt_footer_logo_h",
+                disabled=not show_footer,
+                help="Adjust the logo height in the footer.",
+            )
 
         with sub_body:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
