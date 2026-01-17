@@ -2002,7 +2002,7 @@ left_col, right_col = st.columns([1, 3], gap="large")
 # ===================== Right: Live Preview =====================
 with right_col:
 
-    st.markdown("### Preview")
+        st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
     live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
@@ -2012,7 +2012,7 @@ with right_col:
 with left_col:
     tab_edit, tab_embed = st.tabs(["Edit table contents", "Get Embed Script"])
 
-    # ---------- EDIT TAB ---------
+    # ---------- EDIT TAB ----------
     with tab_edit:
         st.markdown("#### Edit table contents")
 
@@ -2022,19 +2022,6 @@ with left_col:
         SETTINGS_PANEL_HEIGHT = 590  # px (adjust to taste)
 
         sub_head, sub_footer, sub_body, sub_bars = st.tabs(["Header", "Footer", "Body", "Bars"])
-
-        # ✅ Confirm/Save directly under the sub-tabs row
-        st.button(
-            "Confirm & Save",
-            key="bt_confirm_btn",
-            use_container_width=True,
-            type="primary",
-            on_click=do_confirm_snapshot,
-        )
-        
-        if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-            st.session_state["bt_confirm_flash"] = False
 
         with sub_head:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
@@ -2202,6 +2189,19 @@ with left_col:
                                     st.session_state["bt_bar_max_overrides"][col] = ""
                             except Exception:
                                 st.session_state["bt_bar_max_overrides"][col] = ""
+
+        # ✅ Confirm/Save at the bottom
+        st.button(
+            "Confirm & Save",
+            key="bt_confirm_btn",
+            use_container_width=True,
+            type="primary",
+            on_click=do_confirm_snapshot,
+        )
+
+        if st.session_state.get("bt_confirm_flash", False):
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+            st.session_state["bt_confirm_flash"] = False
 
     # ---------- EMBED TAB ----------
     with tab_embed:
