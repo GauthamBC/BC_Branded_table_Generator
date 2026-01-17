@@ -2016,7 +2016,7 @@ with left_col:
             unsafe_allow_html=True,
         )
 
-        sub_head, sub_body, sub_bars = st.tabs(["Header / Footer", "Body", "Bars"])
+        sub_head, sub_footer, sub_body, sub_bars = st.tabs(["Header", "Footer", "Body", "Bars"])
 
         with sub_head:
             show_header = st.checkbox(
@@ -2051,6 +2051,7 @@ with left_col:
                 disabled=not show_header,
             )
 
+        with sub_footer:
             show_footer = st.checkbox(
                 "Show Footer (Logo)",
                 value=st.session_state.get("bt_show_footer", True),
