@@ -1540,7 +1540,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
-        function wrapExportHeaders(clone, maxChars = 20){
+        function wrapExportHeaders(clone, maxChars = 15){
           const ths = clone.querySelectorAll('#bt-block thead th');
         
           ths.forEach(th => {
