@@ -2170,6 +2170,12 @@ with left_col:
 
                 st.caption("Use **Ctrl/⌘ + B** for bold and **Ctrl/⌘ + I** for italic (Markdown: **bold**, *italic*).")
 
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.button("Apply", key="bt_footer_notes_apply", use_container_width=True)
+                with col_b:
+                    st.button("Reset", key="bt_footer_notes_reset", use_container_width=True)
+    
                 # Editable markdown textarea (Streamlit native)
                 st.text_area(
                     "Footer notes",
@@ -2187,13 +2193,27 @@ with left_col:
                     """
                     <script>
                     (function(){
-                      const FLAG = 'btNotesHotkeysV1';
-                      // Prevent double-mounting
-                      if (window.parent && window.parent.document && window.parent.document.body.dataset[FLAG] === '1') return;
-                      if (window.parent && window.parent.document) window.parent.document.body.dataset[FLAG] = '1';
+                      const doc = window.parent?.document;
+                      if(!doc) return;
+                
+                      const FLAG = 'btFooterNotesApplyResetV1';
+                      if (doc.body.dataset[FLAG] === '1') return;
+                      doc.body.dataset[FLAG] = '1';
                 
                       function findTextarea(){
-                        return window.parent.document.querySelector('textarea[aria-label="Footer notes"]');
+                        return doc.querySelector('textarea[aria-label="Footer notes"]');
+                      }
+                
+                      // Streamlit buttons render as <button> with inner text.
+                      // We locate them by visible label.
+                      function findButtonByText(txt){
+                        const buttons = Array.from(doc.querySelectorAll('button'));
+                        return buttons.find(b => (b.innerText || '').trim() === txt) || null;
+                      }
+                
+                      function fireInput(ta){
+                        // make Streamlit register change
+                        ta.dispatchEvent(new Event('input', { bubbles:true }));
                       }
                 
                       function wrapSelection(ta, left, right, placeholder){
@@ -2215,38 +2235,79 @@ with left_col:
                           try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                         }
                 
-                        // Make Streamlit pick up the change
-                        ta.dispatchEvent(new Event('input', { bubbles:true }));
+                        fireInput(ta);
                       }
                 
                       function mount(ta){
-                        if (!ta || ta.dataset.btNotesReady === '1') return;
-                        ta.dataset.btNotesReady = '1';
+                        if(!ta || ta.dataset.btMounted === '1') return;
+                        ta.dataset.btMounted = '1';
                 
+                        // Baseline for reset (captured on focus)
+                        let baseline = ta.value || '';
+                        ta.addEventListener('focus', ()=> { baseline = ta.value || ''; });
+                
+                        // Keyboard shortcuts: wrap selection (markdown)
                         ta.addEventListener('keydown', (e)=>{
                           const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
-                          if(!mod) return;
                 
                           const k = (e.key || '').toLowerCase();
-                          if(k === 'b'){
+                
+                          // Bold / Italic
+                          if(mod && k === 'b'){
                             e.preventDefault();
                             wrapSelection(ta, '**', '**', 'bold');
-                          } else if(k === 'i'){
+                            return;
+                          }
+                          if(mod && k === 'i'){
                             e.preventDefault();
                             wrapSelection(ta, '*', '*', 'italic');
+                            return;
+                          }
+                
+                          // Prevent Ctrl+Enter weirdness by letting Enter be Enter
+                          // but if Ctrl+Enter is causing rerun/submit, swallow it here.
+                          if(mod && (k === 'enter' || e.keyCode === 13)){
+                            e.preventDefault();
+                            // treat ctrl+enter as "apply"
+                            fireInput(ta);
+                            return;
                           }
                         });
+                
+                        // Hook Apply / Reset buttons
+                        const applyBtn = findButtonByText('Apply');
+                        const resetBtn = findButtonByText('Reset');
+                
+                        if(applyBtn){
+                          applyBtn.addEventListener('click', (e)=>{
+                            // on click, make sure Streamlit gets final value
+                            // (Streamlit rerun happens anyway, but we commit first)
+                            try{ fireInput(ta); }catch(err){}
+                            // Update baseline to current after apply
+                            baseline = ta.value || '';
+                          }, true);
+                        }
+                
+                        if(resetBtn){
+                          resetBtn.addEventListener('click', (e)=>{
+                            try{
+                              ta.value = baseline || '';
+                              ta.focus();
+                              fireInput(ta);
+                            }catch(err){}
+                          }, true);
+                        }
                       }
                 
                       const start = Date.now();
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
-                        if (ta){
+                        if(ta){
                           clearInterval(timer);
                           mount(ta);
                         }
-                        if (Date.now() - start > 6000) clearInterval(timer);
+                        if(Date.now() - start > 6000) clearInterval(timer);
                       }, 120);
                     })();
                     </script>
