@@ -2169,7 +2169,7 @@ with left_col:
                 if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
                     st.session_state["bt_footer_logo_align"] = "Right"
 
-                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic • **Ctrl/⌘+\\** clear formatting (use Ctrl+A first to clear all).")
+                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
                 
                 # Editable markdown textarea (Streamlit native)
                 st.text_area(
