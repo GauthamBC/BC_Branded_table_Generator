@@ -1698,6 +1698,10 @@ def format_column_header(col_name: str, mode: str) -> str:
     if mode.startswith("title"):
         return s2.title()
 
+    # ✅ ALL CAPS
+    if "caps" in mode:
+        return s2.upper()
+
     return s
 
     if mode in ("sentence case", "sentence"):
@@ -2499,17 +2503,20 @@ with left_col:
                     "Column header style",
                     options=[
                         "Keep original",
-                        "Sentence case (Example header)",
-                        "Title Case (Example Header)",
+                        "Sentence case",
+                        "Title Case",
+                        "ALL CAPS",
                     ],
                     index=[
                         "Keep original",
-                        "Sentence case (Example header)",
-                        "Title Case (Example Header)",
+                        "Sentence case",
+                        "Title Case",
+                        "ALL CAPS",
                     ].index(st.session_state.get("bt_header_style", "Keep original")),
                     key="bt_header_style",
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
+
 
 
                 st.checkbox(
