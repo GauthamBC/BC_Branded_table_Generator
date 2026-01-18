@@ -2187,7 +2187,7 @@ with left_col:
                     """
                     <script>
                     (function(){
-                      const doc = window.parent?.document;
+                      const doc = window.parent && window.parent.document;
                       if(!doc) return;
                 
                       function findTextarea(){
@@ -2195,7 +2195,6 @@ with left_col:
                       }
                 
                       function dispatchStreamlitEvents(el){
-                        // Make Streamlit/React notice the change
                         el.dispatchEvent(new Event('input',  { bubbles:true }));
                         el.dispatchEvent(new Event('change', { bubbles:true }));
                       }
@@ -2204,21 +2203,19 @@ with left_col:
                       function applyEdit(ta, start, end, replacement, selectMode){
                         ta.focus();
                 
-                        // Primary path: preserves undo stack
                         if (typeof ta.setRangeText === 'function'){
                           ta.setRangeText(replacement, start, end, selectMode || 'preserve');
                           dispatchStreamlitEvents(ta);
-                          return true;
+                          return;
                         }
                 
-                        // Fallback path (should be rare): may not preserve undo stack
+                        // fallback (rare)
                         const v = ta.value ?? '';
                         ta.value = v.slice(0, start) + replacement + v.slice(end);
                         dispatchStreamlitEvents(ta);
-                        return false;
                       }
                 
-                      function getValue(el){ return el?.value ?? ''; }
+                      function getValue(el){ return el && el.value ? el.value : (el?.value ?? ''); }
                 
                       function hasWrapper(text, left, right){
                         return text.startsWith(left) && text.endsWith(right) && text.length >= (left.length + right.length);
@@ -2229,10 +2226,9 @@ with left_col:
                         const end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // No selection: insert wrapper and move cursor inside
+                        // no selection → insert markers and place cursor between
                         if (start === end){
-                          const insert = left + right;
-                          applyEdit(ta, start, end, insert, 'end');
+                          applyEdit(ta, start, end, left + right, 'end');
                           const pos = start + left.length;
                           try{ ta.setSelectionRange(pos, pos); }catch(e){}
                           return;
@@ -2240,7 +2236,7 @@ with left_col:
                 
                         const sel = v.slice(start, end);
                 
-                        // Case 1: selection includes markers
+                        // selection includes markers
                         if (hasWrapper(sel, left, right)){
                           const unwrapped = sel.slice(left.length, sel.length - right.length);
                           applyEdit(ta, start, end, unwrapped, 'select');
@@ -2248,11 +2244,10 @@ with left_col:
                           return;
                         }
                 
-                        // Case 2: markers just outside selection (user selected inner text)
+                        // markers just outside selection
                         const before = v.slice(Math.max(0, start - left.length), start);
                         const after  = v.slice(end, end + right.length);
                         if (before === left && after === right){
-                          // remove outside markers by replacing a wider range
                           const wideStart = start - left.length;
                           const wideEnd = end + right.length;
                           applyEdit(ta, wideStart, wideEnd, sel, 'select');
@@ -2260,40 +2255,36 @@ with left_col:
                           return;
                         }
                 
-                        // Otherwise: wrap selection
-                        const wrapped = left + sel + right;
-                        applyEdit(ta, start, end, wrapped, 'select');
+                        // wrap selection
+                        applyEdit(ta, start, end, left + sel + right, 'select');
                         try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                       }
                 
-                      // Clear formatting in selection (or current line if no selection)
+                      // ✅ Clear formatting in selection (or current line if no selection)
+                      // SAFEST approach: strip asterisks used for our markdown formatting.
+                      // This is intentionally simple to avoid regex engine compatibility issues.
                       function clearFormattingSelection(ta){
                         let start = ta.selectionStart ?? 0;
                         let end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // If no selection, operate on current line
+                        // no selection → current line
                         if (start === end){
                           const lineStart = v.lastIndexOf('\\n', start - 1) + 1;
                           const lineEndIdx = v.indexOf('\\n', start);
-                          const lineEnd = lineEndIdx === -1 ? v.length : lineEndIdx;
+                          const lineEnd = (lineEndIdx === -1) ? v.length : lineEndIdx;
                           start = lineStart;
                           end = lineEnd;
                         }
                 
                         const sel = v.slice(start, end);
-                        let cleaned = sel;
                 
-                        // unwrap repeatedly to handle nested markers like ***text***
-                        for(let i=0;i<8;i++){
-                          const before = cleaned;
-                          cleaned = cleaned.replace(/\\*\\*(.+?)\\*\\*/gs, '$1');
-                          cleaned = cleaned.replace(/(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)/gs, '$1');
-                          if(cleaned === before) break;
-                        }
-                
-                        // remove any leftover star runs
-                        cleaned = cleaned.replace(/\\*{2,}/g, '');
+                        // remove bold/italic markers
+                        // - remove all "**"
+                        // - remove remaining "*"
+                        // Handles ***text*** too.
+                        let cleaned = sel.replace(/\\*\\*/g, '');
+                        cleaned = cleaned.replace(/\\*/g, '');
                 
                         if (cleaned === sel) return;
                 
@@ -2302,19 +2293,20 @@ with left_col:
                       }
                 
                       function mount(ta){
-                        if(!ta || ta.dataset.btMounted === '1') return;
+                        if(!ta) return;
+                
+                        // if Streamlit swaps the node, we need to re-bind on the new node
+                        if (ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
                 
                         ta.addEventListener('keydown', (e)=>{
                           const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
-                
-                          // IMPORTANT: do NOT interfere with Undo/Redo
-                          // We only handle our specific shortcuts.
                           if(!mod) return;
                 
                           const k = (e.key || '').toLowerCase();
                 
+                          // DO NOT touch undo/redo keys. Only handle our specific ones.
                           if(k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
@@ -2327,25 +2319,23 @@ with left_col:
                             return;
                           }
                 
-                          // Two-key clear formatting: Ctrl/Cmd + \
-                          if(e.key === '\\\\'){
+                          // Ctrl/Cmd + \ → clear formatting
+                          if (e.key === '\\\\'){
                             e.preventDefault();
                             e.stopPropagation();
                             clearFormattingSelection(ta);
                             return;
                           }
-                
-                          // Let Ctrl/Cmd+Z (undo) and Ctrl/Cmd+Y or Cmd+Shift+Z (redo) pass through naturally
                         });
                       }
                 
-                      // Streamlit reruns can replace the textarea node — keep re-mounting safely
+                      // keep trying because Streamlit reruns can replace textarea
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
                         if(ta) mount(ta);
-                      }, 300);
+                      }, 250);
                 
-                      setTimeout(()=>{ try{ clearInterval(timer); }catch(e){} }, 30000);
+                      setTimeout(()=>{ try{ clearInterval(timer); }catch(e){} }, 60000);
                     })();
                     </script>
                     """,
