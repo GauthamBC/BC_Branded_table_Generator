@@ -1487,7 +1487,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         clone.classList.add('export-mode');
         clone.querySelectorAll('script').forEach(s => s.remove());
         // ✅ Export-only CSS overrides (does NOT touch interactive table)
-        const exportStyle = document.createElement("style");
+       const exportStyle = document.createElement("style");
         exportStyle.textContent = `
           /* ✅ Let the table size itself naturally so headers never clip */
           .vi-table-embed.export-mode #bt-block table.dw-table{
@@ -1502,13 +1502,24 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
             overflow: visible !important;
             text-overflow: clip !important;
           }
-            /* ✅ Force header labels to stay on 1 line in export */
+        
+          /* ✅ REMOVE SORT ARROWS IN EXPORT MODE */
+          .vi-table-embed.export-mode #bt-block thead th.sortable::after{
+            content: "" !important;
+          }
+        
+          /* ✅ Header wrapping in export */
           .vi-table-embed.export-mode #bt-block thead th{
-            white-space: nowrap !important;
+            white-space: normal !important;
             overflow: visible !important;
             text-overflow: clip !important;
+            line-height: 1.15 !important;
+            padding-top: 10px !important;
+            padding-bottom: 10px !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+            hyphens: auto !important;
           }
-
         
           /* ✅ Remove the 2-line clamp / ellipsis in export */
           .vi-table-embed.export-mode #bt-block .dw-cell{
@@ -1529,6 +1540,51 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
+        function wrapExportHeaders(clone, maxChars = 20){
+          const ths = clone.querySelectorAll('#bt-block thead th');
+        
+          ths.forEach(th => {
+            const raw = (th.textContent || "").trim();
+            if (!raw) return;
+        
+            // Only wrap long headers
+            if (raw.length <= maxChars) return;
+        
+            // Split words (also handles underscores nicely)
+            const txt = raw.replace(/_/g, " ");
+            const words = txt.split(/\s+/).filter(Boolean);
+            if (words.length <= 1) return;
+        
+            // Try 2-line wrap first
+            const target = Math.ceil(txt.length / 2);
+            let line1 = "";
+            let line2 = "";
+        
+            for (const w of words) {
+              const test = (line1 ? line1 + " " : "") + w;
+              if (test.length <= target) {
+                line1 = test;
+              } else {
+                line2 = (line2 ? line2 + " " : "") + w;
+              }
+            }
+        
+            // If second line still too long → split into 3 lines
+            if (line2.length > maxChars * 1.4 && line2.includes(" ")) {
+              const w2 = line2.split(/\s+/);
+              const mid = Math.ceil(w2.length / 2);
+              const l2a = w2.slice(0, mid).join(" ");
+              const l2b = w2.slice(mid).join(" ");
+              th.innerHTML = `${line1}<br>${l2a}<br>${l2b}`;
+            } else {
+              th.innerHTML = `${line1}<br>${line2}`;
+            }
+          });
+        }
+        
+        // ✅ Call before capture (export-only)
+        wrapExportHeaders(clone, 20);
+
 
         showRowsInClone(clone, mode);
 
@@ -1536,8 +1592,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
-        const srcTable = widget.querySelector("table.dw-table");
-        const fullTableWidth = Math.ceil(srcTable?.scrollWidth || widget.getBoundingClientRect().width || 1200);
+        const cloneTable = clone.querySelector("table.dw-table");
+        const fullTableWidth = Math.ceil(cloneTable?.scrollWidth || clone.getBoundingClientRect().width || 1200);
         
         await captureCloneToPng(clone, stage, filename, fullTableWidth);
 
