@@ -796,23 +796,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block thead th,
     #bt-block tbody td {
       padding: 16px 14px;
-      overflow: hidden;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
 
     #bt-block .dw-cell{
       white-space: normal;
-      overflow-wrap: normal;
-      word-break: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
       line-height: 1.35;
-
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-
-      overflow:hidden;
-      text-overflow:ellipsis;
+    
+      /* ✅ IMPORTANT: no clamping / no ellipsis */
+      display: block;
+      overflow: visible;
+      text-overflow: clip;
     }
 
     /* ======================================================
@@ -996,6 +993,26 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.export-mode #bt-block tbody tr:hover td{ transform:none !important; box-shadow:none !important; }
     .vi-table-embed.export-mode #bt-block table.dw-table{ table-layout:fixed !important; width:100% !important; }
     .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
+        /* ✅ EXPORT MODE: never clip any text */
+    .vi-table-embed.export-mode #bt-block thead th,
+    .vi-table-embed.export-mode #bt-block tbody td{
+      overflow: visible !important;
+    }
+    
+    .vi-table-embed.export-mode #bt-block .dw-cell{
+      display:block !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    
+      -webkit-line-clamp: unset !important;
+      -webkit-box-orient: unset !important;
+    }
+    
+    /* ✅ prevent footer sticky overlay during export */
+    .vi-table-embed.export-mode .vi-footer{
+      position: static !important;
+    }
   </style>
 
   <!-- Header -->
@@ -1478,12 +1495,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         document.body.appendChild(stage);
 
         showRowsInClone(clone, mode);
+        await new Promise(r => setTimeout(r, 80));
 
         const base = getFilenameBase(clone);
         const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
-        const targetWidth = widget.getBoundingClientRect()?.width || 1200;
+        const tableEl = widget.querySelector("table.dw-table");
+        const targetWidth = Math.max(tableEl?.scrollWidth || 0, 1200);
         await captureCloneToPng(clone, stage, filename, targetWidth);
 
       }catch(err){
