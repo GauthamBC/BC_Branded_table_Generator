@@ -1855,9 +1855,11 @@ def generate_table_html_from_df(
     for _, row in df.iterrows():
         cells = []
         for col in df.columns:
-            val = "" if pd.isna(row[col]) else str(row[col])
-            safe_val = html_mod.escape(val)
-            safe_title = html_mod.escape(val, quote=True)
+                        raw_val = row[col]
+            display_val = format_numeric_for_display(raw_val, max_decimals=2)
+
+            safe_val = html_mod.escape(display_val)
+            safe_title = html_mod.escape(display_val, quote=True)
 
             if col in bar_columns_set and guess_column_type(df[col]) == "num":
                 num_val = parse_number(row[col])
