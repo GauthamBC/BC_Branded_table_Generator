@@ -2168,7 +2168,7 @@ with left_col:
                 if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
                     st.session_state["bt_footer_logo_align"] = "Right"
 
-                st.caption("Use **Ctrl/⌘ + B** for bold and **Ctrl/⌘ + I** for italic — or use the buttons.")
+                st.caption("Use **Ctrl/⌘ + B** for bold and **Ctrl/⌘ + I** for italic (Markdown: **bold**, *italic*).")
 
                 # Editable markdown textarea (Streamlit native)
                 st.text_area(
@@ -2187,20 +2187,21 @@ with left_col:
                     """
                     <script>
                     (function(){
-                      const TOOLBAR_ID = 'bt-footer-notes-toolbar-v1';
-                      if (window.parent.document.getElementById(TOOLBAR_ID)) return;
-                    
+                      const FLAG = 'btNotesHotkeysV1';
+                      // Prevent double-mounting
+                      if (window.parent && window.parent.document && window.parent.document.body.dataset[FLAG] === '1') return;
+                      if (window.parent && window.parent.document) window.parent.document.body.dataset[FLAG] = '1';
+                
                       function findTextarea(){
-                        // IMPORTANT: look in the PARENT document (Streamlit page), not the iframe
                         return window.parent.document.querySelector('textarea[aria-label="Footer notes"]');
                       }
-                    
+                
                       function wrapSelection(ta, left, right, placeholder){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
                         const v = ta.value || '';
                         const sel = v.slice(start, end);
-                    
+                
                         if (!sel){
                           const insert = left + (placeholder || '') + right;
                           ta.value = v.slice(0, start) + insert + v.slice(end);
@@ -2213,80 +2214,31 @@ with left_col:
                           ta.focus();
                           try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                         }
-                    
-                        // Fire input event so Streamlit updates session_state
+                
+                        // Make Streamlit pick up the change
                         ta.dispatchEvent(new Event('input', { bubbles:true }));
                       }
-                    
+                
                       function mount(ta){
                         if (!ta || ta.dataset.btNotesReady === '1') return;
                         ta.dataset.btNotesReady = '1';
-                    
-                        const doc = window.parent.document;
-                        const wrap = ta.closest('div');
-                        if (!wrap) return;
-                    
-                        const toolbar = doc.createElement('div');
-                        toolbar.id = TOOLBAR_ID;
-                        toolbar.style.display = 'flex';
-                        toolbar.style.gap = '8px';
-                        toolbar.style.margin = '6px 0 10px 0';
-                    
-                        const mkBtn = (label, title, onClick) => {
-                          const b = doc.createElement('button');
-                          b.type = 'button';
-                          b.title = title;
-                          b.textContent = label;
-                          b.style.height = '36px';
-                          b.style.width = '36px';
-                          b.style.borderRadius = '10px';
-                          b.style.border = '1px solid rgba(0,0,0,.12)';
-                          b.style.background = '#ffffff';
-                          b.style.cursor = 'pointer';
-                          b.style.fontWeight = '800';
-                          b.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
-                          return b;
-                        };
-                    
-                        const boldBtn = mkBtn('𝐁', 'Bold (Ctrl/⌘+B)', ()=> wrapSelection(ta, '**', '**', 'bold'));
-                        const italBtn = mkBtn('𝑰', 'Italic (Ctrl/⌘+I)', ()=> wrapSelection(ta, '*', '*', 'italic'));
-                    
-                        toolbar.appendChild(boldBtn);
-                        toolbar.appendChild(italBtn);
-                    
-                        // Insert toolbar above the textarea
-                        wrap.parentElement.insertBefore(toolbar, wrap);
-                    
-                        // Keyboard shortcuts on the textarea (in parent doc)
+                
                         ta.addEventListener('keydown', (e)=>{
                           const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
                           if(!mod) return;
+                
                           const k = (e.key || '').toLowerCase();
                           if(k === 'b'){
                             e.preventDefault();
                             wrapSelection(ta, '**', '**', 'bold');
-                          }
-                          if(k === 'i'){
+                          } else if(k === 'i'){
                             e.preventDefault();
                             wrapSelection(ta, '*', '*', 'italic');
                           }
                         });
-                    
-                        const syncDisabled = ()=>{
-                          const dis = ta.disabled;
-                          boldBtn.disabled = dis;
-                          italBtn.disabled = dis;
-                          boldBtn.style.opacity = dis ? '0.5' : '1';
-                          italBtn.style.opacity = dis ? '0.5' : '1';
-                          boldBtn.style.cursor = dis ? 'not-allowed' : 'pointer';
-                          italBtn.style.cursor = dis ? 'not-allowed' : 'pointer';
-                        };
-                        syncDisabled();
-                        const obs = new MutationObserver(syncDisabled);
-                        obs.observe(ta, { attributes:true, attributeFilter:['disabled'] });
                       }
-                    
+                
                       const start = Date.now();
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
