@@ -913,20 +913,49 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
 
-    /* Footer notes */
+    /* Footer notes layout */
     .vi-table-embed .footer-inner{
       justify-content:space-between;
     }
+    
+    /* ✅ Wrapper gives us “card” spacing + keeps layout stable */
+    .vi-table-embed .footer-notes-wrap{
+      flex: 1 1 auto;
+      display:flex;
+      align-items:center;
+      padding-right: 10px;
+      min-width: 0;
+    }
+    
+    /* ✅ The actual note box (branded card) */
     .vi-table-embed .footer-notes{
-      font: 12px/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-      color:#6b7280;
+      width: 100%;
+      max-width: 520px;
+      padding: 10px 12px;
+      border-radius: 12px;
+    
+      background: rgba(var(--brand-500-rgb), 0.08);
+      border: 1px solid rgba(var(--brand-500-rgb), 0.22);
+      box-shadow: 0 10px 22px rgba(0,0,0,.08);
+    
+      font: 12.5px/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      color:#1f2937;
+    
       max-height: 46px;
       overflow:auto;
-      padding-right: 10px;
-      flex: 1 1 auto;
     }
+    
+    /* Optional typographic polish */
+    .vi-table-embed .footer-notes strong{ color:#111827; font-weight:750; }
+    .vi-table-embed .footer-notes em{ color:#374151; }
+    
+    /* nicer scrollbar */
     .vi-table-embed .footer-notes::-webkit-scrollbar{ width: 6px; height: 6px; }
-    .vi-table-embed .footer-notes::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.22); border-radius: 9999px; }
+    .vi-table-embed .footer-notes::-webkit-scrollbar-thumb{
+      background: rgba(var(--brand-500-rgb), .45);
+      border-radius: 9999px;
+    }
+    
     .vi-table-embed .footer-logo{
       flex: 0 0 auto;
       display:flex;
@@ -1040,7 +1069,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
   <!-- Footer -->
   <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
-            <div class="footer-notes [[FOOTER_NOTES_VIS_CLASS]]">[[FOOTER_NOTES_HTML]]</div>
+            <div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
+              <div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
+            </div>
       <div class="footer-logo">
         <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
       </div>
