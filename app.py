@@ -929,7 +929,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     
    .vi-table-embed .footer-notes{
       width: 100%;
-      max-width: 520px;
+      max-width: 760px;
       padding: 10px 12px;
       border-radius: 12px;
     
