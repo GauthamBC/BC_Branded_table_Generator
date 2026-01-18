@@ -1540,8 +1540,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
-        function wrapExportHeaders(clone, maxChars = 15) {
-          const ths = clone.querySelectorAll("#bt-block thead th");
+        function wrapExportHeaders(clone, maxChars = 15){
+          const ths = clone.querySelectorAll('#bt-block thead th');
         
           ths.forEach(th => {
             const raw = (th.textContent || "").trim();
@@ -1550,35 +1550,38 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
             // Only wrap long headers
             if (raw.length <= maxChars) return;
         
+            // Split words (also handles underscores nicely)
             const txt = raw.replace(/_/g, " ");
             const words = txt.split(/\s+/).filter(Boolean);
             if (words.length <= 1) return;
         
+            // Try 2-line wrap first
             const target = Math.ceil(txt.length / 2);
-        
-            // ✅ Always start line1 with the first word (prevents reversal)
-            let line1 = words[0];
+            let line1 = "";
             let line2 = "";
         
-            for (let i = 1; i < words.length; i++) {
-              const w = words[i];
-        
-              const test = line1 + " " + w;
-              if (test.length <= target || line2 === "") {
-                // Keep filling line1 until it reaches target
+            for (const w of words) {
+              const test = (line1 ? line1 + " " : "") + w;
+              if (test.length <= target) {
                 line1 = test;
               } else {
-                // Then spill into line2
                 line2 = (line2 ? line2 + " " : "") + w;
               }
             }
         
-            // ✅ If line2 is still empty, don’t force a wrap
-            if (!line2) return;
-        
-            th.innerHTML = `${line1}<br>${line2}`;
+            // If second line still too long → split into 3 lines
+            if (line2.length > maxChars * 1.4 && line2.includes(" ")) {
+              const w2 = line2.split(/\s+/);
+              const mid = Math.ceil(w2.length / 2);
+              const l2a = w2.slice(0, mid).join(" ");
+              const l2b = w2.slice(mid).join(" ");
+              th.innerHTML = `${line1}<br>${l2a}<br>${l2b}`;
+            } else {
+              th.innerHTML = `${line1}<br>${line2}`;
+            }
           });
         }
+        
         // ✅ Call before capture (export-only)
         wrapExportHeaders(clone, 15);
 
