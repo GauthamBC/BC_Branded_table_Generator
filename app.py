@@ -2192,31 +2192,26 @@ with left_col:
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
                 
-                      function dispatchStreamlitEvents(el){
-                        el.dispatchEvent(new Event('input',  { bubbles:true }));
-                        el.dispatchEvent(new Event('change', { bubbles:true }));
+                      function dispatchStreamlitInput(el){
+                        el.dispatchEvent(new Event('input', { bubbles:true }));
                       }
                 
-                      // ✅ Undo-friendly edit: uses setRangeText (creates native undo steps)
                       function applyEdit(ta, start, end, replacement, selectMode){
                         ta.focus();
-                
                         if (typeof ta.setRangeText === 'function'){
                           ta.setRangeText(replacement, start, end, selectMode || 'preserve');
-                          dispatchStreamlitEvents(ta);
+                          dispatchStreamlitInput(ta);
                           return;
                         }
-                
-                        // fallback
                         const v = ta.value ?? '';
                         ta.value = v.slice(0, start) + replacement + v.slice(end);
-                        dispatchStreamlitEvents(ta);
+                        dispatchStreamlitInput(ta);
                       }
                 
                       function getValue(el){ return el?.value ?? ''; }
                 
                       function hasWrapper(text, left, right){
-                        return text.startsWith(left) && text.endsWith(right) && text.length >= (left.length + right.length);
+                        return text.startsWith(left) && text.endsWith(right);
                       }
                 
                       function toggleWrapSelection(ta, left, right){
@@ -2224,7 +2219,6 @@ with left_col:
                         const end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // no selection → insert markers and place cursor between
                         if (start === end){
                           applyEdit(ta, start, end, left + right, 'end');
                           const pos = start + left.length;
@@ -2234,62 +2228,35 @@ with left_col:
                 
                         const sel = v.slice(start, end);
                 
-                        // selection includes markers
                         if (hasWrapper(sel, left, right)){
                           const unwrapped = sel.slice(left.length, sel.length - right.length);
                           applyEdit(ta, start, end, unwrapped, 'select');
-                          try{ ta.setSelectionRange(start, start + unwrapped.length); }catch(e){}
                           return;
                         }
                 
-                        // markers just outside selection
-                        const before = v.slice(Math.max(0, start - left.length), start);
-                        const after  = v.slice(end, end + right.length);
-                        if (before === left && after === right){
-                          const wideStart = start - left.length;
-                          const wideEnd = end + right.length;
-                          applyEdit(ta, wideStart, wideEnd, sel, 'select');
-                          try{ ta.setSelectionRange(wideStart, wideStart + sel.length); }catch(e){}
-                          return;
-                        }
-                
-                        // wrap selection
                         applyEdit(ta, start, end, left + sel + right, 'select');
-                        try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                       }
                 
-                      // ✅ Remove formatting markers (customize if you ONLY want asterisks)
-                      function stripFormattingMarkers(text){
-                        let t = (text ?? "");
-                
-                        // Remove common markdown markers:
-                        // - bold/italic asterisks
+                      function stripFormatting(text){
+                        let t = text ?? "";
                         t = t.replace(/\\*\\*/g, "");
                         t = t.replace(/\\*/g, "");
-                
-                        // If you also want underscores/strikethrough, uncomment:
-                        // t = t.replace(/__/g, "");
-                        // t = t.replace(/_/g, "");
-                        // t = t.replace(/~~/g, "");
-                
                         return t;
                       }
                 
+                      function stripAllFormatting(ta){
+                        const v = getValue(ta);
+                        const cleaned = stripFormatting(v);
+                        if (cleaned !== v){
+                          applyEdit(ta, 0, v.length, cleaned, 'preserve');
+                        }
+                      }
+                
                       function mount(ta){
-                        if(!ta) return;
-                        if (ta.dataset.btMounted === '1') return;
+                        if(!ta || ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
                 
-                        const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
-                
-                        // ✅ Track "select all" then "undo"
-                        let sawSelectAll = false;
-                        let selectAllAt = 0;
-                
-                        function isSelectAllState(){
-                          const v = getValue(ta);
-                          return (ta.selectionStart === 0 && ta.selectionEnd === v.length && v.length > 0);
-                        }
+                        const isMac = navigator.platform.toUpperCase().includes('MAC');
                 
                         ta.addEventListener('keydown', (e)=>{
                           const mod = isMac ? e.metaKey : e.ctrlKey;
@@ -2297,67 +2264,35 @@ with left_col:
                 
                           const k = (e.key || '').toLowerCase();
                 
-                          // Ctrl/⌘ + A
-                          if (k === 'a'){
-                            // let browser do selection, then record state
-                            setTimeout(()=>{
-                              sawSelectAll = isSelectAllState();
-                              selectAllAt = Date.now();
-                            }, 0);
-                            return;
-                          }
-                
-                          // Ctrl/⌘ + Z
-                          if (k === 'z'){
-                            // Only apply this logic right after a select-all (prevents surprises)
-                            const recent = sawSelectAll && (Date.now() - selectAllAt < 3000);
-                            if (!recent) return;
-                
-                            // wait for native undo to apply, then strip markers
-                            setTimeout(()=>{
-                              const v = getValue(ta);
-                              if (!v) { sawSelectAll = false; return; }
-                
-                              // Only do work if it actually contains formatting markers
-                              if (v.indexOf('*') === -1 /* && v.indexOf('_') === -1 && v.indexOf('~') === -1 */){
-                                sawSelectAll = false;
-                                return;
-                              }
-                
-                              const cleaned = stripFormattingMarkers(v);
-                              if (cleaned !== v){
-                                // Replace entire value in an undo-friendly way
-                                applyEdit(ta, 0, v.length, cleaned, 'preserve');
-                              }
-                
-                              sawSelectAll = false;
-                            }, 0);
-                
-                            return;
-                          }
-                
-                          // Existing shortcuts
-                          if(k === 'b'){
+                          if (k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
-                            return;
                           }
                 
-                          if(k === 'i'){
+                          if (k === 'i'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '*', '*');
-                            return;
                           }
-                        });
+                
+                          // ✅ Reliable formatting reset
+                          if (k === 'x' && e.shiftKey){
+                            e.preventDefault();
+                            stripAllFormatting(ta);
+                          }
+                        }, true);
                       }
                 
-                      // keep trying because Streamlit reruns can replace textarea
-                      const timer = setInterval(()=>{
+                      const obs = new MutationObserver(()=>{
                         const ta = findTextarea();
                         if(ta) mount(ta);
-                      }, 250);
+                      });
                 
-                      setTimeout(()=>{ try{ clearInterval(timer); }catch(e){} }, 60000);
+                      obs.observe(doc.body, { childList:true, subtree:true });
+                
+                      const ta0 = findTextarea();
+                      if(ta0) mount(ta0);
+                
+                      setTimeout(()=>{ try{ obs.disconnect(); }catch(e){} }, 120000);
                     })();
                     </script>
                     """,
