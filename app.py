@@ -1582,7 +1582,7 @@ def generate_table_html_from_df(
     if show_footer_notes and footer_notes:
         escaped = html_mod.escape(footer_notes)
         escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
-        escaped = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", escaped)
+        escaped = re.sub(r"\*(.+?)\*", r"<em>\1</em>", escaped)
         escaped = escaped.replace("\n", "<br>")
         footer_notes_html = escaped
 
