@@ -1856,7 +1856,7 @@ def generate_table_html_from_df(
         cells = []
         for col in df.columns:
                         raw_val = row[col]
-            display_val = format_numeric_for_display(raw_val, max_decimals=2)
+        display_val = format_numeric_for_display(raw_val, max_decimals=2)
 
             safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
