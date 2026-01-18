@@ -1540,7 +1540,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
-        function wrapExportHeaders(clone, maxChars = 15){
+        function wrapExportHeaders(clone, maxLineLen = 15){
           const ths = clone.querySelectorAll('#bt-block thead th');
         
           ths.forEach(th => {
@@ -1548,40 +1548,40 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
             if (!raw) return;
         
             // Only wrap long headers
-            if (raw.length <= maxChars) return;
+            if (raw.length <= maxLineLen) return;
         
-            // Split words (also handles underscores nicely)
             const txt = raw.replace(/_/g, " ");
             const words = txt.split(/\s+/).filter(Boolean);
             if (words.length <= 1) return;
         
-            // Try 2-line wrap first
-            const target = Math.ceil(txt.length / 2);
-            let line1 = "";
-            let line2 = "";
-        
+            // ✅ Build lines in the ORIGINAL order (no flipping)
+            const lines = [""];
             for (const w of words) {
-              const test = (line1 ? line1 + " " : "") + w;
-              if (test.length <= target) {
-                line1 = test;
+              const cur = lines[lines.length - 1];
+        
+              if (!cur) {
+                lines[lines.length - 1] = w;
+                continue;
+              }
+        
+              const test = cur + " " + w;
+              if (test.length <= maxLineLen) {
+                lines[lines.length - 1] = test;
               } else {
-                line2 = (line2 ? line2 + " " : "") + w;
+                lines.push(w);
               }
             }
         
-            // If second line still too long → split into 3 lines
-            if (line2.length > maxChars * 1.4 && line2.includes(" ")) {
-              const w2 = line2.split(/\s+/);
-              const mid = Math.ceil(w2.length / 2);
-              const l2a = w2.slice(0, mid).join(" ");
-              const l2b = w2.slice(mid).join(" ");
-              th.innerHTML = `${line1}<br>${l2a}<br>${l2b}`;
+            // ✅ Optional: clamp to 3 lines max
+            if (lines.length > 3) {
+              const firstTwo = lines.slice(0, 2);
+              const rest = lines.slice(2).join(" ");
+              th.innerHTML = [...firstTwo, rest].join("<br>");
             } else {
-              th.innerHTML = `${line1}<br>${line2}`;
+              th.innerHTML = lines.join("<br>");
             }
           });
         }
-        
         // ✅ Call before capture (export-only)
         wrapExportHeaders(clone, 15);
 
