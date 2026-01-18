@@ -2190,14 +2190,11 @@ with left_col:
                       const doc = window.parent?.document;
                       if(!doc) return;
                 
-                      const FLAG = 'btFooterNotesHotkeysToggleV1';
-                      if (doc.body.dataset[FLAG] === '1') return;
-                      doc.body.dataset[FLAG] = '1';
-                
                       function findTextarea(){
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
                 
+                      // React-safe setter so Streamlit registers programmatic changes immediately
                       function setValueReactSafe(el, value){
                         try{
                           const proto = Object.getPrototypeOf(el);
@@ -2221,14 +2218,13 @@ with left_col:
                       }
                 
                       // Toggle wrapper around selection.
-                      // If selection already wrapped with left/right, unwrap.
-                      // If not, wrap.
+                      // If selection already wrapped with left/right, unwrap; otherwise wrap.
                       function toggleWrapSelection(ta, left, right){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // No selection: insert wrapper and place cursor between
+                        // No selection: insert wrapper, cursor in middle
                         if (start === end){
                           const next = v.slice(0, start) + left + right + v.slice(end);
                           setValueReactSafe(ta, next);
@@ -2240,7 +2236,7 @@ with left_col:
                 
                         const sel = v.slice(start, end);
                 
-                        // Case 1: selection itself is wrapped (user selected including ** **)
+                        // Case 1: user selected including markers
                         if (hasWrapper(sel, left, right)){
                           const unwrapped = sel.slice(left.length, sel.length - right.length);
                           const next = v.slice(0, start) + unwrapped + v.slice(end);
@@ -2250,18 +2246,19 @@ with left_col:
                           return;
                         }
                 
-                        // Case 2: wrapper is just outside the selection (user selected only inner text)
+                        // Case 2: markers are just outside selection
                         const before = v.slice(Math.max(0, start - left.length), start);
                         const after  = v.slice(end, end + right.length);
                         if (before === left && after === right){
                           const next = v.slice(0, start - left.length) + sel + v.slice(end + right.length);
                           setValueReactSafe(ta, next);
                           ta.focus();
-                          try{ ta.setSelectionRange(start - left.length, (start - left.length) + sel.length); }catch(e){}
+                          const ns = start - left.length;
+                          try{ ta.setSelectionRange(ns, ns + sel.length); }catch(e){}
                           return;
                         }
                 
-                        // Otherwise: wrap selection
+                        // Otherwise wrap
                         const next = v.slice(0, start) + left + sel + right + v.slice(end);
                         setValueReactSafe(ta, next);
                         ta.focus();
@@ -2269,68 +2266,31 @@ with left_col:
                       }
                 
                       // Clear formatting for selection (or current line if no selection):
-                      // removes one layer of ** ** and/or * * if they are directly wrapping.
+                      // removes one layer of ** ** and/or * *
                       function clearFormatting(ta){
                         let start = ta.selectionStart ?? 0;
                         let end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // If no selection, operate on current line
+                        // If no selection, use current line
                         if (start === end){
                           const lineStart = v.lastIndexOf('\\n', start - 1) + 1;
                           const lineEndIdx = v.indexOf('\\n', start);
                           const lineEnd = lineEndIdx === -1 ? v.length : lineEndIdx;
-                
                           start = lineStart;
                           end = lineEnd;
                         }
                 
                         let sel = v.slice(start, end);
                 
-                        // unwrap bold first, then italic (handles ***text*** too)
-                        // unwrap selection-wrapped
-                        const unwrapOnce = (s, left, right) => {
-                          if (hasWrapper(s, left, right)) return s.slice(left.length, s.length - right.length);
-                          return s;
-                        };
+                        const unwrapOnce = (s, left, right) => hasWrapper(s, left, right)
+                          ? s.slice(left.length, s.length - right.length)
+                          : s;
                 
-                        // also handle wrapper just outside selection boundaries
-                        const unwrapOutside = (left, right) => {
-                          const before = v.slice(Math.max(0, start - left.length), start);
-                          const after  = v.slice(end, end + right.length);
-                          if (before === left && after === right){
-                            // remove outside markers
-                            return {
-                              newV: v.slice(0, start - left.length) + sel + v.slice(end + right.length),
-                              newStart: start - left.length,
-                              newEnd: (start - left.length) + sel.length
-                            };
-                          }
-                          return null;
-                        };
-                
-                        // Try outside bold then outside italic
-                        let out = unwrapOutside('**','**');
-                        if(out){
-                          setValueReactSafe(ta, out.newV);
-                          ta.focus();
-                          try{ ta.setSelectionRange(out.newStart, out.newEnd); }catch(e){}
-                          return;
-                        }
-                        out = unwrapOutside('*','*');
-                        if(out){
-                          setValueReactSafe(ta, out.newV);
-                          ta.focus();
-                          try{ ta.setSelectionRange(out.newStart, out.newEnd); }catch(e){}
-                          return;
-                        }
-                
-                        // Otherwise unwrap inside selection
                         const beforeSel = sel;
-                        sel = unwrapOnce(sel, '**','**');
-                        sel = unwrapOnce(sel, '*','*');
+                        sel = unwrapOnce(sel, '**', '**');
+                        sel = unwrapOnce(sel, '*', '*');
                 
-                        // If nothing changed, do nothing
                         if (sel === beforeSel) return;
                 
                         const next = v.slice(0, start) + sel + v.slice(end);
@@ -2361,8 +2321,8 @@ with left_col:
                             return;
                           }
                 
-                          // Clear formatting: Ctrl/Cmd + \
-                          if(k === '\\\\'){
+                          // Ctrl/Cmd + \ clears formatting
+                          if(e.key === '\\\\'){
                             e.preventDefault();
                             clearFormatting(ta);
                             return;
@@ -2370,22 +2330,20 @@ with left_col:
                         });
                       }
                 
-                      const start = Date.now();
+                      // Keep trying: Streamlit reruns can replace the textarea node
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
-                        if(ta){
-                          clearInterval(timer);
-                          mount(ta);
-                        }
-                        if(Date.now() - start > 8000) clearInterval(timer);
-                      }, 120);
+                        if(ta) mount(ta);
+                      }, 300);
+                
+                      // optional cleanup
+                      setTimeout(()=>{ try{ clearInterval(timer); }catch(e){} }, 30000);
                 
                     })();
                     </script>
                     """,
                     height=1,
                 )
-
         with sub_body:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
                 st.checkbox(
