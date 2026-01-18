@@ -927,19 +927,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       min-width: 0;
     }
     
-    /* ✅ The actual note box (branded card) */
-    .vi-table-embed .footer-notes{
+   .vi-table-embed .footer-notes{
       width: 100%;
       max-width: 520px;
       padding: 10px 12px;
       border-radius: 12px;
     
-      background: rgba(var(--brand-500-rgb), 0.08);
-      border: 1px solid rgba(var(--brand-500-rgb), 0.22);
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,.10);
       box-shadow: 0 10px 22px rgba(0,0,0,.08);
     
+      border-left: 6px solid var(--brand-500);
+    
       font: 12.5px/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-      color:#1f2937;
+      color:#374151;
     
       max-height: 46px;
       overflow:auto;
