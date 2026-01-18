@@ -2181,7 +2181,7 @@ with left_col:
                     help="Bold: **text**  •  Italic: *text*",
                 )
 
-               components.html(
+                components.html(
                     """
                     <script>
                     (function(){
