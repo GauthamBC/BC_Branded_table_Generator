@@ -2182,7 +2182,6 @@ with left_col:
                 )
 
                 # JS toolbar + keyboard shortcuts that WRAP the current selection in the textarea.
-                # (Works by modifying the textarea value in the browser and firing an input event so
                 components.html(
                     """
                     <script>
@@ -2215,7 +2214,7 @@ with left_col:
                         dispatchStreamlitEvents(ta);
                       }
                 
-                      function getValue(el){ return el && el.value ? el.value : (el?.value ?? ''); }
+                      function getValue(el){ return el?.value ?? ''; }
                 
                       function hasWrapper(text, left, right){
                         return text.startsWith(left) && text.endsWith(right) && text.length >= (left.length + right.length);
@@ -2260,42 +2259,8 @@ with left_col:
                         try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                       }
                 
-                      // ✅ Clear formatting in selection (or current line if no selection)
-                      // SAFEST approach: strip asterisks used for our markdown formatting.
-                      // This is intentionally simple to avoid regex engine compatibility issues.
-                      function clearFormattingSelection(ta){
-                        let start = ta.selectionStart ?? 0;
-                        let end = ta.selectionEnd ?? 0;
-                        const v = getValue(ta);
-                
-                        // no selection → current line
-                        if (start === end){
-                          const lineStart = v.lastIndexOf('\\n', start - 1) + 1;
-                          const lineEndIdx = v.indexOf('\\n', start);
-                          const lineEnd = (lineEndIdx === -1) ? v.length : lineEndIdx;
-                          start = lineStart;
-                          end = lineEnd;
-                        }
-                
-                        const sel = v.slice(start, end);
-                
-                        // remove bold/italic markers
-                        // - remove all "**"
-                        // - remove remaining "*"
-                        // Handles ***text*** too.
-                        let cleaned = sel.replace(/\\*\\*/g, '');
-                        cleaned = cleaned.replace(/\\*/g, '');
-                
-                        if (cleaned === sel) return;
-                
-                        applyEdit(ta, start, end, cleaned, 'select');
-                        try{ ta.setSelectionRange(start, start + cleaned.length); }catch(e){}
-                      }
-                
                       function mount(ta){
                         if(!ta) return;
-                
-                        // if Streamlit swaps the node, we need to re-bind on the new node
                         if (ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
                 
@@ -2306,7 +2271,6 @@ with left_col:
                 
                           const k = (e.key || '').toLowerCase();
                 
-                          // DO NOT touch undo/redo keys. Only handle our specific ones.
                           if(k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
@@ -2316,14 +2280,6 @@ with left_col:
                           if(k === 'i'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '*', '*');
-                            return;
-                          }
-                
-                          // Ctrl/Cmd + \ → clear formatting
-                          if (e.key === '\\\\'){
-                            e.preventDefault();
-                            e.stopPropagation();
-                            clearFormattingSelection(ta);
                             return;
                           }
                         });
