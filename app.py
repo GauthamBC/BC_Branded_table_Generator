@@ -2196,7 +2196,8 @@ with left_col:
                       const doc = window.parent?.document;
                       if(!doc) return;
                 
-                      const FLAG = 'btFooterNotesApplyResetV1';
+                      // Avoid double mounting across reruns
+                      const FLAG = 'btFooterNotesApplyResetV2';
                       if (doc.body.dataset[FLAG] === '1') return;
                       doc.body.dataset[FLAG] = '1';
                 
@@ -2204,102 +2205,115 @@ with left_col:
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
                 
-                      // Streamlit buttons render as <button> with inner text.
-                      // We locate them by visible label.
                       function findButtonByText(txt){
                         const buttons = Array.from(doc.querySelectorAll('button'));
                         return buttons.find(b => (b.innerText || '').trim() === txt) || null;
                       }
                 
-                      function fireInput(ta){
-                        // make Streamlit register change
-                        ta.dispatchEvent(new Event('input', { bubbles:true }));
+                      // ✅ React-safe setter so Streamlit immediately registers programmatic changes
+                      function setValueReactSafe(el, value){
+                        try{
+                          const proto = Object.getPrototypeOf(el);
+                          const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                          const setter = desc && desc.set;
+                          if (setter) setter.call(el, value);
+                          else el.value = value;
+                        }catch(e){
+                          el.value = value;
+                        }
+                
+                        // Fire events that Streamlit/React listens to
+                        el.dispatchEvent(new Event('input',  { bubbles:true }));
+                        el.dispatchEvent(new Event('change', { bubbles:true }));
+                      }
+                
+                      function getValue(el){
+                        return el?.value ?? '';
                       }
                 
                       function wrapSelection(ta, left, right, placeholder){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
-                        const v = ta.value || '';
+                        const v = getValue(ta);
                         const sel = v.slice(start, end);
+                
+                        let next, selStart, selEnd;
                 
                         if (!sel){
                           const insert = left + (placeholder || '') + right;
-                          ta.value = v.slice(0, start) + insert + v.slice(end);
-                          const a = start + left.length;
-                          const b = a + (placeholder || '').length;
-                          ta.focus();
-                          try{ ta.setSelectionRange(a, b); }catch(e){}
+                          next = v.slice(0, start) + insert + v.slice(end);
+                          selStart = start + left.length;
+                          selEnd = selStart + (placeholder || '').length;
                         } else {
-                          ta.value = v.slice(0, start) + left + sel + right + v.slice(end);
-                          ta.focus();
-                          try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
+                          next = v.slice(0, start) + left + sel + right + v.slice(end);
+                          selStart = start + left.length;
+                          selEnd = end + left.length;
                         }
                 
-                        fireInput(ta);
+                        setValueReactSafe(ta, next);
+                
+                        // Restore selection
+                        ta.focus();
+                        try{ ta.setSelectionRange(selStart, selEnd); }catch(e){}
                       }
                 
                       function mount(ta){
                         if(!ta || ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
                 
-                        // Baseline for reset (captured on focus)
-                        let baseline = ta.value || '';
-                        ta.addEventListener('focus', ()=> { baseline = ta.value || ''; });
+                        // Baseline for reset (captured on focus + updated on Apply)
+                        let baseline = getValue(ta);
+                        ta.addEventListener('focus', ()=> { baseline = getValue(ta); });
                 
-                        // Keyboard shortcuts: wrap selection (markdown)
+                        // Keyboard shortcuts
                         ta.addEventListener('keydown', (e)=>{
                           const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
+                          if(!mod) return;
                 
                           const k = (e.key || '').toLowerCase();
                 
-                          // Bold / Italic
-                          if(mod && k === 'b'){
+                          if(k === 'b'){
                             e.preventDefault();
                             wrapSelection(ta, '**', '**', 'bold');
                             return;
                           }
-                          if(mod && k === 'i'){
+                          if(k === 'i'){
                             e.preventDefault();
                             wrapSelection(ta, '*', '*', 'italic');
                             return;
                           }
                 
-                          // Prevent Ctrl+Enter weirdness by letting Enter be Enter
-                          // but if Ctrl+Enter is causing rerun/submit, swallow it here.
-                          if(mod && (k === 'enter' || e.keyCode === 13)){
+                          // Swallow Ctrl+Enter to stop Streamlit weirdness; treat as Apply/commit
+                          if(k === 'enter' || e.keyCode === 13){
                             e.preventDefault();
-                            // treat ctrl+enter as "apply"
-                            fireInput(ta);
+                            setValueReactSafe(ta, getValue(ta));
+                            baseline = getValue(ta);
                             return;
                           }
                         });
                 
-                        // Hook Apply / Reset buttons
+                        // Hook Apply/Reset buttons
                         const applyBtn = findButtonByText('Apply');
                         const resetBtn = findButtonByText('Reset');
                 
                         if(applyBtn){
-                          applyBtn.addEventListener('click', (e)=>{
-                            // on click, make sure Streamlit gets final value
-                            // (Streamlit rerun happens anyway, but we commit first)
-                            try{ fireInput(ta); }catch(err){}
-                            // Update baseline to current after apply
-                            baseline = ta.value || '';
+                          applyBtn.addEventListener('click', ()=>{
+                            // Commit current value via React-safe setter
+                            setValueReactSafe(ta, getValue(ta));
+                            baseline = getValue(ta);
                           }, true);
                         }
                 
                         if(resetBtn){
-                          resetBtn.addEventListener('click', (e)=>{
-                            try{
-                              ta.value = baseline || '';
-                              ta.focus();
-                              fireInput(ta);
-                            }catch(err){}
+                          resetBtn.addEventListener('click', ()=>{
+                            setValueReactSafe(ta, baseline || '');
+                            ta.focus();
                           }, true);
                         }
                       }
                 
+                      // Wait until textarea appears
                       const start = Date.now();
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
@@ -2307,8 +2321,9 @@ with left_col:
                           clearInterval(timer);
                           mount(ta);
                         }
-                        if(Date.now() - start > 6000) clearInterval(timer);
+                        if(Date.now() - start > 8000) clearInterval(timer);
                       }, 120);
+                
                     })();
                     </script>
                     """,
