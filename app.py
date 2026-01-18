@@ -2169,8 +2169,8 @@ with left_col:
                 if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
                     st.session_state["bt_footer_logo_align"] = "Right"
 
-                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold, **Ctrl/⌘+I** toggle italic, **Ctrl/⌘+\\** clear formatting.")
-   
+                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic • **Ctrl/⌘+\\** clear formatting (use Ctrl+A first to clear all).")
+                
                 # Editable markdown textarea (Streamlit native)
                 st.text_area(
                     "Footer notes",
@@ -2194,7 +2194,7 @@ with left_col:
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
                 
-                      // ✅ React-safe setter so Streamlit registers changes immediately
+                      // ✅ React-safe setter so Streamlit registers programmatic changes immediately
                       function setValueReactSafe(el, value){
                         try{
                           const proto = Object.getPrototypeOf(el);
@@ -2217,7 +2217,7 @@ with left_col:
                         return text.startsWith(left) && text.endsWith(right) && text.length >= (left.length + right.length);
                       }
                 
-                      // Toggle wrapper around selection
+                      // Toggle wrapper around selection (works whether selection includes markers or not)
                       function toggleWrapSelection(ta, left, right){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
@@ -2245,7 +2245,7 @@ with left_col:
                           return;
                         }
                 
-                        // Case 2: markers just outside selection
+                        // Case 2: markers just outside selection (user selected only inner text)
                         const before = v.slice(Math.max(0, start - left.length), start);
                         const after  = v.slice(end, end + right.length);
                         if (before === left && after === right){
@@ -2265,10 +2265,10 @@ with left_col:
                       }
                 
                       // ✅ Clear formatting on selection (or current line if no selection)
-                      // Removes ALL occurrences of markdown bold/italic markers in the selection:
-                      //   - replaces **text** -> text
-                      //   - replaces *text*   -> text
-                      // also collapses any leftover repeated stars.
+                      // Removes ALL markdown emphasis markers in the target region:
+                      // - **text** -> text
+                      // - *text*   -> text
+                      // Handles nested like ***text*** too.
                       function clearFormattingSelection(ta){
                         let start = ta.selectionStart ?? 0;
                         let end = ta.selectionEnd ?? 0;
@@ -2284,21 +2284,17 @@ with left_col:
                         }
                 
                         const sel = v.slice(start, end);
-                
-                        // Remove any number of leading/trailing * wrappers
-                        // This is intentionally aggressive: it removes ALL markdown emphasis markers.
                         let cleaned = sel;
                 
-                        // unwrap repeatedly: **...** and *...*
-                        // We do it in loops to handle nested/multiple markers.
-                        for(let i=0;i<6;i++){
+                        // unwrap repeatedly to handle nested markers
+                        for(let i=0;i<8;i++){
                           const before = cleaned;
                           cleaned = cleaned.replace(/\\*\\*(.+?)\\*\\*/gs, '$1');
                           cleaned = cleaned.replace(/(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)/gs, '$1');
                           if(cleaned === before) break;
                         }
                 
-                        // Also remove stray sequences like ***Vegas*** -> Vegas
+                        // remove any leftover star runs
                         cleaned = cleaned.replace(/\\*{2,}/g, '');
                 
                         if (cleaned === sel) return;
@@ -2320,21 +2316,22 @@ with left_col:
                 
                           const k = (e.key || '').toLowerCase();
                 
-                          // Toggle bold/italic
                           if(k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
                             return;
                           }
+                
                           if(k === 'i'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '*', '*');
                             return;
                           }
                 
-                          // ✅ Ctrl/Cmd + R => Clear formatting for selection (works great with Ctrl+A then Ctrl+R)
-                          if(k === 'r'){
-                            e.preventDefault(); // stop browser refresh
+                          // ✅ Two-key reset: Ctrl/Cmd + \
+                          // Note: e.key is "\" (a single backslash). In JS string literal it must be escaped as "\\"
+                          if(e.key === '\\\\'){
+                            e.preventDefault();
                             e.stopPropagation();
                             clearFormattingSelection(ta);
                             return;
@@ -2348,9 +2345,7 @@ with left_col:
                         if(ta) mount(ta);
                       }, 300);
                 
-                      // optional cleanup
                       setTimeout(()=>{ try{ clearInterval(timer); }catch(e){} }, 30000);
-                
                     })();
                     </script>
                     """,
