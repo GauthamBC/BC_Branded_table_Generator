@@ -1778,7 +1778,7 @@ def generate_table_html_from_df(
             return float(s) if s else 0.0
         except Exception:
             return 0.0
-        def format_numeric_for_display(raw_val, max_decimals: int = 2) -> str:
+    def format_numeric_for_display(raw_val, max_decimals: int = 2) -> str:
         """
         Limits numeric values to max 2 decimals (trim trailing zeros).
         Leaves integers as integers.
