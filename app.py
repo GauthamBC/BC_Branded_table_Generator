@@ -992,8 +992,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.export-mode #bt-block thead th{ position:static !important; }
     .vi-table-embed.export-mode #bt-block tbody tr:hover,
     .vi-table-embed.export-mode #bt-block tbody tr:hover td{ transform:none !important; box-shadow:none !important; }
-    .vi-table-embed.export-mode #bt-block table.dw-table{ table-layout:fixed !important; width:100% !important; }
-    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
+    .vi-table-embed.export-mode #bt-block table.dw-table{
+      table-layout:auto !important;
+      width:max-content !important;
+      min-width:100% !important;
+    }
+    .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+    }
   </style>
 
   <!-- Header -->
@@ -1495,6 +1502,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
             overflow: visible !important;
             text-overflow: clip !important;
           }
+            /* ✅ Force header labels to stay on 1 line in export */
+          .vi-table-embed.export-mode #bt-block thead th{
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+
         
           /* ✅ Remove the 2-line clamp / ellipsis in export */
           .vi-table-embed.export-mode #bt-block .dw-cell{
@@ -1511,7 +1525,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
             min-width: calc(var(--bar-fixed-w) + 70px) !important;
           }
         `;
-        clone.prepend(exportStyle);
+        clone.appendChild(exportStyle);
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
