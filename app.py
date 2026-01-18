@@ -2194,40 +2194,45 @@ with left_col:
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
                 
-                      // ✅ React-safe setter so Streamlit registers programmatic changes immediately
-                      function setValueReactSafe(el, value){
-                        try{
-                          const proto = Object.getPrototypeOf(el);
-                          const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-                          const setter = desc && desc.set;
-                          if (setter) setter.call(el, value);
-                          else el.value = value;
-                        }catch(e){
-                          el.value = value;
-                        }
+                      function dispatchStreamlitEvents(el){
+                        // Make Streamlit/React notice the change
                         el.dispatchEvent(new Event('input',  { bubbles:true }));
                         el.dispatchEvent(new Event('change', { bubbles:true }));
                       }
                 
-                      function getValue(el){
-                        return el?.value ?? '';
+                      // ✅ Undo-friendly edit: uses setRangeText (creates native undo steps)
+                      function applyEdit(ta, start, end, replacement, selectMode){
+                        ta.focus();
+                
+                        // Primary path: preserves undo stack
+                        if (typeof ta.setRangeText === 'function'){
+                          ta.setRangeText(replacement, start, end, selectMode || 'preserve');
+                          dispatchStreamlitEvents(ta);
+                          return true;
+                        }
+                
+                        // Fallback path (should be rare): may not preserve undo stack
+                        const v = ta.value ?? '';
+                        ta.value = v.slice(0, start) + replacement + v.slice(end);
+                        dispatchStreamlitEvents(ta);
+                        return false;
                       }
+                
+                      function getValue(el){ return el?.value ?? ''; }
                 
                       function hasWrapper(text, left, right){
                         return text.startsWith(left) && text.endsWith(right) && text.length >= (left.length + right.length);
                       }
                 
-                      // Toggle wrapper around selection (works whether selection includes markers or not)
                       function toggleWrapSelection(ta, left, right){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // No selection: insert wrapper and place cursor between
+                        // No selection: insert wrapper and move cursor inside
                         if (start === end){
-                          const next = v.slice(0, start) + left + right + v.slice(end);
-                          setValueReactSafe(ta, next);
-                          ta.focus();
+                          const insert = left + right;
+                          applyEdit(ta, start, end, insert, 'end');
                           const pos = start + left.length;
                           try{ ta.setSelectionRange(pos, pos); }catch(e){}
                           return;
@@ -2238,37 +2243,30 @@ with left_col:
                         // Case 1: selection includes markers
                         if (hasWrapper(sel, left, right)){
                           const unwrapped = sel.slice(left.length, sel.length - right.length);
-                          const next = v.slice(0, start) + unwrapped + v.slice(end);
-                          setValueReactSafe(ta, next);
-                          ta.focus();
+                          applyEdit(ta, start, end, unwrapped, 'select');
                           try{ ta.setSelectionRange(start, start + unwrapped.length); }catch(e){}
                           return;
                         }
                 
-                        // Case 2: markers just outside selection (user selected only inner text)
+                        // Case 2: markers just outside selection (user selected inner text)
                         const before = v.slice(Math.max(0, start - left.length), start);
                         const after  = v.slice(end, end + right.length);
                         if (before === left && after === right){
-                          const next = v.slice(0, start - left.length) + sel + v.slice(end + right.length);
-                          setValueReactSafe(ta, next);
-                          ta.focus();
-                          const ns = start - left.length;
-                          try{ ta.setSelectionRange(ns, ns + sel.length); }catch(e){}
+                          // remove outside markers by replacing a wider range
+                          const wideStart = start - left.length;
+                          const wideEnd = end + right.length;
+                          applyEdit(ta, wideStart, wideEnd, sel, 'select');
+                          try{ ta.setSelectionRange(wideStart, wideStart + sel.length); }catch(e){}
                           return;
                         }
                 
-                        // Otherwise wrap
-                        const next = v.slice(0, start) + left + sel + right + v.slice(end);
-                        setValueReactSafe(ta, next);
-                        ta.focus();
+                        // Otherwise: wrap selection
+                        const wrapped = left + sel + right;
+                        applyEdit(ta, start, end, wrapped, 'select');
                         try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                       }
                 
-                      // ✅ Clear formatting on selection (or current line if no selection)
-                      // Removes ALL markdown emphasis markers in the target region:
-                      // - **text** -> text
-                      // - *text*   -> text
-                      // Handles nested like ***text*** too.
+                      // Clear formatting in selection (or current line if no selection)
                       function clearFormattingSelection(ta){
                         let start = ta.selectionStart ?? 0;
                         let end = ta.selectionEnd ?? 0;
@@ -2286,7 +2284,7 @@ with left_col:
                         const sel = v.slice(start, end);
                         let cleaned = sel;
                 
-                        // unwrap repeatedly to handle nested markers
+                        // unwrap repeatedly to handle nested markers like ***text***
                         for(let i=0;i<8;i++){
                           const before = cleaned;
                           cleaned = cleaned.replace(/\\*\\*(.+?)\\*\\*/gs, '$1');
@@ -2299,9 +2297,7 @@ with left_col:
                 
                         if (cleaned === sel) return;
                 
-                        const next = v.slice(0, start) + cleaned + v.slice(end);
-                        setValueReactSafe(ta, next);
-                        ta.focus();
+                        applyEdit(ta, start, end, cleaned, 'select');
                         try{ ta.setSelectionRange(start, start + cleaned.length); }catch(e){}
                       }
                 
@@ -2312,6 +2308,9 @@ with left_col:
                         ta.addEventListener('keydown', (e)=>{
                           const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
+                
+                          // IMPORTANT: do NOT interfere with Undo/Redo
+                          // We only handle our specific shortcuts.
                           if(!mod) return;
                 
                           const k = (e.key || '').toLowerCase();
@@ -2328,14 +2327,15 @@ with left_col:
                             return;
                           }
                 
-                          // ✅ Two-key reset: Ctrl/Cmd + \
-                          // Note: e.key is "\" (a single backslash). In JS string literal it must be escaped as "\\"
+                          // Two-key clear formatting: Ctrl/Cmd + \
                           if(e.key === '\\\\'){
                             e.preventDefault();
                             e.stopPropagation();
                             clearFormattingSelection(ta);
                             return;
                           }
+                
+                          // Let Ctrl/Cmd+Z (undo) and Ctrl/Cmd+Y or Cmd+Shift+Z (redo) pass through naturally
                         });
                       }
                 
