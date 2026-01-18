@@ -1677,19 +1677,28 @@ def guess_column_type(series: pd.Series) -> str:
 
 def format_column_header(col_name: str, mode: str) -> str:
     s = str(col_name or "")
-
     mode = (mode or "").strip().lower()
 
     # ✅ Keep exactly as uploaded
-    if mode in ("keep original", "keep as-is", "keep as is", "keep"):
+    if mode.startswith("keep"):
         return s
 
-    # ✅ For Sentence/Title case, make it more readable first
+    # ✅ Make it more readable first
     s2 = s.replace("_", " ").strip()
     s2 = re.sub(r"\s+", " ", s2)
 
     if not s2:
         return s
+
+    # ✅ Sentence case
+    if mode.startswith("sentence"):
+        return s2[:1].upper() + s2[1:].lower()
+
+    # ✅ Title Case
+    if mode.startswith("title"):
+        return s2.title()
+
+    return s
 
     if mode in ("sentence case", "sentence"):
         # First letter uppercase, rest lowercase
