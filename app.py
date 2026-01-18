@@ -1778,6 +1778,40 @@ def generate_table_html_from_df(
             return float(s) if s else 0.0
         except Exception:
             return 0.0
+        def format_numeric_for_display(raw_val, max_decimals: int = 2) -> str:
+        """
+        Limits numeric values to max 2 decimals (trim trailing zeros).
+        Leaves integers as integers.
+        Does NOT touch values that contain currency symbols, %, words, etc.
+        """
+        if pd.isna(raw_val):
+            return ""
+
+        s = str(raw_val).strip()
+
+        # If it includes symbols/letters (%,$,etc) → do NOT reformat
+        if re.search(r"[^\d\.\-\,\s]", s):
+            return s
+
+        # Normalize commas/spaces
+        plain = re.sub(r"[,\s]", "", s)
+
+        # Must be a plain number like -12 or 12.345
+        if not re.fullmatch(r"-?\d+(\.\d+)?", plain):
+            return s
+
+        try:
+            num = float(plain)
+        except Exception:
+            return s
+
+        # If it's basically an integer → show no decimals
+        if abs(num - round(num)) < 1e-12:
+            return str(int(round(num)))
+
+        # Otherwise show max 2 decimals, but trim trailing zeros
+        out = f"{num:.{max_decimals}f}".rstrip("0").rstrip(".")
+        return out
 
     # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
