@@ -1675,6 +1675,32 @@ def guess_column_type(series: pd.Series) -> str:
             continue
     return "num" if numeric_like >= max(3, len(sample) // 2) else "text"
 
+def format_column_header(col_name: str, mode: str) -> str:
+    s = str(col_name or "")
+
+    mode = (mode or "").strip().lower()
+
+    # ✅ Keep exactly as uploaded
+    if mode in ("keep original", "keep as-is", "keep as is", "keep"):
+        return s
+
+    # ✅ For Sentence/Title case, make it more readable first
+    s2 = s.replace("_", " ").strip()
+    s2 = re.sub(r"\s+", " ", s2)
+
+    if not s2:
+        return s
+
+    if mode in ("sentence case", "sentence"):
+        # First letter uppercase, rest lowercase
+        return s2[:1].upper() + s2[1:].lower()
+
+    if mode in ("title case", "title"):
+        # Title Case (simple + clean)
+        return s2.title()
+
+    return s
+
 
 def generate_table_html_from_df(
     df: pd.DataFrame,
@@ -1695,15 +1721,14 @@ def generate_table_html_from_df(
     footer_logo_align: str = "Center",
     cell_align: str = "Center",
     footer_logo_h: int = 36,
-    # ✅ Footer notes
     show_footer_notes: bool = False,
     footer_notes: str = "",
-
-    # ✅ Bars
     bar_columns: list[str] | None = None,
     bar_max_overrides: dict | None = None,
-    bar_fixed_w: int = 200,  # ✅ NEW (fixed px width for every bar track)
+    bar_fixed_w: int = 200,
+    header_style: str = "Keep original",   # ✅ NEW
 ) -> str:
+
     df = df.copy()
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
@@ -1767,7 +1792,8 @@ def generate_table_html_from_df(
     head_cells = []
     for col in df.columns:
         col_type = guess_column_type(df[col])
-        safe_label = html_mod.escape(str(col))
+        display_col = format_column_header(col, header_style)
+        safe_label = html_mod.escape(display_col)
 
         # ✅ add class to bar columns so CSS can force min-width
         is_bar_col = (col in bar_columns_set and col_type == "num")
@@ -1928,6 +1954,7 @@ def draft_config_from_state() -> dict:
         "bar_columns": st.session_state.get("bt_bar_columns", []),
         "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}),
         "bar_fixed_w": st.session_state.get("bt_bar_fixed_w", 200),
+        "header_style": st.session_state.get("bt_header_style", "Keep original"),
     }
 
 
@@ -1957,6 +1984,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         bar_columns=cfg.get("bar_columns", []),
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
         bar_fixed_w=cfg.get("bar_fixed_w", 200),
+        header_style=cfg.get("header_style", "Keep original"),
     )
 
 
@@ -2044,6 +2072,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
+    st.session_state.setdefault("bt_header_style", "Keep original")
 
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
     if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
@@ -2457,6 +2486,22 @@ with left_col:
                     index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                     key="bt_cell_align",
                 )
+                st.selectbox(
+                    "Column header style",
+                    options=[
+                        "Keep original",
+                        "Sentence case (Example header)",
+                        "Title Case (Example Header)",
+                    ],
+                    index=[
+                        "Keep original",
+                        "Sentence case (Example header)",
+                        "Title Case (Example Header)",
+                    ].index(st.session_state.get("bt_header_style", "Keep original")),
+                    key="bt_header_style",
+                    help="Controls how column headers are displayed. This does not change your CSV data.",
+                )
+
 
                 st.checkbox(
                     "Show Search",
