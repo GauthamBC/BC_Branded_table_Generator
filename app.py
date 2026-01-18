@@ -2188,19 +2188,19 @@ with left_col:
                     <script>
                     (function(){
                       const TOOLBAR_ID = 'bt-footer-notes-toolbar-v1';
-                      if (document.getElementById(TOOLBAR_ID)) return;
-
+                      if (window.parent.document.getElementById(TOOLBAR_ID)) return;
+                    
                       function findTextarea(){
-                        // Streamlit sets aria-label equal to the widget label.
-                        return document.querySelector('textarea[aria-label="Footer notes"]');
+                        // IMPORTANT: look in the PARENT document (Streamlit page), not the iframe
+                        return window.parent.document.querySelector('textarea[aria-label="Footer notes"]');
                       }
-
+                    
                       function wrapSelection(ta, left, right, placeholder){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
                         const v = ta.value || '';
                         const sel = v.slice(start, end);
-
+                    
                         if (!sel){
                           const insert = left + (placeholder || '') + right;
                           ta.value = v.slice(0, start) + insert + v.slice(end);
@@ -2213,26 +2213,27 @@ with left_col:
                           ta.focus();
                           try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                         }
-
+                    
+                        // Fire input event so Streamlit updates session_state
                         ta.dispatchEvent(new Event('input', { bubbles:true }));
                       }
-
+                    
                       function mount(ta){
                         if (!ta || ta.dataset.btNotesReady === '1') return;
                         ta.dataset.btNotesReady = '1';
-
-                        // Place toolbar right above the textarea.
+                    
+                        const doc = window.parent.document;
                         const wrap = ta.closest('div');
                         if (!wrap) return;
-
-                        const toolbar = document.createElement('div');
+                    
+                        const toolbar = doc.createElement('div');
                         toolbar.id = TOOLBAR_ID;
                         toolbar.style.display = 'flex';
                         toolbar.style.gap = '8px';
                         toolbar.style.margin = '6px 0 10px 0';
-
+                    
                         const mkBtn = (label, title, onClick) => {
-                          const b = document.createElement('button');
+                          const b = doc.createElement('button');
                           b.type = 'button';
                           b.title = title;
                           b.textContent = label;
@@ -2246,19 +2247,19 @@ with left_col:
                           b.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
                           return b;
                         };
-
+                    
                         const boldBtn = mkBtn('𝐁', 'Bold (Ctrl/⌘+B)', ()=> wrapSelection(ta, '**', '**', 'bold'));
                         const italBtn = mkBtn('𝑰', 'Italic (Ctrl/⌘+I)', ()=> wrapSelection(ta, '*', '*', 'italic'));
-
+                    
                         toolbar.appendChild(boldBtn);
                         toolbar.appendChild(italBtn);
-
-                        // Insert toolbar before the textarea wrapper.
+                    
+                        // Insert toolbar above the textarea
                         wrap.parentElement.insertBefore(toolbar, wrap);
-
-                        // Keyboard shortcuts
+                    
+                        // Keyboard shortcuts on the textarea (in parent doc)
                         ta.addEventListener('keydown', (e)=>{
-                          const isMac = navigator.platform.toUpperCase().includes('MAC');
+                          const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
                           if(!mod) return;
                           const k = (e.key || '').toLowerCase();
@@ -2271,8 +2272,7 @@ with left_col:
                             wrapSelection(ta, '*', '*', 'italic');
                           }
                         });
-
-                        // Disable toolbar buttons when textarea is disabled
+                    
                         const syncDisabled = ()=>{
                           const dis = ta.disabled;
                           boldBtn.disabled = dis;
@@ -2286,8 +2286,7 @@ with left_col:
                         const obs = new MutationObserver(syncDisabled);
                         obs.observe(ta, { attributes:true, attributeFilter:['disabled'] });
                       }
-
-                      // Wait for Streamlit to render the textarea
+                    
                       const start = Date.now();
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
