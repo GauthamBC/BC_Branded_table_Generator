@@ -1,6 +1,4 @@
-
 import base64
-
 import datetime
 import html as html_mod
 import json
@@ -796,20 +794,23 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block thead th,
     #bt-block tbody td {
       padding: 16px 14px;
+      overflow: hidden;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
 
     #bt-block .dw-cell{
       white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: normal;
+      word-break: normal;
       line-height: 1.35;
-    
-      /* ✅ IMPORTANT: no clamping / no ellipsis */
-      display: block;
-      overflow: visible;
-      text-overflow: clip;
+
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     /* ======================================================
@@ -993,26 +994,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.export-mode #bt-block tbody tr:hover td{ transform:none !important; box-shadow:none !important; }
     .vi-table-embed.export-mode #bt-block table.dw-table{ table-layout:fixed !important; width:100% !important; }
     .vi-table-embed.export-mode #bt-block .dw-scroll.no-scroll{ overflow-x:hidden !important; }
-        /* ✅ EXPORT MODE: never clip any text */
-    .vi-table-embed.export-mode #bt-block thead th,
-    .vi-table-embed.export-mode #bt-block tbody td{
-      overflow: visible !important;
-    }
-    
-    .vi-table-embed.export-mode #bt-block .dw-cell{
-      display:block !important;
-      white-space: normal !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
-    
-      -webkit-line-clamp: unset !important;
-      -webkit-box-orient: unset !important;
-    }
-    
-    /* ✅ prevent footer sticky overlay during export */
-    .vi-table-embed.export-mode .vi-footer{
-      position: static !important;
-    }
   </style>
 
   <!-- Header -->
@@ -1417,9 +1398,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         cloneScroller.classList.add('no-scroll');
       }
 
-      const w = Math.max(900, Math.ceil(targetWidth || 1200));
-      clone.style.maxWidth = 'none';
-      clone.style.width = w + 'px';
+      // ✅ export width = full table scroll width (not viewport width)
+    const w = Math.max(900, Math.ceil(targetWidth || 1200));
+    clone.style.maxWidth = "none";
+    clone.style.width = w + "px";
+    
+    // ✅ ensure the table itself isn't constrained by parent width
+    const cloneTable = clone.querySelector("table.dw-table");
+    if(cloneTable){
+      cloneTable.style.width = "max-content";
+      cloneTable.style.minWidth = "100%";
+    }
 
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
       await waitForFontsAndImages(clone);
@@ -1490,20 +1479,53 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         const clone = widget.cloneNode(true);
         clone.classList.add('export-mode');
         clone.querySelectorAll('script').forEach(s => s.remove());
+        // ✅ Export-only CSS overrides (does NOT touch interactive table)
+        const exportStyle = document.createElement("style");
+        exportStyle.textContent = `
+          /* ✅ Let the table size itself naturally so headers never clip */
+          .vi-table-embed.export-mode #bt-block table.dw-table{
+            table-layout: auto !important;
+            width: max-content !important;
+            min-width: 100% !important;
+          }
+        
+          /* ✅ No clipping in header/cells */
+          .vi-table-embed.export-mode #bt-block thead th,
+          .vi-table-embed.export-mode #bt-block tbody td{
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+        
+          /* ✅ Remove the 2-line clamp / ellipsis in export */
+          .vi-table-embed.export-mode #bt-block .dw-cell{
+            display: block !important;
+            -webkit-line-clamp: unset !important;
+            -webkit-box-orient: unset !important;
+            overflow: visible !important;
+            white-space: normal !important;
+          }
+        
+          /* ✅ Export should never compress the bar columns */
+          .vi-table-embed.export-mode #bt-block th.dw-bar-col,
+          .vi-table-embed.export-mode #bt-block td.dw-bar-td{
+            min-width: calc(var(--bar-fixed-w) + 70px) !important;
+          }
+        `;
+        clone.prepend(exportStyle);
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
 
         showRowsInClone(clone, mode);
-        await new Promise(r => setTimeout(r, 80));
 
         const base = getFilenameBase(clone);
         const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
-        const tableEl = widget.querySelector("table.dw-table");
-        const targetWidth = Math.max(tableEl?.scrollWidth || 0, 1200);
-        await captureCloneToPng(clone, stage, filename, targetWidth);
+        const srcTable = widget.querySelector("table.dw-table");
+        const fullTableWidth = Math.ceil(srcTable?.scrollWidth || widget.getBoundingClientRect().width || 1200);
+        
+        await captureCloneToPng(clone, stage, filename, fullTableWidth);
 
       }catch(err){
         console.error("PNG export failed:", err);
