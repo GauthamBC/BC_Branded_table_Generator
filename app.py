@@ -1,4 +1,5 @@
 import base64
+
 import datetime
 import html as html_mod
 import json
@@ -2169,13 +2170,7 @@ with left_col:
                     st.session_state["bt_footer_logo_align"] = "Right"
 
                 st.caption("Use **Ctrl/⌘ + B** for bold and **Ctrl/⌘ + I** for italic (Markdown: **bold**, *italic*).")
-
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.button("Apply", key="bt_footer_notes_apply", use_container_width=True)
-                with col_b:
-                    st.button("Reset", key="bt_footer_notes_reset", use_container_width=True)
-    
+   
                 # Editable markdown textarea (Streamlit native)
                 st.text_area(
                     "Footer notes",
@@ -2197,17 +2192,12 @@ with left_col:
                       if(!doc) return;
                 
                       // Avoid double mounting across reruns
-                      const FLAG = 'btFooterNotesApplyResetV2';
+                      const FLAG = 'btFooterNotesHotkeysOnlyV1';
                       if (doc.body.dataset[FLAG] === '1') return;
                       doc.body.dataset[FLAG] = '1';
                 
                       function findTextarea(){
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
-                      }
-                
-                      function findButtonByText(txt){
-                        const buttons = Array.from(doc.querySelectorAll('button'));
-                        return buttons.find(b => (b.innerText || '').trim() === txt) || null;
                       }
                 
                       // ✅ React-safe setter so Streamlit immediately registers programmatic changes
@@ -2221,8 +2211,6 @@ with left_col:
                         }catch(e){
                           el.value = value;
                         }
-                
-                        // Fire events that Streamlit/React listens to
                         el.dispatchEvent(new Event('input',  { bubbles:true }));
                         el.dispatchEvent(new Event('change', { bubbles:true }));
                       }
@@ -2231,19 +2219,18 @@ with left_col:
                         return el?.value ?? '';
                       }
                 
-                      function wrapSelection(ta, left, right, placeholder){
+                      function wrapSelection(ta, left, right){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                         const sel = v.slice(start, end);
                 
+                        // If no selection, just insert the markers and place cursor between them
                         let next, selStart, selEnd;
-                
                         if (!sel){
-                          const insert = left + (placeholder || '') + right;
-                          next = v.slice(0, start) + insert + v.slice(end);
+                          next = v.slice(0, start) + left + right + v.slice(end);
                           selStart = start + left.length;
-                          selEnd = selStart + (placeholder || '').length;
+                          selEnd = selStart;
                         } else {
                           next = v.slice(0, start) + left + sel + right + v.slice(end);
                           selStart = start + left.length;
@@ -2251,8 +2238,6 @@ with left_col:
                         }
                 
                         setValueReactSafe(ta, next);
-                
-                        // Restore selection
                         ta.focus();
                         try{ ta.setSelectionRange(selStart, selEnd); }catch(e){}
                       }
@@ -2261,11 +2246,6 @@ with left_col:
                         if(!ta || ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
                 
-                        // Baseline for reset (captured on focus + updated on Apply)
-                        let baseline = getValue(ta);
-                        ta.addEventListener('focus', ()=> { baseline = getValue(ta); });
-                
-                        // Keyboard shortcuts
                         ta.addEventListener('keydown', (e)=>{
                           const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
@@ -2275,45 +2255,17 @@ with left_col:
                 
                           if(k === 'b'){
                             e.preventDefault();
-                            wrapSelection(ta, '**', '**', 'bold');
+                            wrapSelection(ta, '**', '**');
                             return;
                           }
                           if(k === 'i'){
                             e.preventDefault();
-                            wrapSelection(ta, '*', '*', 'italic');
-                            return;
-                          }
-                
-                          // Swallow Ctrl+Enter to stop Streamlit weirdness; treat as Apply/commit
-                          if(k === 'enter' || e.keyCode === 13){
-                            e.preventDefault();
-                            setValueReactSafe(ta, getValue(ta));
-                            baseline = getValue(ta);
+                            wrapSelection(ta, '*', '*');
                             return;
                           }
                         });
-                
-                        // Hook Apply/Reset buttons
-                        const applyBtn = findButtonByText('Apply');
-                        const resetBtn = findButtonByText('Reset');
-                
-                        if(applyBtn){
-                          applyBtn.addEventListener('click', ()=>{
-                            // Commit current value via React-safe setter
-                            setValueReactSafe(ta, getValue(ta));
-                            baseline = getValue(ta);
-                          }, true);
-                        }
-                
-                        if(resetBtn){
-                          resetBtn.addEventListener('click', ()=>{
-                            setValueReactSafe(ta, baseline || '');
-                            ta.focus();
-                          }, true);
-                        }
                       }
                 
-                      // Wait until textarea appears
                       const start = Date.now();
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
