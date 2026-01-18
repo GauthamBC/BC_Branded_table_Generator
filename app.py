@@ -2194,7 +2194,7 @@ with left_col:
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
                 
-                      // React-safe setter so Streamlit registers programmatic changes immediately
+                      // ✅ React-safe setter so Streamlit registers changes immediately
                       function setValueReactSafe(el, value){
                         try{
                           const proto = Object.getPrototypeOf(el);
@@ -2217,14 +2217,13 @@ with left_col:
                         return text.startsWith(left) && text.endsWith(right) && text.length >= (left.length + right.length);
                       }
                 
-                      // Toggle wrapper around selection.
-                      // If selection already wrapped with left/right, unwrap; otherwise wrap.
+                      // Toggle wrapper around selection
                       function toggleWrapSelection(ta, left, right){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // No selection: insert wrapper, cursor in middle
+                        // No selection: insert wrapper and place cursor between
                         if (start === end){
                           const next = v.slice(0, start) + left + right + v.slice(end);
                           setValueReactSafe(ta, next);
@@ -2236,7 +2235,7 @@ with left_col:
                 
                         const sel = v.slice(start, end);
                 
-                        // Case 1: user selected including markers
+                        // Case 1: selection includes markers
                         if (hasWrapper(sel, left, right)){
                           const unwrapped = sel.slice(left.length, sel.length - right.length);
                           const next = v.slice(0, start) + unwrapped + v.slice(end);
@@ -2246,7 +2245,7 @@ with left_col:
                           return;
                         }
                 
-                        // Case 2: markers are just outside selection
+                        // Case 2: markers just outside selection
                         const before = v.slice(Math.max(0, start - left.length), start);
                         const after  = v.slice(end, end + right.length);
                         if (before === left && after === right){
@@ -2265,14 +2264,17 @@ with left_col:
                         try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                       }
                 
-                      // Clear formatting for selection (or current line if no selection):
-                      // removes one layer of ** ** and/or * *
-                      function clearFormatting(ta){
+                      // ✅ Clear formatting on selection (or current line if no selection)
+                      // Removes ALL occurrences of markdown bold/italic markers in the selection:
+                      //   - replaces **text** -> text
+                      //   - replaces *text*   -> text
+                      // also collapses any leftover repeated stars.
+                      function clearFormattingSelection(ta){
                         let start = ta.selectionStart ?? 0;
                         let end = ta.selectionEnd ?? 0;
                         const v = getValue(ta);
                 
-                        // If no selection, use current line
+                        // If no selection, operate on current line
                         if (start === end){
                           const lineStart = v.lastIndexOf('\\n', start - 1) + 1;
                           const lineEndIdx = v.indexOf('\\n', start);
@@ -2281,22 +2283,30 @@ with left_col:
                           end = lineEnd;
                         }
                 
-                        let sel = v.slice(start, end);
+                        const sel = v.slice(start, end);
                 
-                        const unwrapOnce = (s, left, right) => hasWrapper(s, left, right)
-                          ? s.slice(left.length, s.length - right.length)
-                          : s;
+                        // Remove any number of leading/trailing * wrappers
+                        // This is intentionally aggressive: it removes ALL markdown emphasis markers.
+                        let cleaned = sel;
                 
-                        const beforeSel = sel;
-                        sel = unwrapOnce(sel, '**', '**');
-                        sel = unwrapOnce(sel, '*', '*');
+                        // unwrap repeatedly: **...** and *...*
+                        // We do it in loops to handle nested/multiple markers.
+                        for(let i=0;i<6;i++){
+                          const before = cleaned;
+                          cleaned = cleaned.replace(/\\*\\*(.+?)\\*\\*/gs, '$1');
+                          cleaned = cleaned.replace(/(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)/gs, '$1');
+                          if(cleaned === before) break;
+                        }
                 
-                        if (sel === beforeSel) return;
+                        // Also remove stray sequences like ***Vegas*** -> Vegas
+                        cleaned = cleaned.replace(/\\*{2,}/g, '');
                 
-                        const next = v.slice(0, start) + sel + v.slice(end);
+                        if (cleaned === sel) return;
+                
+                        const next = v.slice(0, start) + cleaned + v.slice(end);
                         setValueReactSafe(ta, next);
                         ta.focus();
-                        try{ ta.setSelectionRange(start, start + sel.length); }catch(e){}
+                        try{ ta.setSelectionRange(start, start + cleaned.length); }catch(e){}
                       }
                 
                       function mount(ta){
@@ -2310,6 +2320,7 @@ with left_col:
                 
                           const k = (e.key || '').toLowerCase();
                 
+                          // Toggle bold/italic
                           if(k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
@@ -2321,16 +2332,17 @@ with left_col:
                             return;
                           }
                 
-                          // Ctrl/Cmd + \ clears formatting
-                          if(e.key === '\\\\'){
-                            e.preventDefault();
-                            clearFormatting(ta);
+                          // ✅ Ctrl/Cmd + R => Clear formatting for selection (works great with Ctrl+A then Ctrl+R)
+                          if(k === 'r'){
+                            e.preventDefault(); // stop browser refresh
+                            e.stopPropagation();
+                            clearFormattingSelection(ta);
                             return;
                           }
                         });
                       }
                 
-                      // Keep trying: Streamlit reruns can replace the textarea node
+                      // Streamlit reruns can replace the textarea node — keep re-mounting safely
                       const timer = setInterval(()=>{
                         const ta = findTextarea();
                         if(ta) mount(ta);
