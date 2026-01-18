@@ -919,16 +919,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     
     /* ✅ Wrapper gives us “card” spacing + keeps layout stable */
     .vi-table-embed .footer-notes-wrap{
-      flex: 1 1 auto;
+      flex: 1 1 0;
+      min-width: 0;
       display:flex;
       align-items:center;
       padding-right: 10px;
-      min-width: 0;
     }
     
-   .vi-table-embed .footer-notes{
+    /* ✅ Auto-expand notes to all available width */
+    .vi-table-embed .footer-notes{
+      flex: 1 1 0;
       width: 100%;
-      max-width: 760px;
+      max-width: none;   /* ✅ THIS is the key change */
+    
       padding: 10px 12px;
       border-radius: 12px;
     
@@ -944,7 +947,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       max-height: 46px;
       overflow:auto;
     }
-    
+        
     /* Optional typographic polish */
     .vi-table-embed .footer-notes strong{ color:#111827; font-weight:750; }
     .vi-table-embed .footer-notes em{ color:#374151; }
