@@ -2181,8 +2181,7 @@ with left_col:
                     help="Bold: **text**  •  Italic: *text*",
                 )
 
-                # JS toolbar + keyboard shortcuts that WRAP the current selection in the textarea.
-                components.html(
+               components.html(
                     """
                     <script>
                     (function(){
@@ -2208,7 +2207,7 @@ with left_col:
                           return;
                         }
                 
-                        // fallback (rare)
+                        // fallback
                         const v = ta.value ?? '';
                         ta.value = v.slice(0, start) + replacement + v.slice(end);
                         dispatchStreamlitEvents(ta);
@@ -2259,18 +2258,85 @@ with left_col:
                         try{ ta.setSelectionRange(start + left.length, end + left.length); }catch(e){}
                       }
                 
+                      // ✅ Remove formatting markers (customize if you ONLY want asterisks)
+                      function stripFormattingMarkers(text){
+                        let t = (text ?? "");
+                
+                        // Remove common markdown markers:
+                        // - bold/italic asterisks
+                        t = t.replace(/\\*\\*/g, "");
+                        t = t.replace(/\\*/g, "");
+                
+                        // If you also want underscores/strikethrough, uncomment:
+                        // t = t.replace(/__/g, "");
+                        // t = t.replace(/_/g, "");
+                        // t = t.replace(/~~/g, "");
+                
+                        return t;
+                      }
+                
                       function mount(ta){
                         if(!ta) return;
                         if (ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
                 
+                        const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
+                
+                        // ✅ Track "select all" then "undo"
+                        let sawSelectAll = false;
+                        let selectAllAt = 0;
+                
+                        function isSelectAllState(){
+                          const v = getValue(ta);
+                          return (ta.selectionStart === 0 && ta.selectionEnd === v.length && v.length > 0);
+                        }
+                
                         ta.addEventListener('keydown', (e)=>{
-                          const isMac = (navigator.platform || '').toUpperCase().includes('MAC');
                           const mod = isMac ? e.metaKey : e.ctrlKey;
                           if(!mod) return;
                 
                           const k = (e.key || '').toLowerCase();
                 
+                          // Ctrl/⌘ + A
+                          if (k === 'a'){
+                            // let browser do selection, then record state
+                            setTimeout(()=>{
+                              sawSelectAll = isSelectAllState();
+                              selectAllAt = Date.now();
+                            }, 0);
+                            return;
+                          }
+                
+                          // Ctrl/⌘ + Z
+                          if (k === 'z'){
+                            // Only apply this logic right after a select-all (prevents surprises)
+                            const recent = sawSelectAll && (Date.now() - selectAllAt < 3000);
+                            if (!recent) return;
+                
+                            // wait for native undo to apply, then strip markers
+                            setTimeout(()=>{
+                              const v = getValue(ta);
+                              if (!v) { sawSelectAll = false; return; }
+                
+                              // Only do work if it actually contains formatting markers
+                              if (v.indexOf('*') === -1 /* && v.indexOf('_') === -1 && v.indexOf('~') === -1 */){
+                                sawSelectAll = false;
+                                return;
+                              }
+                
+                              const cleaned = stripFormattingMarkers(v);
+                              if (cleaned !== v){
+                                // Replace entire value in an undo-friendly way
+                                applyEdit(ta, 0, v.length, cleaned, 'preserve');
+                              }
+                
+                              sawSelectAll = false;
+                            }, 0);
+                
+                            return;
+                          }
+                
+                          // Existing shortcuts
                           if(k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
