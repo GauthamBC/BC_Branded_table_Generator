@@ -1583,8 +1583,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         }
         
         // ✅ Call before capture (export-only)
-        wrapExportHeaders(clone, 20);
-
+        wrapExportHeaders(clone, 15);
 
         showRowsInClone(clone, mode);
 
