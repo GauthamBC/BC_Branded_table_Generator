@@ -1,3 +1,4 @@
+
 import base64
 
 import datetime
@@ -367,7 +368,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
 <body style="margin:0; overflow:auto;">
 
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:min(100%, 980px);margin:0 auto;padding:0 14px;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid #DCEFE6;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.09);">
