@@ -2628,6 +2628,34 @@ with left_col:
                     key="bt_header_style",
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
+                                st.divider()
+                st.markdown("#### Table Controls")
+
+                st.checkbox(
+                    "Show Search",
+                    value=st.session_state.get("bt_show_search", True),
+                    key="bt_show_search",
+                )
+
+                st.checkbox(
+                    "Show Pager",
+                    value=st.session_state.get("bt_show_pager", True),
+                    key="bt_show_pager",
+                )
+
+                st.checkbox(
+                    "Show Page Numbers",
+                    value=st.session_state.get("bt_show_page_numbers", True),
+                    key="bt_show_page_numbers",
+                    disabled=not st.session_state.get("bt_show_pager", True),
+                    help="Only works when Pager is enabled.",
+                )
+
+                st.checkbox(
+                    "Show Embed / Download Button",
+                    value=st.session_state.get("bt_show_embed", True),
+                    key="bt_show_embed",
+                )
 
                 st.divider()
                 st.markdown("#### Column Formatting (Live Preview Only)")
