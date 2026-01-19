@@ -2760,32 +2760,32 @@ else:
     except Exception:
         st.warning("Invalid JSON — fix formatting to apply rules.")
 
-                st.checkbox(
-                    "Show Search",
-                    value=st.session_state.get("bt_show_search", True),
-                    key="bt_show_search",
-                )
+        st.checkbox(
+            "Show Search",
+            value=st.session_state.get("bt_show_search", True),
+            key="bt_show_search",
+        )
 
-                show_pager = st.checkbox(
-                    "Show Pager (Rows/Page + Prev/Next)",
-                    value=st.session_state.get("bt_show_pager", True),
-                    key="bt_show_pager",
-                    help="If Off, the table will show all rows by default (but Embed/Download can still remain ON).",
-                )
+        show_pager = st.checkbox(
+            "Show Pager (Rows/Page + Prev/Next)",
+            value=st.session_state.get("bt_show_pager", True),
+            key="bt_show_pager",
+            help="If Off, the table will show all rows by default (but Embed/Download can still remain ON).",
+        )
 
-                st.checkbox(
-                    "Show Page Numbers (Page X Of Y)",
-                    value=st.session_state.get("bt_show_page_numbers", True),
-                    key="bt_show_page_numbers",
-                    disabled=not show_pager,
-                )
+        st.checkbox(
+            "Show Page Numbers (Page X Of Y)",
+            value=st.session_state.get("bt_show_page_numbers", True),
+            key="bt_show_page_numbers",
+            disabled=not show_pager,
+        )
 
-                st.checkbox(
-                    "Show Embed / Download Button",
-                    value=st.session_state.get("bt_show_embed", True),
-                    key="bt_show_embed",
-                    help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
-                )
+        st.checkbox(
+            "Show Embed / Download Button",
+            value=st.session_state.get("bt_show_embed", True),
+            key="bt_show_embed",
+            help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
+        )
 
         with sub_bars:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
