@@ -108,6 +108,7 @@ def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
         token = token.decode("utf-8", errors="ignore")
     return token
 
+
 def get_installation_id_for_user(username: str) -> int:
     username = (username or "").strip()
     if not username:
@@ -135,6 +136,7 @@ def get_installation_id_for_user(username: str) -> int:
 
     return 0
 
+
 @st.cache_data(ttl=50 * 60)
 def get_installation_token_for_user(username: str) -> str:
     """
@@ -160,13 +162,36 @@ def get_installation_token_for_user(username: str) -> str:
     return str(data.get("token", "")).strip()
 
 
+def _github_owner_type(owner: str, token: str) -> str:
+    """
+    Returns 'Organization' or 'User' or ''
+    """
+    try:
+        api_base = "https://api.github.com"
+        r = requests.get(
+            f"{api_base}/users/{owner}",
+            headers=github_headers(token),
+            timeout=20,
+        )
+        if r.status_code != 200:
+            return ""
+        return str((r.json() or {}).get("type", "")).strip()
+    except Exception:
+        return ""
+
+
 def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
+    """
+    Ensures repo exists under `owner`.
+    If missing, creates repo using PAT (PAT must have rights).
+    Returns True if newly created, False if already existed.
+    """
     api_base = "https://api.github.com"
 
     owner = (owner or "").strip()
     repo = (repo or "").strip()
 
-    # First: check if repo exists (using GitHub App token)
+    # First: check if repo exists (using GitHub App token / installation token)
     r = requests.get(
         f"{api_base}/repos/{owner}/{repo}",
         headers=github_headers(install_token),
@@ -190,8 +215,12 @@ def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
 
-    # ✅ PERSONAL ACCOUNT repo creation endpoint
-    create_url = f"{api_base}/user/repos"
+    # ✅ FIX: Create repo under ORG if owner is Organization
+    owner_type = _github_owner_type(owner, GITHUB_PAT)
+    if owner_type == "Organization":
+        create_url = f"{api_base}/orgs/{owner}/repos"
+    else:
+        create_url = f"{api_base}/user/repos"
 
     r2 = requests.post(
         create_url,
@@ -213,10 +242,11 @@ def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main"
     r = requests.get(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, timeout=20)
     if r.status_code == 200:
         return
-    if r.status_code not in (404, 403):
-        raise RuntimeError(f"Error Checking GitHub Pages: {r.status_code} {r.text}")
     if r.status_code == 403:
+        # permissions issue (fine to ignore)
         return
+    if r.status_code != 404:
+        raise RuntimeError(f"Error Checking GitHub Pages: {r.status_code} {r.text}")
 
     payload = {"source": {"branch": branch, "path": "/"}}
     r = requests.post(f"{api_base}/repos/{owner}/{repo}/pages", headers=headers, json=payload, timeout=20)
@@ -314,6 +344,7 @@ def write_github_json(owner: str, repo: str, token: str, path: str, payload: dic
     content = json.dumps(payload or {}, indent=2, ensure_ascii=False)
     upload_file_to_github(owner, repo, token, path, content, message, branch=branch)
 
+
 def list_repos_for_owner(owner: str, token: str) -> list[dict]:
     api_base = "https://api.github.com"
     headers = github_headers(token)
@@ -350,12 +381,14 @@ def list_repos_for_owner(owner: str, token: str) -> list[dict]:
 
     return repos
 
+
 @st.cache_data(ttl=10 * 60)
 def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     """
     Reads widget_registry.json from every repo that has it.
     If registry missing, fallback to scanning root for *.html files.
     Also tries to infer brand + fetch created_by/created_utc from git commits for legacy pages.
+    ALWAYS returns a DataFrame (even if empty).
     """
     rows = []
     repos = list_repos_for_owner(owner, token)
@@ -367,18 +400,10 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
         return compute_pages_url(owner, repo_name, file_name)
 
     def infer_brand_from_repo(repo_name: str) -> str:
-        """
-        Example repo names:
-          ActionNetworktj26
-          CanadaSportsBettingtj26
-          RotoGrinderstj26
-        """
         rn = (repo_name or "").lower()
-
         for brand, prefix in BRAND_REPO_PREFIX_FULL.items():
             if rn.startswith(prefix.lower()):
                 return brand
-
         return ""
 
     def get_file_commit_meta(repo_name: str, file_name: str) -> tuple[str, str]:
@@ -402,23 +427,19 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
 
             c0 = commits[0] or {}
 
-            # Created by (prefer GitHub login)
             created_by = ""
             if isinstance(c0.get("author"), dict) and c0["author"].get("login"):
                 created_by = str(c0["author"]["login"]).strip().lower()
             else:
-                # fallback to commit author name
                 commit_obj = c0.get("commit") or {}
                 author_obj = commit_obj.get("author") or {}
                 created_by = str(author_obj.get("name") or "").strip().lower()
 
-            # Created UTC (ISO format)
             commit_obj = c0.get("commit") or {}
             author_obj = commit_obj.get("author") or {}
             created_utc = str(author_obj.get("date") or "").strip()
 
             return created_by, created_utc
-
         except Exception:
             return "", ""
 
@@ -436,32 +457,29 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                     if not isinstance(meta, dict):
                         meta = {}
 
-                    pages_url = (meta.get("pages_url") or "").strip()
-                    if not pages_url:
-                        pages_url = compute_url(repo_name, fname)
+                    pages_url = (meta.get("pages_url") or "").strip() or compute_url(repo_name, fname)
 
-                    brand = (meta.get("brand") or "").strip()
-                    if not brand:
-                        brand = infer_brand_from_repo(repo_name)
+                    brand = (meta.get("brand") or "").strip() or infer_brand_from_repo(repo_name)
 
                     created_by = (meta.get("created_by") or "").strip().lower()
                     created_utc = (meta.get("created_at_utc") or "").strip()
 
-                    # ✅ If missing created fields, try commit lookup
                     if not created_by or not created_utc:
                         cb, cu = get_file_commit_meta(repo_name, fname)
                         created_by = created_by or cb
                         created_utc = created_utc or cu
 
-                    rows.append({
-                        "Brand": brand,
-                        "Table Name": meta.get("table_title", "") or fname,
-                        "Pages URL": pages_url,
-                        "Created By": created_by,
-                        "Created UTC": created_utc,
-                        "Repo": repo_name,
-                        "File": fname,
-                    })
+                    rows.append(
+                        {
+                            "Brand": brand,
+                            "Table Name": meta.get("table_title", "") or fname,
+                            "Pages URL": pages_url,
+                            "Created By": created_by,
+                            "Created UTC": created_utc,
+                            "Repo": repo_name,
+                            "File": fname,
+                        }
+                    )
 
             # ✅ CASE B: No registry → scan for html files + infer metadata
             else:
@@ -480,18 +498,19 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                             continue
 
                         brand = infer_brand_from_repo(repo_name)
-
                         created_by, created_utc = get_file_commit_meta(repo_name, name)
 
-                        rows.append({
-                            "Brand": brand,
-                            "Table Name": name,
-                            "Pages URL": compute_url(repo_name, name),
-                            "Created By": created_by,
-                            "Created UTC": created_utc,
-                            "Repo": repo_name,
-                            "File": name,
-                        })
+                        rows.append(
+                            {
+                                "Brand": brand,
+                                "Table Name": name,
+                                "Pages URL": compute_url(repo_name, name),
+                                "Created By": created_by,
+                                "Created UTC": created_utc,
+                                "Repo": repo_name,
+                                "File": name,
+                            }
+                        )
 
         except Exception:
             continue
@@ -501,19 +520,14 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     # ✅ remove duplicates if registry + fallback both catch same html
     if not df.empty:
         df = df.drop_duplicates(subset=["Pages URL"], keep="first")
-    
-    # ✅ Sort newest first (works best once commit dates exist)
-    if not df.empty and "Created UTC" in df.columns:
-        df = df.sort_values("Created UTC", ascending=False, na_position="last")
-    
-    if not df.empty:
+
         df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
-        df = df.sort_values("Created DT", ascending=False, na_position="last")
-        df = df.drop(columns=["Created DT"])
-    
-        # ✅ ALWAYS return a dataframe (even if empty)
-        return df
-   
+        df = df.sort_values("Created DT", ascending=False, na_position="last").drop(columns=["Created DT"])
+
+    # ✅ ALWAYS RETURN a dataframe
+    return df
+
+
 def update_widget_registry(
     owner: str,
     repo: str,
@@ -530,8 +544,6 @@ def update_widget_registry(
         return
 
     registry_path = "widget_registry.json"
-
-    # read existing registry (or empty)
     registry = read_github_json(owner, repo, token, registry_path, branch=branch)
     if not isinstance(registry, dict):
         registry = {}
@@ -547,6 +559,7 @@ def update_widget_registry(
         message="Update widget registry",
         branch=branch,
     )
+
 
 # =========================================================
 # Brand Metadata
@@ -590,7 +603,7 @@ def get_brand_meta(brand: str) -> dict:
 
 
 # =========================================================
-# HTML Template (UPDATED)
+# HTML Template
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!doctype html>
 <html lang="en">
@@ -1894,7 +1907,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 </body>
 </html>
 """
-
 # =========================================================
 # Generator
 # =========================================================
@@ -1913,6 +1925,7 @@ def guess_column_type(series: pd.Series) -> str:
         except ValueError:
             continue
     return "num" if numeric_like >= max(3, len(sample) // 2) else "text"
+
 
 def format_column_header(col_name: str, mode: str) -> str:
     s = str(col_name or "")
@@ -1935,16 +1948,6 @@ def format_column_header(col_name: str, mode: str) -> str:
 
     if "caps" in mode:
         return s2.upper()
-
-    return s
-
-    if mode in ("sentence case", "sentence"):
-        # First letter uppercase, rest lowercase
-        return s2[:1].upper() + s2[1:].lower()
-
-    if mode in ("title case", "title"):
-        # Title Case (simple + clean)
-        return s2.title()
 
     return s
 
@@ -1976,10 +1979,10 @@ def generate_table_html_from_df(
     header_style: str = "Keep original",
     col_format_rules: dict | None = None,
 ) -> str:
-
     df = df.copy()
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
+    col_format_rules = col_format_rules or {}
 
     # Safety clamp
     try:
@@ -1994,7 +1997,8 @@ def generate_table_html_from_df(
     except Exception:
         footer_logo_h = 36
     footer_logo_h = max(16, min(90, footer_logo_h))
-    # Footer notes (simple markdown: **bold** and *italic*)
+
+    # Footer notes markdown-ish
     show_footer_notes = bool(show_footer_notes)
     footer_notes = (footer_notes or "").strip()
     footer_notes_html = ""
@@ -2013,25 +2017,17 @@ def generate_table_html_from_df(
             return float(s) if s else 0.0
         except Exception:
             return 0.0
+
     def format_numeric_for_display(raw_val, max_decimals: int = 2) -> str:
-        """
-        Limits numeric values to max 2 decimals (trim trailing zeros).
-        Leaves integers as integers.
-        Does NOT touch values that contain currency symbols, %, words, etc.
-        """
         if pd.isna(raw_val):
             return ""
-
         s = str(raw_val).strip()
 
-        # If it includes symbols/letters (%,$,etc) → do NOT reformat
+        # If contains non-numeric symbols → preserve
         if re.search(r"[^\d\.\-\,\s]", s):
             return s
 
-        # Normalize commas/spaces
         plain = re.sub(r"[,\s]", "", s)
-
-        # Must be a plain number like -12 or 12.345
         if not re.fullmatch(r"-?\d+(\.\d+)?", plain):
             return s
 
@@ -2040,40 +2036,21 @@ def generate_table_html_from_df(
         except Exception:
             return s
 
-        # If it's basically an integer → show no decimals
         if abs(num - round(num)) < 1e-12:
             return str(int(round(num)))
 
-        # Otherwise show max 2 decimals, but trim trailing zeros
-        out = f"{num:.{max_decimals}f}".rstrip("0").rstrip(".")
-        return out
-        # ✅ Column formatting rules (prefix/suffix/moneyline)
-    col_format_rules = col_format_rules or {}
+        return f"{num:.{max_decimals}f}".rstrip("0").rstrip(".")
 
     def apply_column_formatting(col_name: str, display_val: str, raw_val) -> str:
-        """
-        Applies per-column formatting rules AFTER numeric formatting.
-    
-        Supports:
-          - plus_if_positive (smart "+")
-          - moneyline_plus (alias for plus_if_positive)
-          - prefix / suffix (accepts ANY symbols)
-          - optional flags for prefix/suffix:
-              only_if_positive: true
-              only_if_negative: true
-              only_if_nonzero: true
-        """
         rules = col_format_rules.get(col_name) or {}
         mode = str(rules.get("mode", "")).strip().lower()
-    
+
         if display_val is None:
             return ""
-    
         s = str(display_val).strip()
         if s == "":
             return s
-    
-        # Try to parse number from raw value (preferred), fallback to display string
+
         num = None
         try:
             num = parse_number(raw_val)
@@ -2082,44 +2059,39 @@ def generate_table_html_from_df(
                 num = parse_number(s)
             except Exception:
                 num = None
-    
-        # ✅ SMART PLUS: only add "+" for positive numeric values
+
         if mode in ("plus_if_positive", "moneyline_plus"):
             if s.startswith("+") or s.startswith("-"):
                 return s
             if num is not None and num > 0:
                 return f"+{s}"
             return s
-    
-        # Conditions for prefix/suffix
+
         only_pos = bool(rules.get("only_if_positive", False))
         only_neg = bool(rules.get("only_if_negative", False))
         only_nz = bool(rules.get("only_if_nonzero", False))
-    
-        # If any condition flag is set, require a valid numeric value
+
         if (only_pos or only_neg or only_nz) and num is None:
             return s
-    
+
         if only_pos and not (num > 0):
             return s
         if only_neg and not (num < 0):
             return s
         if only_nz and not (num != 0):
             return s
-    
-        # ✅ Prefix: allow ANY symbols ($, £, +, -, %, etc.)
+
         if mode == "prefix":
             pref = str(rules.get("value", "") or "")
             return f"{pref}{s}"
-    
-        # ✅ Suffix: allow ANY symbols ($, £, +, -, %, etc.)
+
         if mode == "suffix":
             suf = str(rules.get("value", "") or "")
             return f"{s}{suf}"
-    
+
         return s
 
-    # ✅ Pre-compute max for each selected bar column (with optional override)
+    # ✅ Pre-compute max for bars
     bar_max = {}
     for col in df.columns:
         if col in bar_columns_set:
@@ -2148,11 +2120,10 @@ def generate_table_html_from_df(
         display_col = format_column_header(col, header_style)
         safe_label = html_mod.escape(display_col)
 
-        # ✅ add class to bar columns so CSS can force min-width
         is_bar_col = (col in bar_columns_set and col_type == "num")
-        bar_class = " dw-bar-col" if is_bar_col else ""
+        bar_class = "dw-bar-col" if is_bar_col else ""
 
-        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{bar_class.strip()}">{safe_label}</th>')
+        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{bar_class}">{safe_label}</th>')
 
     table_head_html = "\n              ".join(head_cells)
 
@@ -2164,7 +2135,7 @@ def generate_table_html_from_df(
             raw_val = row[col]
             display_val = format_numeric_for_display(raw_val, max_decimals=2)
             display_val = apply_column_formatting(col, display_val, raw_val)
-            
+
             safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
 
@@ -2226,7 +2197,7 @@ def generate_table_html_from_df(
     elif footer_logo_align == "left":
         footer_align_class = "footer-left"
     else:
-        footer_align_class = ""  # default right
+        footer_align_class = ""  # right default
 
     cell_align = (cell_align or "Center").strip().lower()
     if cell_align == "left":
@@ -2341,10 +2312,9 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
         bar_fixed_w=cfg.get("bar_fixed_w", 200),
         header_style=cfg.get("header_style", "Keep original"),
-
-        # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
     )
+
 
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
@@ -2387,151 +2357,6 @@ def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float =
 
     return False
 
-def reset_widget_state_for_new_upload():
-    keys_to_clear = [
-        "bt_confirmed_cfg",
-        "bt_confirmed_hash",
-        "bt_html_code",
-        "bt_html_generated",
-        "bt_html_hash",
-        "bt_last_published_url",
-        "bt_iframe_code",
-        "bt_widget_file_name",
-        "bt_gh_user",
-        "bt_gh_repo",
-        "bt_html_stale",
-        "bt_confirm_flash",
-        "bt_widget_exists_locked",
-        "bt_widget_name_locked_value",
-        "bt_df_uploaded",
-        "bt_df_confirmed",
-        "bt_df_source",              # ✅ NEW
-        "bt_allow_swap",
-        "bt_bar_columns",
-        "bt_bar_max_overrides",
-        "bt_bar_fixed_w",
-        "bt_embed_started",
-        "bt_embed_show_html",
-        "bt_table_name_input",
-        "bt_hidden_cols",            # ✅ NEW
-        "bt_hidden_cols_draft",      # ✅ NEW
-        "bt_enable_body_editor",     # ✅ NEW
-        "bt_df_editor",              # ✅ NEW
-        "bt_body_apply_flash",       # ✅ NEW
-    ]
-
-    for k in keys_to_clear:
-        if k in st.session_state:
-            del st.session_state[k]
-
-def ensure_confirm_state_exists():
-    if "bt_confirmed_cfg" not in st.session_state:
-        cfg = draft_config_from_state()
-        st.session_state["bt_confirmed_cfg"] = cfg
-        st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
-
-    st.session_state.setdefault("bt_html_code", "")
-    st.session_state.setdefault("bt_html_generated", False)
-    st.session_state.setdefault("bt_html_hash", "")
-    st.session_state.setdefault("bt_last_published_url", "")
-    st.session_state.setdefault("bt_iframe_code", "")
-    st.session_state.setdefault("bt_header_style", "Keep original")
-
-    iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-    if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
-        st.session_state["bt_iframe_code"] = ""
-
-    st.session_state.setdefault("bt_footer_logo_align", "Center")
-    st.session_state.setdefault("bt_footer_logo_h", 36)
-
-    st.session_state.setdefault("bt_show_footer_notes", False)
-    st.session_state.setdefault("bt_footer_notes", "")
-    st.session_state.setdefault("bt_gh_user", "Select a user...")
-    st.session_state.setdefault("bt_widget_file_name", "table.html")
-
-    st.session_state.setdefault("bt_confirm_flash", False)
-    st.session_state.setdefault("bt_html_stale", False)
-
-    st.session_state.setdefault("bt_widget_exists_locked", False)
-    st.session_state.setdefault("bt_widget_name_locked_value", "")
-
-    st.session_state.setdefault("bt_show_embed", True)
-    st.session_state.setdefault("bt_allow_swap", False)
-
-    st.session_state.setdefault("bt_bar_columns", [])
-    st.session_state.setdefault("bt_bar_max_overrides", {})
-    st.session_state.setdefault("bt_bar_fixed_w", 200)
-
-    # ✅ NEW: body editing + hidden columns
-    st.session_state.setdefault("bt_hidden_cols", [])
-    st.session_state.setdefault("bt_hidden_cols_draft", [])
-    st.session_state.setdefault("bt_enable_body_editor", False)
-    st.session_state.setdefault("bt_body_apply_flash", False)
-    st.session_state.setdefault("bt_editor_version", 0)
-
-def sync_bar_override(col: str):
-    """
-    Immediately sync a single override input into bt_bar_max_overrides.
-    This makes the preview reflect the override instantly (no Confirm needed).
-    """
-    st.session_state.setdefault("bt_bar_max_overrides", {})
-
-    # value typed in text_input for this column
-    v = (st.session_state.get(f"bt_bar_override_{col}", "") or "").strip()
-
-    # Blank → remove override
-    if v == "":
-        st.session_state["bt_bar_max_overrides"].pop(col, None)
-        return
-
-    # Try converting to float
-    try:
-        st.session_state["bt_bar_max_overrides"][col] = float(v)
-    except Exception:
-        # Ignore invalid mid-typing states like "1." or "-"
-        pass
-
-
-def prune_bar_overrides():
-    """
-    Remove overrides for columns that are no longer selected as bar columns.
-    Keeps bt_bar_max_overrides clean and prevents "ghost overrides".
-    """
-    st.session_state.setdefault("bt_bar_max_overrides", {})
-    selected = set(st.session_state.get("bt_bar_columns", []) or [])
-
-    st.session_state["bt_bar_max_overrides"] = {
-        k: v for k, v in st.session_state["bt_bar_max_overrides"].items()
-        if k in selected
-    }
-
-def do_confirm_snapshot():
-    # ✅ Always snapshot what user currently has in live table
-    st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
-
-    cfg = draft_config_from_state()
-    st.session_state["bt_confirmed_cfg"] = cfg
-    st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
-
-    # ✅ Apply hidden columns to the confirmed snapshot
-    hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
-    df_confirm_for_html = st.session_state["bt_df_confirmed"].copy()
-    if hidden_cols:
-        df_confirm_for_html = df_confirm_for_html.drop(columns=hidden_cols, errors="ignore")
-
-    live_rules = st.session_state.get("bt_col_format_rules", {})
-    html = html_from_config(
-        df_confirm_for_html,
-        st.session_state["bt_confirmed_cfg"],
-        col_format_rules=live_rules,
-    )
-
-    st.session_state["bt_html_code"] = html
-    st.session_state["bt_html_generated"] = True
-    st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
-    st.session_state["bt_html_stale"] = False
-
-    st.session_state["bt_confirm_flash"] = True
 
 # =========================================================
 # Streamlit App
@@ -2570,13 +2395,11 @@ with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
 
-    # ✅ Ensure filter keys exist (prevents weird state issues)
     st.session_state.setdefault("pub_brand_filter", "All")
     st.session_state.setdefault("pub_people_filter", "All")
     st.session_state.setdefault("pub_month_filter", "All")
     st.session_state.setdefault("pub_last_preview_url", "")
 
-    # ✅ Refresh button MUST live inside this tab
     refresh_clicked = st.button(
         "🔄 Refresh Published Tables",
         key="pub_refresh_btn",
@@ -2597,7 +2420,6 @@ with main_tab_published:
     if not publish_owner or not token_to_use:
         st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
     else:
-        # ✅ Only refetch when needed
         if refresh_clicked or "df_pub_cache" not in st.session_state:
             if refresh_clicked:
                 st.cache_data.clear()
@@ -2608,54 +2430,42 @@ with main_tab_published:
         if df_pub is None or df_pub.empty:
             st.info("No published tables found yet.")
         else:
-            # ✅ Normalize datetime once
             df_pub = df_pub.copy()
             df_pub["Created DT"] = pd.to_datetime(df_pub.get("Created UTC", ""), errors="coerce", utc=True)
-            
-            # ✅ Build filter options from FULL dataset
+
             all_brands = sorted([b for b in df_pub["Brand"].dropna().unique() if str(b).strip()])
             all_people = sorted([p for p in df_pub["Created By"].dropna().unique() if str(p).strip()])
-            
-            # ✅ Month filter keys + friendly labels
-            df_pub["MonthKey"] = df_pub["Created DT"].dt.strftime("%Y-%m")     # ex: 2026-01
-            df_pub["MonthLabel"] = df_pub["Created DT"].dt.strftime("%b %Y")   # ex: Jan 2026
-            
-            # ✅ map MonthKey -> MonthLabel (so selectbox can display friendly label)
+
+            df_pub["MonthKey"] = df_pub["Created DT"].dt.strftime("%Y-%m")
+            df_pub["MonthLabel"] = df_pub["Created DT"].dt.strftime("%b %Y")
+
             month_label_map = (
                 df_pub.dropna(subset=["MonthKey"])
                 .drop_duplicates("MonthKey")
                 .set_index("MonthKey")["MonthLabel"]
                 .to_dict()
             )
-            
+
             all_month_keys = sorted([m for m in month_label_map.keys() if str(m).strip()], reverse=True)
-            
+
             st.markdown("### Filters")
-            
+
             col1, col2, col3, col4 = st.columns([1, 1, 1, 0.55])
-            
+
             with col1:
-                brand_filter = st.selectbox(
-                    "Filter by brand",
-                    ["All"] + all_brands,
-                    key="pub_brand_filter",
-                )
-            
+                brand_filter = st.selectbox("Filter by brand", ["All"] + all_brands, key="pub_brand_filter")
+
             with col2:
-                people_filter = st.selectbox(
-                    "Filter by people",
-                    ["All"] + all_people,
-                    key="pub_people_filter",
-                )
-            
+                people_filter = st.selectbox("Filter by people", ["All"] + all_people, key="pub_people_filter")
+
             with col3:
                 month_filter = st.selectbox(
                     "Filter by month",
-                    ["All"] + all_month_keys,    # ✅ store MonthKey in session_state
+                    ["All"] + all_month_keys,
                     key="pub_month_filter",
                     format_func=lambda k: "All" if k == "All" else month_label_map.get(k, k),
                 )
-            
+
             with col4:
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
                 if st.button("Reset Filters", key="pub_reset_filters", use_container_width=True):
@@ -2663,37 +2473,24 @@ with main_tab_published:
                     st.session_state["pub_people_filter"] = "All"
                     st.session_state["pub_month_filter"] = "All"
                     st.rerun()
-            
-            # ✅ Apply filters
+
             df_view = df_pub.copy()
-            
+
             if brand_filter != "All":
                 df_view = df_view[df_view["Brand"] == brand_filter]
-            
             if people_filter != "All":
                 df_view = df_view[df_view["Created By"] == people_filter]
-            
             if month_filter != "All":
                 df_view = df_view[df_view["MonthKey"] == month_filter]
-            
-            # ✅ Optional: hide helper columns from display
-            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")
-            
 
-            # ✅ If no matches
+            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")
+
             if df_view.empty:
                 st.warning("No results match your filters.")
             else:
-                # ✅ Drop helper cols before showing table
-                df_view = df_view.drop(columns=["Created DT", "Month"], errors="ignore")
-
-                # ✅ Published tables list (CLICK ROW → POPUP PREVIEW)
                 st.markdown("#### Click a row to preview")
-
-                # ✅ Reset index so selected row maps correctly
                 df_view = df_view.reset_index(drop=True)
 
-                # ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
                 df_display = df_view.copy()
                 df_display["Pages URL"] = df_display["Pages URL"].astype(str)
 
@@ -2704,12 +2501,9 @@ with main_tab_published:
                     selection_mode="single-row",
                     on_select="rerun",
                     key="pub_table_click_df",
-                    column_config={
-                        "Pages URL": st.column_config.TextColumn("Pages URL"),
-                    },
+                    column_config={"Pages URL": st.column_config.TextColumn("Pages URL")},
                 )
 
-                # ✅ Extract selected row → auto-preview popup
                 selected_rows = []
                 try:
                     selected_rows = event.selection.rows or []
@@ -2721,12 +2515,10 @@ with main_tab_published:
                     selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
 
                     if selected_url:
-                        # ✅ Prevent re-opening popup every rerun if same row clicked again
                         last = st.session_state.get("pub_last_preview_url", "")
                         if selected_url != last:
                             st.session_state["pub_last_preview_url"] = selected_url
 
-                        # ✅ Popup modal preview (if supported)
                         if hasattr(st, "dialog"):
 
                             @st.dialog("Table Preview", width="large")
@@ -2740,12 +2532,7 @@ with main_tab_published:
                             st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                             components.iframe(selected_url, height=820, scrolling=True)
 
-                        preview_dialog(selected_url)
-            
-                    else:
-                        st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-                        components.iframe(selected_url, height=820, scrolling=True)
-# =========================================================
+
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
 with main_tab_create:
@@ -2847,31 +2634,30 @@ with main_tab_create:
                     with edit_tab:
                         st.markdown("### Edit table content (Optional)")
                         st.caption("Edit cells + hide columns here. Click **Apply changes to preview** to update the preview.")
-                
+                    
                         df_live = st.session_state.get("bt_df_uploaded")
-                
+                    
                         if not isinstance(df_live, pd.DataFrame) or df_live.empty:
                             st.info("Upload a CSV to enable editing.")
                         else:
                             all_cols = list(df_live.columns)
-                
-                            st.session_state.setdefault(
-                                "bt_hidden_cols_draft",
-                                st.session_state.get("bt_hidden_cols", []) or []
-                            )
-                
+                    
+                            # ✅ Versioned multiselect key so Reset can fully wipe it
+                            hide_key = f"bt_hidden_cols_draft_{st.session_state.get('bt_hidecols_version', 0)}"
+                    
                             st.multiselect(
                                 "Hide columns",
                                 options=all_cols,
-                                default=st.session_state.get("bt_hidden_cols_draft", []),
-                                key="bt_hidden_cols_draft",
+                                default=st.session_state.get("bt_hidden_cols", []) or [],
+                                key=hide_key,
                                 help="Hidden columns will be removed from preview + final output after Apply.",
                             )
-                
-                            hidden_cols_draft = st.session_state.get("bt_hidden_cols_draft", []) or []
+                    
+                            hidden_cols_draft = st.session_state.get(hide_key, []) or []
                             visible_cols = [c for c in all_cols if c not in set(hidden_cols_draft)]
                             df_visible = df_live[visible_cols].copy()
-                
+                    
+                            # ✅ Versioned editor key so Reset can fully wipe it
                             edited_df_visible = st.data_editor(
                                 df_visible,
                                 use_container_width=True,
@@ -2879,46 +2665,43 @@ with main_tab_create:
                                 num_rows="fixed",
                                 key=f"bt_df_editor_{st.session_state.get('bt_editor_version', 0)}",
                             )
-
+                    
                             c1, c2 = st.columns([1, 1])
                             apply_clicked = c1.button("✅ Apply changes to preview", use_container_width=True)
                             reset_clicked = c2.button("↩ Reset table edits", use_container_width=True)
-                            
+                    
                             if apply_clicked:
-                                # ✅ Save hidden columns
-                                st.session_state["bt_hidden_cols"] = st.session_state.get("bt_hidden_cols_draft", []) or []
-                            
-                                # ✅ Apply edited visible columns back into the full live df
+                                # ✅ Persist hidden cols
+                                st.session_state["bt_hidden_cols"] = hidden_cols_draft
+                    
+                                # ✅ Apply edited visible columns back into the full df
                                 base = st.session_state["bt_df_uploaded"].copy()
                                 for col in edited_df_visible.columns:
                                     base[col] = edited_df_visible[col].values
-                            
                                 st.session_state["bt_df_uploaded"] = base
+                    
                                 st.session_state["bt_body_apply_flash"] = True
-                            
                                 st.rerun()
-                            
+                    
                             if reset_clicked:
-                                # ✅ Restore original upload (true undo)
+                                # ✅ Restore original (true undo)
                                 src = st.session_state.get("bt_df_source")
                                 if isinstance(src, pd.DataFrame) and not src.empty:
                                     st.session_state["bt_df_uploaded"] = src.copy(deep=True)
-                            
-                                # ✅ Clear hidden columns
+                    
+                                # ✅ Clear applied hidden cols
                                 st.session_state["bt_hidden_cols"] = []
-                                st.session_state["bt_hidden_cols_draft"] = []
-                            
-                                # ✅ Force data_editor to fully reset (new key)
+                    
+                                # ✅ Remount BOTH widgets so their internal state is gone
                                 st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
-                            
+                                st.session_state["bt_hidecols_version"] = int(st.session_state.get("bt_hidecols_version", 0)) + 1
+                    
                                 st.session_state["bt_body_apply_flash"] = True
-                            
                                 st.rerun()
-                            
+                    
                             if st.session_state.get("bt_body_apply_flash", False):
                                 st.success("Preview updated ✅")
                                 st.session_state["bt_body_apply_flash"] = False
-
                 # ===================== Left: Tabs =====================
                 with left_col:
                     tab_edit, tab_embed = st.tabs(["Edit table contents", "Get Embed Script"])
