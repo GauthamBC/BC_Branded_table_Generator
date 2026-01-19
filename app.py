@@ -350,15 +350,18 @@ def list_repos_for_owner(owner: str, token: str) -> list[dict]:
 
     return repos
 
-
 @st.cache_data(ttl=10 * 60)
 def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     """
     Reads widget_registry.json from every repo that has it.
+    If registry missing, fallback to scanning root for *.html files.
     Returns a DataFrame of all published tables.
     """
     rows = []
     repos = list_repos_for_owner(owner, token)
+
+    def compute_url(repo_name: str, file_name: str) -> str:
+        return compute_pages_url(owner, repo_name, file_name)
 
     for r in repos:
         repo_name = (r.get("name") or "").strip()
@@ -367,35 +370,69 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
 
         try:
             reg = read_github_json(owner, repo_name, token, "widget_registry.json", branch="main")
-            if not isinstance(reg, dict) or not reg:
-                continue
 
-            for fname, meta in reg.items():
-                if not isinstance(meta, dict):
-                    continue
+            # ✅ CASE A: Registry exists
+            if isinstance(reg, dict) and reg:
+                for fname, meta in reg.items():
+                    if not isinstance(meta, dict):
+                        meta = {}
 
-                rows.append({
-                    "Brand": meta.get("brand", ""),
-                    "Table Name": meta.get("table_title", "") or fname,
-                    "Pages URL": meta.get("pages_url", ""),
-                    "GitHub Repo": meta.get("github_repo_url", f"https://github.com/{owner}/{repo_name}"),
-                    "Created By": meta.get("created_by", ""),
-                    "Created UTC": meta.get("created_at_utc", ""),
-                    "Repo": repo_name,
-                    "File": fname,
-                })
+                    pages_url = (meta.get("pages_url") or "").strip()
+                    if not pages_url:
+                        pages_url = compute_url(repo_name, fname)
+
+                    rows.append({
+                        "Brand": meta.get("brand", ""),
+                        "Table Name": meta.get("table_title", "") or fname,
+                        "Pages URL": pages_url,
+                        "Created By": meta.get("created_by", ""),
+                        "Created UTC": meta.get("created_at_utc", ""),
+                        "Repo": repo_name,
+                        "File": fname,
+                    })
+
+            # ✅ CASE B: No registry found → fallback scan for html files
+            else:
+                api_base = "https://api.github.com"
+                headers = github_headers(token)
+
+                rr = requests.get(
+                    f"{api_base}/repos/{owner}/{repo_name}/contents",
+                    headers=headers,
+                    params={"ref": "main"},
+                    timeout=20,
+                )
+
+                if rr.status_code == 200:
+                    contents = rr.json() or []
+                    for item in contents:
+                        name = (item.get("name") or "").strip()
+                        if name.lower().endswith(".html"):
+                            rows.append({
+                                "Brand": "",
+                                "Table Name": name,
+                                "Pages URL": compute_url(repo_name, name),
+                                "Created By": "",
+                                "Created UTC": "",
+                                "Repo": repo_name,
+                                "File": name,
+                            })
 
         except Exception:
             continue
 
     df = pd.DataFrame(rows)
 
-    # optional sorting newest first
+    # ✅ remove duplicates if registry + fallback both catch same html
+    if not df.empty:
+        df = df.drop_duplicates(subset=["Pages URL"], keep="first")
+
+    # optional sorting newest first if Created UTC exists
     if not df.empty and "Created UTC" in df.columns:
-        df = df.sort_values("Created UTC", ascending=False)
+        df = df.sort_values("Created UTC", ascending=False, na_position="last")
 
     return df
-    
+ 
 def update_widget_registry(
     owner: str,
     repo: str,
@@ -2432,7 +2469,9 @@ main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Ta
 with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
-
+    if st.button("🔄 Refresh Published Tables"):
+    st.cache_data.clear()
+    
     publish_owner = (PUBLISH_OWNER or "").strip().lower()
 
     token_to_use = ""
