@@ -2592,6 +2592,69 @@ with main_tab_published:
                 ["All"] + all_brands,
                 key="pub_brand_filter",
             )
+            # ✅ Defensive: get_all_published_widgets should return a df, but just in case
+            if df_pub is None or df_pub.empty:
+                st.info("No published tables found yet.")
+            else:
+                # ✅ Normalize datetime once (for Month/Year filter)
+                df_pub = df_pub.copy()
+                df_pub["Created DT"] = pd.to_datetime(df_pub.get("Created UTC", ""), errors="coerce", utc=True)
+            
+                # ✅ Build filter options from FULL dataset (not filtered)
+                all_brands = sorted([b for b in df_pub["Brand"].dropna().unique() if str(b).strip()])
+                all_people = sorted([p for p in df_pub["Created By"].dropna().unique() if str(p).strip()])
+            
+                # Month/Year values like "2026-01"
+                df_pub["Month"] = df_pub["Created DT"].dt.strftime("%Y-%m")
+                all_months = sorted([m for m in df_pub["Month"].dropna().unique() if str(m).strip()], reverse=True)
+            
+                st.markdown("### Filters")
+            
+                col1, col2, col3 = st.columns(3)
+            
+                with col1:
+                    brand_filter = st.selectbox(
+                        "Filter by brand",
+                        ["All"] + all_brands,
+                        key="pub_brand_filter",
+                    )
+            
+                with col2:
+                    people_filter = st.selectbox(
+                        "Filter by people",
+                        ["All"] + all_people,
+                        key="pub_people_filter",
+                    )
+            
+                with col3:
+                    month_filter = st.selectbox(
+                        "Filter by month (YYYY-MM)",
+                        ["All"] + all_months,
+                        key="pub_month_filter",
+                    )
+            
+                # ✅ Apply filters
+                df_view = df_pub.copy()
+            
+                if brand_filter != "All":
+                    df_view = df_view[df_view["Brand"] == brand_filter]
+            
+                if people_filter != "All":
+                    df_view = df_view[df_view["Created By"] == people_filter]
+            
+                if month_filter != "All":
+                    df_view = df_view[df_view["Month"] == month_filter]
+            
+                # ✅ Optional: clean helper columns from display
+                df_view = df_view.drop(columns=["Created DT", "Month"], errors="ignore")
+            
+                # ✅ If no matches after filtering
+                if df_view.empty:
+                    st.warning("No results match your filters.")
+                else:
+                    # ✅ CONTINUE with your existing preview/table code below...
+                    # (your click-to-preview dataframe + popup logic)
+                    pass
 
             # ✅ Filtered view
             df_view = df_pub.copy()
