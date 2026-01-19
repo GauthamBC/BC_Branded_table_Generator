@@ -982,8 +982,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: auto;
-      scrollbar-gutter: stable both-edges;
-
+      scrollbar-gutter: stable;
+      overscroll-behavior-x: contain;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) transparent;
     }
