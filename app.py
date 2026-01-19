@@ -108,7 +108,6 @@ def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
         token = token.decode("utf-8", errors="ignore")
     return token
 
-
 def get_installation_id_for_user(username: str) -> int:
     username = (username or "").strip()
     if not username:
@@ -135,9 +134,6 @@ def get_installation_id_for_user(username: str) -> int:
         return int((r2.json() or {}).get("id", 0) or 0)
 
     return 0
-
-    raise RuntimeError(f"Error checking GitHub App installation: {r.status_code} {r.text}")
-
 
 @st.cache_data(ttl=50 * 60)
 def get_installation_token_for_user(username: str) -> str:
@@ -194,10 +190,8 @@ def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
 
-    # ✅ Create under org if owner is an org, otherwise under the PAT user
+    # ✅ PERSONAL ACCOUNT repo creation endpoint
     create_url = f"{api_base}/user/repos"
-    if owner:
-        create_url = f"{api_base}/orgs/{owner}/repos"
 
     r2 = requests.post(
         create_url,
