@@ -2589,18 +2589,28 @@ with main_tab_published:
         if df_pub is None or df_pub.empty:
             st.info("No published tables found yet.")
         else:
-            # ✅ Normalize datetime once (for Month/Year filter)
+            # ✅ Normalize datetime once
             df_pub = df_pub.copy()
             df_pub["Created DT"] = pd.to_datetime(df_pub.get("Created UTC", ""), errors="coerce", utc=True)
-
-            # ✅ Month label like "2026-01"
-            df_pub["Month"] = df_pub["Created DT"].dt.strftime("%Y-%m")
-
-            # ✅ Build dropdown options from FULL dataset
+            
+            # ✅ Build filter options from FULL dataset
             all_brands = sorted([b for b in df_pub["Brand"].dropna().unique() if str(b).strip()])
             all_people = sorted([p for p in df_pub["Created By"].dropna().unique() if str(p).strip()])
-            all_months = sorted([m for m in df_pub["Month"].dropna().unique() if str(m).strip()], reverse=True)
-
+            
+            # ✅ Month filter keys + friendly labels
+            df_pub["MonthKey"] = df_pub["Created DT"].dt.strftime("%Y-%m")     # ex: 2026-01
+            df_pub["MonthLabel"] = df_pub["Created DT"].dt.strftime("%b %Y")   # ex: Jan 2026
+            
+            # ✅ map MonthKey -> MonthLabel (so selectbox can display friendly label)
+            month_label_map = (
+                df_pub.dropna(subset=["MonthKey"])
+                .drop_duplicates("MonthKey")
+                .set_index("MonthKey")["MonthLabel"]
+                .to_dict()
+            )
+            
+            all_month_keys = sorted([m for m in month_label_map.keys() if str(m).strip()], reverse=True)
+            
             st.markdown("### Filters")
             
             col1, col2, col3, col4 = st.columns([1, 1, 1, 0.55])
@@ -2621,33 +2631,35 @@ with main_tab_published:
             
             with col3:
                 month_filter = st.selectbox(
-                    "Filter by month (YYYY-MM)",
-                    ["All"] + all_months,
+                    "Filter by month",
+                    ["All"] + all_month_keys,    # ✅ store MonthKey in session_state
                     key="pub_month_filter",
+                    format_func=lambda k: "All" if k == "All" else month_label_map.get(k, k),
                 )
             
             with col4:
-                # ✅ pushes the button DOWN so it aligns with selectboxes
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            
                 if st.button("Reset Filters", key="pub_reset_filters", use_container_width=True):
                     st.session_state["pub_brand_filter"] = "All"
                     st.session_state["pub_people_filter"] = "All"
                     st.session_state["pub_month_filter"] = "All"
                     st.rerun()
-
-
+            
             # ✅ Apply filters
             df_view = df_pub.copy()
-
+            
             if brand_filter != "All":
                 df_view = df_view[df_view["Brand"] == brand_filter]
-
+            
             if people_filter != "All":
                 df_view = df_view[df_view["Created By"] == people_filter]
-
+            
             if month_filter != "All":
-                df_view = df_view[df_view["Month"] == month_filter]
+                df_view = df_view[df_view["MonthKey"] == month_filter]
+            
+            # ✅ Optional: hide helper columns from display
+            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")
+            
 
             # ✅ If no matches
             if df_view.empty:
