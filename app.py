@@ -2467,7 +2467,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_hidden_cols_draft", [])
     st.session_state.setdefault("bt_enable_body_editor", False)
     st.session_state.setdefault("bt_body_apply_flash", False)
-
+    st.session_state.setdefault("bt_editor_version", 0)
 
 def sync_bar_override(col: str):
     """
@@ -2877,9 +2877,9 @@ with main_tab_create:
                                 use_container_width=True,
                                 hide_index=True,
                                 num_rows="fixed",
-                                key="bt_df_editor",
+                                key=f"bt_df_editor_{st.session_state.get('bt_editor_version', 0)}",
                             )
-                
+
                             c1, c2 = st.columns([1, 1])
                 
                             def apply_body_edits():
@@ -2895,14 +2895,20 @@ with main_tab_create:
                                 st.session_state["bt_body_apply_flash"] = True
                 
                             def reset_body_edits():
-                                # ✅ Restore original upload
+                                # ✅ Restore original upload (true undo)
                                 src = st.session_state.get("bt_df_source")
                                 if isinstance(src, pd.DataFrame) and not src.empty:
-                                    st.session_state["bt_df_uploaded"] = src.copy()
-                
+                                    st.session_state["bt_df_uploaded"] = src.copy(deep=True)
+                            
+                                # ✅ Clear hidden columns
                                 st.session_state["bt_hidden_cols"] = []
                                 st.session_state["bt_hidden_cols_draft"] = []
+                            
+                                # ✅ Force data_editor to fully reset (new key)
+                                st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
+                            
                                 st.session_state["bt_body_apply_flash"] = True
+                                st.rerun()
                 
                             with c1:
                                 st.button("✅ Apply changes to preview", use_container_width=True, on_click=apply_body_edits)
