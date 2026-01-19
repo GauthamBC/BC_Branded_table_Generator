@@ -2629,26 +2629,136 @@ with left_col:
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
 
-                # ✅ PASTE THIS BLOCK BELOW THIS LINE
-                st.divider()
-                st.markdown("#### Column Formatting (Live Preview Only)")
+               st.divider()
+st.markdown("#### Column Formatting (Live Preview Only)")
 
-                st.session_state.setdefault("bt_col_format_rules", {})
+# ✅ Ensure rules dict exists
+st.session_state.setdefault("bt_col_format_rules", {})
 
-                raw_rules = st.text_area(
-                    "Format Rules (JSON)",
-                    value=json.dumps(st.session_state["bt_col_format_rules"], indent=2),
-                    height=160,
-                    help='Example: {"Odds": {"mode":"moneyline_plus"}, "Price": {"mode":"prefix","value":"$"}}',
-                )
+# ✅ Columns available (from uploaded df)
+all_cols = []
+try:
+    df_for_cols = st.session_state.get("bt_df_uploaded")
+    if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty:
+        all_cols = list(df_for_cols.columns)
+except Exception:
+    all_cols = []
 
-                try:
-                    parsed = json.loads(raw_rules.strip() or "{}")
-                    if isinstance(parsed, dict):
-                        st.session_state["bt_col_format_rules"] = parsed
-                except Exception:
-                    st.warning("Invalid JSON — fix formatting to apply rules.")
-                # ✅ END PASTE BLOCK
+if not all_cols:
+    st.info("Upload a CSV to enable column formatting.")
+else:
+    # =========================================
+    # ✅ Builder UI (dropdowns)
+    # =========================================
+    c1, c2 = st.columns([1.2, 1])
+
+    with c1:
+        selected_col = st.selectbox(
+            "Choose column",
+            options=["Select a column..."] + all_cols,
+            key="bt_fmt_selected_col",
+        )
+
+    with c2:
+        mode = st.selectbox(
+            "Format type",
+            options=[
+                "prefix",
+                "suffix",
+                "plus_if_positive",   # smart "+"
+            ],
+            key="bt_fmt_selected_mode",
+        )
+
+    value = ""
+    if mode in ("prefix", "suffix"):
+        value = st.text_input(
+            "Value (example: $, %, pts, +)",
+            key="bt_fmt_value",
+            placeholder="$",
+        )
+
+    # Optional conditions (only apply to prefix/suffix)
+    only_pos = False
+    only_neg = False
+    only_nz = False
+
+    if mode in ("prefix", "suffix"):
+        cc1, cc2, cc3 = st.columns(3)
+        with cc1:
+            only_pos = st.checkbox("Only if +", value=False, key="bt_fmt_only_pos")
+        with cc2:
+            only_neg = st.checkbox("Only if −", value=False, key="bt_fmt_only_neg")
+        with cc3:
+            only_nz = st.checkbox("Only if ≠0", value=False, key="bt_fmt_only_nz")
+
+    # Buttons row
+    b1, b2, b3 = st.columns([1, 1, 1])
+
+    def add_or_update_rule():
+        col = st.session_state.get("bt_fmt_selected_col", "")
+        if not col or col == "Select a column...":
+            return
+
+        m = st.session_state.get("bt_fmt_selected_mode", "prefix").strip().lower()
+
+        rule = {"mode": m}
+
+        if m in ("prefix", "suffix"):
+            rule["value"] = st.session_state.get("bt_fmt_value", "")
+
+            # store condition flags only if enabled
+            if st.session_state.get("bt_fmt_only_pos", False):
+                rule["only_if_positive"] = True
+            if st.session_state.get("bt_fmt_only_neg", False):
+                rule["only_if_negative"] = True
+            if st.session_state.get("bt_fmt_only_nz", False):
+                rule["only_if_nonzero"] = True
+
+        st.session_state["bt_col_format_rules"][col] = rule
+
+    def remove_rule():
+        col = st.session_state.get("bt_fmt_selected_col", "")
+        if col in st.session_state["bt_col_format_rules"]:
+            del st.session_state["bt_col_format_rules"][col]
+
+    def clear_all_rules():
+        st.session_state["bt_col_format_rules"] = {}
+
+    with b1:
+        st.button("✅ Add / Update", use_container_width=True, on_click=add_or_update_rule)
+    with b2:
+        st.button("🗑 Remove", use_container_width=True, on_click=remove_rule)
+    with b3:
+        st.button("❌ Clear All", use_container_width=True, on_click=clear_all_rules)
+
+    # =========================================
+    # ✅ Show current rules nicely
+    # =========================================
+    st.markdown("##### Current Rules")
+    if st.session_state["bt_col_format_rules"]:
+        st.json(st.session_state["bt_col_format_rules"])
+    else:
+        st.caption("No rules added yet.")
+
+    # =========================================
+    # ✅ Still keep JSON editor (advanced)
+    # =========================================
+    st.markdown("##### Advanced JSON Editor")
+    raw_rules = st.text_area(
+        "Format Rules (JSON)",
+        value=json.dumps(st.session_state["bt_col_format_rules"], indent=2),
+        height=170,
+        help='Example: {"Odds":{"mode":"plus_if_positive"}, "Price":{"mode":"prefix","value":"$"}}',
+        key="bt_fmt_json_editor",
+    )
+
+    try:
+        parsed = json.loads(raw_rules.strip() or "{}")
+        if isinstance(parsed, dict):
+            st.session_state["bt_col_format_rules"] = parsed
+    except Exception:
+        st.warning("Invalid JSON — fix formatting to apply rules.")
 
                 st.checkbox(
                     "Show Search",
