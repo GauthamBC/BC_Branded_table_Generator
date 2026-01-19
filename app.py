@@ -511,8 +511,8 @@ if not df.empty:
     df = df.sort_values("Created DT", ascending=False, na_position="last")
     df = df.drop(columns=["Created DT"])
 
-# ✅ ALWAYS return a dataframe (even if empty)
-return df
+    # ✅ ALWAYS return a dataframe (even if empty)
+    return df
    
 def update_widget_registry(
     owner: str,
