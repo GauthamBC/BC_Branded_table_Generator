@@ -2599,58 +2599,58 @@ with main_tab_published:
                 df_view = df_view[df_view["Brand"] == brand_filter]
 
             # ✅ Published tables list (CLICK ROW → POPUP PREVIEW)
-st.markdown("#### Click a row to preview")
-
-# ✅ Reset index so selected row maps correctly
-df_view = df_view.reset_index(drop=True)
-
-# ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
-df_display = df_view.copy()
-df_display["Pages URL"] = df_display["Pages URL"].astype(str)
-
-event = st.dataframe(
-    df_display[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
-    use_container_width=True,
-    hide_index=True,
-    selection_mode="single-row",
-    on_select="rerun",
-    key="pub_table_click_df",
-    column_config={
-        # ✅ This makes it plain text (NOT clickable)
-        "Pages URL": st.column_config.TextColumn("Pages URL"),
-    },
-)
-
-# ✅ Extract selected row → auto-preview popup
-selected_rows = []
-try:
-    selected_rows = event.selection.rows or []
-except Exception:
-    selected_rows = []
-
-if selected_rows:
-    selected_idx = selected_rows[0]
-    selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
-
-    if selected_url:
-        # ✅ Prevent re-opening popup every rerun if user clicks same row
-        last = st.session_state.get("pub_last_preview_url", "")
-        if selected_url != last:
-            st.session_state["pub_last_preview_url"] = selected_url
-
-        # ✅ Popup modal preview (if supported)
-        if hasattr(st, "dialog"):
-
-            @st.dialog("Table Preview", width="large")
-            def preview_dialog(url):
-                st.markdown(f"**Previewing:** {url}")
-                components.iframe(url, height=820, scrolling=True)
-
-            preview_dialog(selected_url)
-
-        else:
-            st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-            components.iframe(selected_url, height=820, scrolling=True)
+            st.markdown("#### Click a row to preview")
+            
+            # ✅ Reset index so selected row maps correctly
+            df_view = df_view.reset_index(drop=True)
+            
+            # ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
+            df_display = df_view.copy()
+            df_display["Pages URL"] = df_display["Pages URL"].astype(str)
+            
+            event = st.dataframe(
+                df_display[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
+                use_container_width=True,
+                hide_index=True,
+                selection_mode="single-row",
+                on_select="rerun",
+                key="pub_table_click_df",
+                column_config={
+                    # ✅ This makes it plain text (NOT clickable)
+                    "Pages URL": st.column_config.TextColumn("Pages URL"),
+                },
+            )
+            
+            # ✅ Extract selected row → auto-preview popup
+            selected_rows = []
+            try:
+                selected_rows = event.selection.rows or []
+            except Exception:
+                selected_rows = []
+            
+            if selected_rows:
+                selected_idx = selected_rows[0]
+                selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
+            
+                if selected_url:
+                    # ✅ Prevent re-opening popup every rerun if user clicks same row
+                    last = st.session_state.get("pub_last_preview_url", "")
+                    if selected_url != last:
+                        st.session_state["pub_last_preview_url"] = selected_url
+            
+                    # ✅ Popup modal preview (if supported)
+                    if hasattr(st, "dialog"):
+            
+                        @st.dialog("Table Preview", width="large")
+                        def preview_dialog(url):
+                            st.markdown(f"**Previewing:** {url}")
+                            components.iframe(url, height=820, scrolling=True)
+            
+                        preview_dialog(selected_url)
+            
+                    else:
+                        st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+                        components.iframe(selected_url, height=820, scrolling=True)
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
