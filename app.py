@@ -2587,7 +2587,7 @@ with left_col:
                     index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                     key="bt_cell_align",
                 )
-                                st.selectbox(
+                st.selectbox(
                     "Column header style",
                     options=[
                         "Keep original",
