@@ -2427,46 +2427,46 @@ st.title("Branded Table Generator")
 main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Tables"])
 
 with main_tab_create:
-with main_tab_published:
-    st.markdown("### Published Tables")
-    st.caption("All published tables found in GitHub Pages across repos.")
-
-    publish_owner = (PUBLISH_OWNER or "").strip().lower()
-
-    token_to_use = ""
-    if GITHUB_PAT:
-        token_to_use = GITHUB_PAT
-    else:
-        try:
-            token_to_use = get_installation_token_for_user(publish_owner)
-        except Exception:
-            token_to_use = ""
-
-    if not publish_owner or not token_to_use:
-        st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
-    else:
-        df_pub = get_all_published_widgets(publish_owner, token_to_use)
-
-        if df_pub.empty:
-            st.info("No published tables found yet.")
+    with main_tab_published:
+        st.markdown("### Published Tables")
+        st.caption("All published tables found in GitHub Pages across repos.")
+    
+        publish_owner = (PUBLISH_OWNER or "").strip().lower()
+    
+        token_to_use = ""
+        if GITHUB_PAT:
+            token_to_use = GITHUB_PAT
         else:
-            # Optional filters
-            brands = sorted([b for b in df_pub["Brand"].unique() if b])
-            brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
-
-            if brand_filter != "All":
-                df_pub = df_pub[df_pub["Brand"] == brand_filter]
-
-            # ✅ clickable URLs
-            st.dataframe(
-                df_pub[["Brand", "Table Name", "Pages URL", "GitHub Repo", "Created By", "Created UTC"]],
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Pages URL": st.column_config.LinkColumn("Pages URL"),
-                    "GitHub Repo": st.column_config.LinkColumn("GitHub Repo"),
-                },
-            )
+            try:
+                token_to_use = get_installation_token_for_user(publish_owner)
+            except Exception:
+                token_to_use = ""
+    
+        if not publish_owner or not token_to_use:
+            st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
+        else:
+            df_pub = get_all_published_widgets(publish_owner, token_to_use)
+    
+            if df_pub.empty:
+                st.info("No published tables found yet.")
+            else:
+                # Optional filters
+                brands = sorted([b for b in df_pub["Brand"].unique() if b])
+                brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
+    
+                if brand_filter != "All":
+                    df_pub = df_pub[df_pub["Brand"] == brand_filter]
+    
+                # ✅ clickable URLs
+                st.dataframe(
+                    df_pub[["Brand", "Table Name", "Pages URL", "GitHub Repo", "Created By", "Created UTC"]],
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Pages URL": st.column_config.LinkColumn("Pages URL"),
+                        "GitHub Repo": st.column_config.LinkColumn("GitHub Repo"),
+                    },
+                )
 # =========================================================
 # ✅ Global "Created by" (mandatory before upload)
 # =========================================================
