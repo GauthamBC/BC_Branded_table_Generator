@@ -498,21 +498,22 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
 
-    # ✅ remove duplicates if registry + fallback both catch same html
-    if not df.empty:
-        df = df.drop_duplicates(subset=["Pages URL"], keep="first")
+# ✅ remove duplicates if registry + fallback both catch same html
+if not df.empty:
+    df = df.drop_duplicates(subset=["Pages URL"], keep="first")
 
-    # ✅ Sort newest first (works best once commit dates exist)
-    if not df.empty and "Created UTC" in df.columns:
-        df = df.sort_values("Created UTC", ascending=False, na_position="last")
+# ✅ Sort newest first (works best once commit dates exist)
+if not df.empty and "Created UTC" in df.columns:
+    df = df.sort_values("Created UTC", ascending=False, na_position="last")
 
-    if not df.empty:
-        df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
-        df = df.sort_values("Created DT", ascending=False, na_position="last")
-        df = df.drop(columns=["Created DT"])
-        
-        return df
- 
+if not df.empty:
+    df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
+    df = df.sort_values("Created DT", ascending=False, na_position="last")
+    df = df.drop(columns=["Created DT"])
+
+# ✅ ALWAYS return a dataframe (even if empty)
+return df
+   
 def update_widget_registry(
     owner: str,
     repo: str,
@@ -2551,7 +2552,11 @@ with main_tab_published:
     st.caption("All published tables found in GitHub Pages across repos.")
 
     # ✅ Refresh button MUST live inside this tab
-    refresh_clicked = st.button("🔄 Refresh Published Tables", use_container_width=False)
+    refresh_clicked = st.button(
+        "🔄 Refresh Published Tables",
+        key="pub_refresh_btn",
+        use_container_width=False,
+    )
 
     publish_owner = (PUBLISH_OWNER or "").strip().lower()
 
@@ -2573,35 +2578,54 @@ with main_tab_published:
                 st.cache_data.clear()
             st.session_state["df_pub_cache"] = get_all_published_widgets(publish_owner, token_to_use)
 
-        df_pub = st.session_state["df_pub_cache"]
+        df_pub = st.session_state.get("df_pub_cache")
 
-        if df_pub.empty:
+        # ✅ Defensive: get_all_published_widgets should return a df, but just in case
+        if df_pub is None or df_pub.empty:
             st.info("No published tables found yet.")
         else:
-            brands = sorted([b for b in df_pub["Brand"].unique() if b])
-            brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
+            # ✅ Brand dropdown options should come from the FULL dataset
+            all_brands = sorted([b for b in df_pub["Brand"].unique() if b])
 
+            brand_filter = st.selectbox(
+                "Filter by brand",
+                ["All"] + all_brands,
+                key="pub_brand_filter",
+            )
+
+            # ✅ Filtered view
+            df_view = df_pub.copy()
             if brand_filter != "All":
-                df_pub = df_pub[df_pub["Brand"] == brand_filter]
+                df_view = df_view[df_view["Brand"] == brand_filter]
 
-                        # ✅ Filter by brand
-            brands = sorted([b for b in df_pub["Brand"].unique() if b])
-            brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
-
-            if brand_filter != "All":
-                df_pub = df_pub[df_pub["Brand"] == brand_filter]
-
-            # ✅ PREVIEW PICKER (add this block right here)
+            # ✅ PREVIEW PICKER
             st.markdown("#### Preview a table")
 
-            options = df_pub["Pages URL"].dropna().astype(str).tolist()
+            # Build friendly labels (instead of ugly raw URLs)
+            df_view = df_view.reset_index(drop=True)
 
-            if options:
-                selected_url = st.selectbox(
+            preview_rows = df_view.dropna(subset=["Pages URL"]).copy()
+            preview_rows["Pages URL"] = preview_rows["Pages URL"].astype(str).str.strip()
+            preview_rows = preview_rows[preview_rows["Pages URL"] != ""]
+
+            if preview_rows.empty:
+                st.info("No URLs available to preview.")
+            else:
+                labels = []
+                for _, r in preview_rows.iterrows():
+                    brand = (r.get("Brand") or "").strip() or "Unknown brand"
+                    title = (r.get("Table Name") or "").strip() or "Untitled table"
+                    created_by = (r.get("Created By") or "").strip() or "unknown"
+                    labels.append(f"{brand} — {title} ({created_by})")
+
+                selected_label = st.selectbox(
                     "Choose a page to preview",
-                    options,
-                    key="bt_preview_selected_url",
+                    labels,
+                    key="bt_preview_label",
                 )
+
+                selected_idx = labels.index(selected_label)
+                selected_url = preview_rows.loc[selected_idx, "Pages URL"]
 
                 # ✅ Popup modal preview (Streamlit versions that support it)
                 if hasattr(st, "dialog"):
@@ -2618,19 +2642,15 @@ with main_tab_published:
                     st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                     components.iframe(selected_url, height=820, scrolling=True)
 
-            else:
-                st.info("No URLs available to preview.")
-
-            # ✅ Your published tables list (keep this)
+            # ✅ Published tables list
             st.dataframe(
-                df_pub[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
+                df_view[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
                     "Pages URL": st.column_config.LinkColumn("Pages URL"),
                 },
             )
-
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
