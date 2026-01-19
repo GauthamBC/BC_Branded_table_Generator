@@ -506,6 +506,11 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     if not df.empty and "Created UTC" in df.columns:
         df = df.sort_values("Created UTC", ascending=False, na_position="last")
 
+    if not df.empty:
+    df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
+    df = df.sort_values("Created DT", ascending=False, na_position="last")
+    df = df.drop(columns=["Created DT"])
+    
     return df
  
 def update_widget_registry(
@@ -2579,6 +2584,44 @@ with main_tab_published:
             if brand_filter != "All":
                 df_pub = df_pub[df_pub["Brand"] == brand_filter]
 
+                        # ✅ Filter by brand
+            brands = sorted([b for b in df_pub["Brand"].unique() if b])
+            brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
+
+            if brand_filter != "All":
+                df_pub = df_pub[df_pub["Brand"] == brand_filter]
+
+            # ✅ PREVIEW PICKER (add this block right here)
+            st.markdown("#### Preview a table")
+
+            options = df_pub["Pages URL"].dropna().astype(str).tolist()
+
+            if options:
+                selected_url = st.selectbox(
+                    "Choose a page to preview",
+                    options,
+                    key="bt_preview_selected_url",
+                )
+
+                # ✅ Popup modal preview (Streamlit versions that support it)
+                if hasattr(st, "dialog"):
+
+                    @st.dialog("Table Preview", width="large")
+                    def preview_dialog(url):
+                        st.markdown(f"**Previewing:** {url}")
+                        components.iframe(url, height=820, scrolling=True)
+
+                    if st.button("👁️ Preview in popup", key="bt_preview_popup_btn"):
+                        preview_dialog(selected_url)
+
+                else:
+                    st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+                    components.iframe(selected_url, height=820, scrolling=True)
+
+            else:
+                st.info("No URLs available to preview.")
+
+            # ✅ Your published tables list (keep this)
             st.dataframe(
                 df_pub[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
                 use_container_width=True,
