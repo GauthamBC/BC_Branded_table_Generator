@@ -110,28 +110,31 @@ def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
 
 
 def get_installation_id_for_user(username: str) -> int:
-    """
-    Returns GitHub App installation id for a given personal account username
-    IF the app is installed there.
-    """
     username = (username or "").strip()
     if not username:
         return 0
 
     app_jwt = build_github_app_jwt(GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY)
 
+    # Try user install first
     r = requests.get(
         f"https://api.github.com/users/{username}/installation",
         headers=github_headers(app_jwt),
         timeout=20,
     )
-
     if r.status_code == 200:
-        data = r.json() or {}
-        return int(data.get("id", 0) or 0)
+        return int((r.json() or {}).get("id", 0) or 0)
 
-    if r.status_code in (404, 403):
-        return 0
+    # If not found, try org install
+    r2 = requests.get(
+        f"https://api.github.com/orgs/{username}/installation",
+        headers=github_headers(app_jwt),
+        timeout=20,
+    )
+    if r2.status_code == 200:
+        return int((r2.json() or {}).get("id", 0) or 0)
+
+    return 0
 
     raise RuntimeError(f"Error checking GitHub App installation: {r.status_code} {r.text}")
 
@@ -188,17 +191,33 @@ def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
 
-    r2 = requests.post(
-        f"{api_base}/user/repos",
-        headers=github_headers(GITHUB_PAT),
-        json=payload,
-        timeout=20,
-    )
+    # ✅ Repo does not exist → create it using PAT
+if not GITHUB_PAT:
+    raise RuntimeError("Repo does not exist and cannot be created because GITHUB_PAT is missing in secrets.")
 
-    if r2.status_code not in (200, 201):
-        raise RuntimeError(f"Error Creating Repo (PAT): {r2.status_code} {r2.text}")
+payload = {
+    "name": repo,
+    "auto_init": True,
+    "private": False,
+    "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
+}
 
-    return True
+# ✅ If publishing owner is an ORG, use org repo endpoint
+create_url = f"{api_base}/user/repos"
+if owner and owner.strip():
+    create_url = f"{api_base}/orgs/{owner}/repos"
+
+r2 = requests.post(
+    create_url,
+    headers=github_headers(GITHUB_PAT),
+    json=payload,
+    timeout=20,
+)
+
+if r2.status_code not in (200, 201):
+    raise RuntimeError(f"Error Creating Repo (PAT): {r2.status_code} {r2.text}")
+
+return True
 
 
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
@@ -1680,26 +1699,21 @@ def format_column_header(col_name: str, mode: str) -> str:
     s = str(col_name or "")
     mode = (mode or "").strip().lower()
 
-    # ✅ Keep exactly as uploaded
     if mode.startswith("keep"):
         return s
 
-    # ✅ Make it more readable first
     s2 = s.replace("_", " ").strip()
     s2 = re.sub(r"\s+", " ", s2)
 
     if not s2:
         return s
 
-    # ✅ Sentence case
     if mode.startswith("sentence"):
         return s2[:1].upper() + s2[1:].lower()
 
-    # ✅ Title Case
     if mode.startswith("title"):
         return s2.title()
 
-    # ✅ ALL CAPS
     if "caps" in mode:
         return s2.upper()
 
@@ -2224,6 +2238,41 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_bar_max_overrides", {})
     st.session_state.setdefault("bt_bar_fixed_w", 200)
 
+def sync_bar_override(col: str):
+    """
+    Immediately sync a single override input into bt_bar_max_overrides.
+    This makes the preview reflect the override instantly (no Confirm needed).
+    """
+    st.session_state.setdefault("bt_bar_max_overrides", {})
+
+    # value typed in text_input for this column
+    v = (st.session_state.get(f"bt_bar_override_{col}", "") or "").strip()
+
+    # Blank → remove override
+    if v == "":
+        st.session_state["bt_bar_max_overrides"].pop(col, None)
+        return
+
+    # Try converting to float
+    try:
+        st.session_state["bt_bar_max_overrides"][col] = float(v)
+    except Exception:
+        # Ignore invalid mid-typing states like "1." or "-"
+        pass
+
+
+def prune_bar_overrides():
+    """
+    Remove overrides for columns that are no longer selected as bar columns.
+    Keeps bt_bar_max_overrides clean and prevents "ghost overrides".
+    """
+    st.session_state.setdefault("bt_bar_max_overrides", {})
+    selected = set(st.session_state.get("bt_bar_columns", []) or [])
+
+    st.session_state["bt_bar_max_overrides"] = {
+        k: v for k, v in st.session_state["bt_bar_max_overrides"].items()
+        if k in selected
+    }
 
 def do_confirm_snapshot():
     st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
@@ -2232,7 +2281,12 @@ def do_confirm_snapshot():
     st.session_state["bt_confirmed_cfg"] = cfg
     st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
 
-    html = html_from_config(st.session_state["bt_df_confirmed"], st.session_state["bt_confirmed_cfg"])
+    live_rules = st.session_state.get("bt_col_format_rules", {})
+    html = html_from_config(
+        st.session_state["bt_df_confirmed"],
+        st.session_state["bt_confirmed_cfg"],
+        col_format_rules=live_rules,
+    )
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
@@ -2743,13 +2797,22 @@ with left_col:
                     if not numeric_cols:
                         st.warning("No numeric columns found for bars.")
                     else:
+                       # ✅ Detect numeric columns (only those can be bars)
+                        df_for_bars = st.session_state.get("bt_df_uploaded")
+                        numeric_cols = []
+                        if isinstance(df_for_bars, pd.DataFrame) and not df_for_bars.empty:
+                            numeric_cols = [c for c in df_for_bars.columns if guess_column_type(df_for_bars[c]) == "num"]
+
+                        
                         st.multiselect(
                             "Choose columns to display as bars",
                             options=numeric_cols,
                             default=st.session_state.get("bt_bar_columns", []),
                             key="bt_bar_columns",
+                            on_change=prune_bar_overrides,   # ✅ CRITICAL: prune instantly
                             help="Only numeric columns can be converted into bar columns.",
                         )
+
         
                         st.number_input(
                             "Bar width (px)",
