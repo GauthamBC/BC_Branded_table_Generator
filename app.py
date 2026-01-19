@@ -2426,7 +2426,6 @@ st.markdown(
 st.title("Branded Table Generator")
 main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Tables"])
 
-
 # =========================================================
 # ✅ TAB 2: Published Tables  (ONLY THIS VIEW)
 # =========================================================
@@ -2460,17 +2459,15 @@ with main_tab_published:
             if brand_filter != "All":
                 df_pub = df_pub[df_pub["Brand"] == brand_filter]
 
-            # ✅ clickable URLs
+            # ✅ ONLY show Pages URL (NO repo column)
             st.dataframe(
-                df_pub[["Brand", "Table Name", "Pages URL", "GitHub Repo", "Created By", "Created UTC"]],
+                df_pub[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
                     "Pages URL": st.column_config.LinkColumn("Pages URL"),
-                    "GitHub Repo": st.column_config.LinkColumn("GitHub Repo"),
                 },
             )
-
 
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
