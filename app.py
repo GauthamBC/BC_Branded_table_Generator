@@ -2357,7 +2357,9 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
     url = (url or "").strip()
     if not url:
         return ""
+
     h = int(height) if height else 800
+
     return f"""<iframe
   src="{html_mod.escape(url, quote=True)}"
   width="100%"
@@ -2365,8 +2367,9 @@ def build_iframe_snippet(url: str, height: int = 800) -> str:
   style="border:0; border-radius:12px; overflow:hidden;"
   loading="lazy"
   referrerpolicy="no-referrer-when-downgrade"
+  allow="clipboard-write"
+  sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox"
 ></iframe>"""
-
 
 def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
     """
