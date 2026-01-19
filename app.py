@@ -1816,7 +1816,7 @@ def generate_table_html_from_df(
         # ✅ Column formatting rules (prefix/suffix/moneyline)
     col_format_rules = col_format_rules or {}
 
-    def apply_column_formatting(col_name: str, display_val: str, raw_val) -> str:
+def apply_column_formatting(col_name: str, display_val: str, raw_val) -> str:
     """
     Applies per-column formatting rules AFTER numeric formatting.
 
