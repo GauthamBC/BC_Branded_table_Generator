@@ -507,11 +507,11 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
         df = df.sort_values("Created UTC", ascending=False, na_position="last")
 
     if not df.empty:
-    df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
-    df = df.sort_values("Created DT", ascending=False, na_position="last")
-    df = df.drop(columns=["Created DT"])
-    
-    return df
+        df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
+        df = df.sort_values("Created DT", ascending=False, na_position="last")
+        df = df.drop(columns=["Created DT"])
+        
+        return df
  
 def update_widget_registry(
     owner: str,
