@@ -2725,69 +2725,69 @@ with left_col:
                     if st.session_state["bt_col_format_rules"]:
                         st.caption("Current formatting rules:")
                         st.json(st.session_state["bt_col_format_rules"])
-    with sub_bars:
-    with st.container(height=SETTINGS_PANEL_HEIGHT):
-
-        st.markdown("#### Bar Columns")
-
-        df_for_cols = st.session_state.get("bt_df_uploaded")
-        if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
-            st.info("Upload a CSV to enable bars.")
-        else:
-            # ✅ only allow numeric-ish columns
-            numeric_cols = []
-            for c in df_for_cols.columns:
-                if guess_column_type(df_for_cols[c]) == "num":
-                    numeric_cols.append(c)
-
-            if not numeric_cols:
-                st.warning("No numeric columns found for bars.")
+        with sub_bars:
+        with st.container(height=SETTINGS_PANEL_HEIGHT):
+    
+            st.markdown("#### Bar Columns")
+    
+            df_for_cols = st.session_state.get("bt_df_uploaded")
+            if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
+                st.info("Upload a CSV to enable bars.")
             else:
-                st.multiselect(
-                    "Choose columns to display as bars",
-                    options=numeric_cols,
-                    default=st.session_state.get("bt_bar_columns", []),
-                    key="bt_bar_columns",
-                    help="Only numeric columns can be converted into bar columns.",
-                )
-
-                st.number_input(
-                    "Bar width (px)",
-                    min_value=120,
-                    max_value=360,
-                    value=int(st.session_state.get("bt_bar_fixed_w", 200)),
-                    step=10,
-                    key="bt_bar_fixed_w",
-                    help="This controls the fixed bar track width for all bar columns.",
-                )
-
-                st.divider()
-                st.markdown("#### Max Value Overrides (Optional)")
-
-                # Ensure dict exists
-                st.session_state.setdefault("bt_bar_max_overrides", {})
-
-                selected = st.session_state.get("bt_bar_columns", [])
-                if not selected:
-                    st.caption("Select at least one bar column to set overrides.")
+                # ✅ only allow numeric-ish columns
+                numeric_cols = []
+                for c in df_for_cols.columns:
+                    if guess_column_type(df_for_cols[c]) == "num":
+                        numeric_cols.append(c)
+    
+                if not numeric_cols:
+                    st.warning("No numeric columns found for bars.")
                 else:
-                    for col in selected:
-                        current = st.session_state["bt_bar_max_overrides"].get(col, "")
-                        new_val = st.text_input(
-                            f"Max override for: {col}",
-                            value=str(current),
-                            help="Leave blank to auto-scale based on max value in the column.",
-                            key=f"bt_bar_override_{col}",
-                        ).strip()
-
-                        # Update dict live
-                        if new_val == "":
-                            st.session_state["bt_bar_max_overrides"].pop(col, None)
-                        else:
-                            try:
-                                st.session_state["bt_bar_max_overrides"][col] = float(new_val)
-                            except Exception:
-                                st.warning(f"'{new_val}' is not a valid number for {col}.")
+                    st.multiselect(
+                        "Choose columns to display as bars",
+                        options=numeric_cols,
+                        default=st.session_state.get("bt_bar_columns", []),
+                        key="bt_bar_columns",
+                        help="Only numeric columns can be converted into bar columns.",
+                    )
+    
+                    st.number_input(
+                        "Bar width (px)",
+                        min_value=120,
+                        max_value=360,
+                        value=int(st.session_state.get("bt_bar_fixed_w", 200)),
+                        step=10,
+                        key="bt_bar_fixed_w",
+                        help="This controls the fixed bar track width for all bar columns.",
+                    )
+    
+                    st.divider()
+                    st.markdown("#### Max Value Overrides (Optional)")
+    
+                    # Ensure dict exists
+                    st.session_state.setdefault("bt_bar_max_overrides", {})
+    
+                    selected = st.session_state.get("bt_bar_columns", [])
+                    if not selected:
+                        st.caption("Select at least one bar column to set overrides.")
+                    else:
+                        for col in selected:
+                            current = st.session_state["bt_bar_max_overrides"].get(col, "")
+                            new_val = st.text_input(
+                                f"Max override for: {col}",
+                                value=str(current),
+                                help="Leave blank to auto-scale based on max value in the column.",
+                                key=f"bt_bar_override_{col}",
+                            ).strip()
+    
+                            # Update dict live
+                            if new_val == "":
+                                st.session_state["bt_bar_max_overrides"].pop(col, None)
+                            else:
+                                try:
+                                    st.session_state["bt_bar_max_overrides"][col] = float(new_val)
+                                except Exception:
+                                    st.warning(f"'{new_val}' is not a valid number for {col}.")
     # ---------- EMBED TAB ----------
     with tab_embed:
         st.markdown("#### Get Embed Script")
