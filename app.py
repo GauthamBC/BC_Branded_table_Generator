@@ -3035,12 +3035,14 @@ with left_col:
                         st.info("Click **Confirm & Save** to generate HTML.")
                     else:
                         st.caption("HTML Code")
-                        st.code(html_code_val, language="html")
+                        with st.container(height=340):  # ✅ fixed height + scroll
+                            st.code(html_code_val, language="html")
 
                 with iframe_tab:
                     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
                     st.caption("IFrame Code")
-                    st.code(iframe_val or "", language="html")
+                    with st.container(height=160):  # ✅ smaller box for iframe
+                        st.code(iframe_val or "", language="html")
 
 # ✅ Render preview LAST so it uses the newest widget state
 with preview_slot:
