@@ -2629,229 +2629,77 @@ with left_col:
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
 
-st.divider()
+                st.divider()
 st.markdown("#### Column Formatting (Live Preview Only)")
 
-# ✅ Ensure rules dict exists
 st.session_state.setdefault("bt_col_format_rules", {})
 
-# ✅ Columns available (from uploaded df)
-all_cols = []
-try:
-    df_for_cols = st.session_state.get("bt_df_uploaded")
-    if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty:
-        all_cols = list(df_for_cols.columns)
-except Exception:
-    all_cols = []
+df_for_cols = st.session_state.get("bt_df_uploaded")
+all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
 
 if not all_cols:
     st.info("Upload a CSV to enable column formatting.")
 else:
-    # =========================================
-    # ✅ Builder UI (dropdowns)
-    # =========================================
-    c1, c2 = st.columns([1.2, 1])
+    # --- minimal builder row ---
+    c1, c2, c3 = st.columns([1.4, 1.1, 1.0])
 
     with c1:
-        selected_col = st.selectbox(
-            "Choose column",
-            options=["Select a column..."] + all_cols,
+        st.selectbox(
+            "Column",
+            options=all_cols,
             key="bt_fmt_selected_col",
         )
 
     with c2:
-        mode = st.selectbox(
-            "Format type",
-            options=[
-                "prefix",
-                "suffix",
-                "plus_if_positive",   # smart "+"
-            ],
+        st.selectbox(
+            "Format",
+            options=["prefix", "suffix", "plus_if_positive"],
             key="bt_fmt_selected_mode",
         )
 
-    value = ""
-    if mode in ("prefix", "suffix"):
-        value = st.text_input(
-            "Value (example: $, %, pts, +)",
-            key="bt_fmt_value",
-            placeholder="$",
-        )
+    with c3:
+        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+        if mode in ("prefix", "suffix"):
+            st.text_input(
+                "Value",
+                key="bt_fmt_value",
+                placeholder="$",
+            )
+        else:
+            st.text_input(
+                "Value",
+                value="(auto)",
+                disabled=True,
+                key="bt_fmt_value_disabled",
+            )
 
-    # Optional conditions (only apply to prefix/suffix)
-    only_pos = False
-    only_neg = False
-    only_nz = False
+    b1, b2 = st.columns(2)
 
-    if mode in ("prefix", "suffix"):
-        cc1, cc2, cc3 = st.columns(3)
-        with cc1:
-            only_pos = st.checkbox("Only if +", value=False, key="bt_fmt_only_pos")
-        with cc2:
-            only_neg = st.checkbox("Only if −", value=False, key="bt_fmt_only_neg")
-        with cc3:
-            only_nz = st.checkbox("Only if ≠0", value=False, key="bt_fmt_only_nz")
+    def add_update_fmt():
+        col = st.session_state.get("bt_fmt_selected_col")
+        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
 
-    # Buttons row
-    b1, b2, b3 = st.columns([1, 1, 1])
+        rule = {"mode": mode}
 
-    def add_or_update_rule():
-        col = st.session_state.get("bt_fmt_selected_col", "")
-        if not col or col == "Select a column...":
-            return
-
-        m = st.session_state.get("bt_fmt_selected_mode", "prefix").strip().lower()
-
-        rule = {"mode": m}
-
-        if m in ("prefix", "suffix"):
+        if mode in ("prefix", "suffix"):
             rule["value"] = st.session_state.get("bt_fmt_value", "")
-
-            # store condition flags only if enabled
-            if st.session_state.get("bt_fmt_only_pos", False):
-                rule["only_if_positive"] = True
-            if st.session_state.get("bt_fmt_only_neg", False):
-                rule["only_if_negative"] = True
-            if st.session_state.get("bt_fmt_only_nz", False):
-                rule["only_if_nonzero"] = True
 
         st.session_state["bt_col_format_rules"][col] = rule
 
-    def remove_rule():
-        col = st.session_state.get("bt_fmt_selected_col", "")
+    def remove_fmt():
+        col = st.session_state.get("bt_fmt_selected_col")
         if col in st.session_state["bt_col_format_rules"]:
             del st.session_state["bt_col_format_rules"][col]
 
-    def clear_all_rules():
-        st.session_state["bt_col_format_rules"] = {}
-
     with b1:
-        st.button("✅ Add / Update", use_container_width=True, on_click=add_or_update_rule)
+        st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
     with b2:
-        st.button("🗑 Remove", use_container_width=True, on_click=remove_rule)
-    with b3:
-        st.button("❌ Clear All", use_container_width=True, on_click=clear_all_rules)
+        st.button("🗑 Remove", use_container_width=True, on_click=remove_fmt)
 
-    # =========================================
-    # ✅ Show current rules nicely
-    # =========================================
-    st.markdown("##### Current Rules")
+    # tiny preview (minimal, not noisy)
     if st.session_state["bt_col_format_rules"]:
+        st.caption("Current formatting rules:")
         st.json(st.session_state["bt_col_format_rules"])
-    else:
-        st.caption("No rules added yet.")
-
-    # =========================================
-    # ✅ Still keep JSON editor (advanced)
-    # =========================================
-    st.markdown("##### Advanced JSON Editor")
-    raw_rules = st.text_area(
-        "Format Rules (JSON)",
-        value=json.dumps(st.session_state["bt_col_format_rules"], indent=2),
-        height=170,
-        help='Example: {"Odds":{"mode":"plus_if_positive"}, "Price":{"mode":"prefix","value":"$"}}',
-        key="bt_fmt_json_editor",
-    )
-
-    try:
-        parsed = json.loads(raw_rules.strip() or "{}")
-        if isinstance(parsed, dict):
-            st.session_state["bt_col_format_rules"] = parsed
-    except Exception:
-        st.warning("Invalid JSON — fix formatting to apply rules.")
-
-        st.checkbox(
-            "Show Search",
-            value=st.session_state.get("bt_show_search", True),
-            key="bt_show_search",
-        )
-
-        show_pager = st.checkbox(
-            "Show Pager (Rows/Page + Prev/Next)",
-            value=st.session_state.get("bt_show_pager", True),
-            key="bt_show_pager",
-            help="If Off, the table will show all rows by default (but Embed/Download can still remain ON).",
-        )
-
-        st.checkbox(
-            "Show Page Numbers (Page X Of Y)",
-            value=st.session_state.get("bt_show_page_numbers", True),
-            key="bt_show_page_numbers",
-            disabled=not show_pager,
-        )
-
-        st.checkbox(
-            "Show Embed / Download Button",
-            value=st.session_state.get("bt_show_embed", True),
-            key="bt_show_embed",
-            help="Independent of Pager. This only hides/shows the Embed/Download button + menu.",
-        )
-
-        with sub_bars:
-            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                st.markdown("#### Bars")
-
-                # ✅ Bar Columns (numeric only)
-                numeric_cols = []
-                try:
-                    df_for_cols = st.session_state.get("bt_df_uploaded")
-                    if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty:
-                        for c in df_for_cols.columns:
-                            if guess_column_type(df_for_cols[c]) == "num":
-                                numeric_cols.append(c)
-                except Exception:
-                    numeric_cols = []
-
-                # ✅ Use current selection to control disabled state
-                selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
-                st.session_state.setdefault("bt_bar_max_overrides", {})
-
-                st.number_input(
-                    "Bar track width (px)",
-                    min_value=120,
-                    max_value=360,
-                    value=int(st.session_state.get("bt_bar_fixed_w", 200)),
-                    step=10,
-                    key="bt_bar_fixed_w",
-                    disabled=(len(selected_bar_cols) == 0),
-                    help="Every bar track will be EXACTLY this width. Bar columns will auto-expand to fit it.",
-                )
-
-                st.multiselect(
-                    "Columns To Display As Bars",
-                    options=numeric_cols,
-                    default=st.session_state.get("bt_bar_columns", []),
-                    key="bt_bar_columns",
-                    help="Select numeric columns to show as bar charts inside the table cells.",
-                )
-
-                # Re-read selection after multiselect (so overrides UI updates immediately)
-                selected_bar_cols = st.session_state.get("bt_bar_columns", []) or []
-
-                if selected_bar_cols:
-                    st.caption("Optional: Set a maximum (Out of what?) for each bar column. Leave blank to auto-calculate.")
-                    for col in selected_bar_cols:
-                        existing_val = st.session_state["bt_bar_max_overrides"].get(col, "")
-
-                        max_str = st.text_input(
-                            f"{col} max (optional)",
-                            value=str(existing_val) if existing_val is not None else "",
-                            placeholder="Example: 100",
-                            key=f"bt_bar_max_override_{col}",
-                        ).strip()
-
-                        if max_str == "":
-                            st.session_state["bt_bar_max_overrides"][col] = ""
-                        else:
-                            try:
-                                num_val = float(max_str)
-                                if num_val > 0:
-                                    st.session_state["bt_bar_max_overrides"][col] = num_val
-                                else:
-                                    st.session_state["bt_bar_max_overrides"][col] = ""
-                            except Exception:
-                                st.session_state["bt_bar_max_overrides"][col] = ""
-
     # ---------- EMBED TAB ----------
     with tab_embed:
         st.markdown("#### Get Embed Script")
