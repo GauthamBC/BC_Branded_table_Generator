@@ -355,13 +355,72 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     """
     Reads widget_registry.json from every repo that has it.
     If registry missing, fallback to scanning root for *.html files.
-    Returns a DataFrame of all published tables.
+    Also tries to infer brand + fetch created_by/created_utc from git commits for legacy pages.
     """
     rows = []
     repos = list_repos_for_owner(owner, token)
 
+    api_base = "https://api.github.com"
+    headers = github_headers(token)
+
     def compute_url(repo_name: str, file_name: str) -> str:
         return compute_pages_url(owner, repo_name, file_name)
+
+    def infer_brand_from_repo(repo_name: str) -> str:
+        """
+        Example repo names:
+          ActionNetworktj26
+          CanadaSportsBettingtj26
+          RotoGrinderstj26
+        """
+        rn = (repo_name or "").lower()
+
+        for brand, prefix in BRAND_REPO_PREFIX_FULL.items():
+            if rn.startswith(prefix.lower()):
+                return brand
+
+        return ""
+
+    def get_file_commit_meta(repo_name: str, file_name: str) -> tuple[str, str]:
+        """
+        Returns (created_by, created_utc) from latest commit touching the file.
+        """
+        try:
+            rr = requests.get(
+                f"{api_base}/repos/{owner}/{repo_name}/commits",
+                headers=headers,
+                params={"path": file_name, "per_page": 1},
+                timeout=20,
+            )
+
+            if rr.status_code != 200:
+                return "", ""
+
+            commits = rr.json() or []
+            if not commits:
+                return "", ""
+
+            c0 = commits[0] or {}
+
+            # Created by (prefer GitHub login)
+            created_by = ""
+            if isinstance(c0.get("author"), dict) and c0["author"].get("login"):
+                created_by = str(c0["author"]["login"]).strip().lower()
+            else:
+                # fallback to commit author name
+                commit_obj = c0.get("commit") or {}
+                author_obj = commit_obj.get("author") or {}
+                created_by = str(author_obj.get("name") or "").strip().lower()
+
+            # Created UTC (ISO format)
+            commit_obj = c0.get("commit") or {}
+            author_obj = commit_obj.get("author") or {}
+            created_utc = str(author_obj.get("date") or "").strip()
+
+            return created_by, created_utc
+
+        except Exception:
+            return "", ""
 
     for r in repos:
         repo_name = (r.get("name") or "").strip()
@@ -371,7 +430,7 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
         try:
             reg = read_github_json(owner, repo_name, token, "widget_registry.json", branch="main")
 
-            # ✅ CASE A: Registry exists
+            # ✅ CASE A: Registry exists → use it
             if isinstance(reg, dict) and reg:
                 for fname, meta in reg.items():
                     if not isinstance(meta, dict):
@@ -381,21 +440,31 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                     if not pages_url:
                         pages_url = compute_url(repo_name, fname)
 
+                    brand = (meta.get("brand") or "").strip()
+                    if not brand:
+                        brand = infer_brand_from_repo(repo_name)
+
+                    created_by = (meta.get("created_by") or "").strip().lower()
+                    created_utc = (meta.get("created_at_utc") or "").strip()
+
+                    # ✅ If missing created fields, try commit lookup
+                    if not created_by or not created_utc:
+                        cb, cu = get_file_commit_meta(repo_name, fname)
+                        created_by = created_by or cb
+                        created_utc = created_utc or cu
+
                     rows.append({
-                        "Brand": meta.get("brand", ""),
+                        "Brand": brand,
                         "Table Name": meta.get("table_title", "") or fname,
                         "Pages URL": pages_url,
-                        "Created By": meta.get("created_by", ""),
-                        "Created UTC": meta.get("created_at_utc", ""),
+                        "Created By": created_by,
+                        "Created UTC": created_utc,
                         "Repo": repo_name,
                         "File": fname,
                     })
 
-            # ✅ CASE B: No registry found → fallback scan for html files
+            # ✅ CASE B: No registry → scan for html files + infer metadata
             else:
-                api_base = "https://api.github.com"
-                headers = github_headers(token)
-
                 rr = requests.get(
                     f"{api_base}/repos/{owner}/{repo_name}/contents",
                     headers=headers,
@@ -407,16 +476,22 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                     contents = rr.json() or []
                     for item in contents:
                         name = (item.get("name") or "").strip()
-                        if name.lower().endswith(".html"):
-                            rows.append({
-                                "Brand": "",
-                                "Table Name": name,
-                                "Pages URL": compute_url(repo_name, name),
-                                "Created By": "",
-                                "Created UTC": "",
-                                "Repo": repo_name,
-                                "File": name,
-                            })
+                        if not name.lower().endswith(".html"):
+                            continue
+
+                        brand = infer_brand_from_repo(repo_name)
+
+                        created_by, created_utc = get_file_commit_meta(repo_name, name)
+
+                        rows.append({
+                            "Brand": brand,
+                            "Table Name": name,
+                            "Pages URL": compute_url(repo_name, name),
+                            "Created By": created_by,
+                            "Created UTC": created_utc,
+                            "Repo": repo_name,
+                            "File": name,
+                        })
 
         except Exception:
             continue
@@ -427,7 +502,7 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     if not df.empty:
         df = df.drop_duplicates(subset=["Pages URL"], keep="first")
 
-    # optional sorting newest first if Created UTC exists
+    # ✅ Sort newest first (works best once commit dates exist)
     if not df.empty and "Created UTC" in df.columns:
         df = df.sort_values("Created UTC", ascending=False, na_position="last")
 
