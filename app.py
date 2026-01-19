@@ -2532,6 +2532,20 @@ def do_confirm_snapshot():
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
+def reset_table_edits():
+    # ✅ Restore original upload (true undo)
+    src = st.session_state.get("bt_df_source")
+    if isinstance(src, pd.DataFrame) and not src.empty:
+        st.session_state["bt_df_uploaded"] = src.copy(deep=True)
+
+    # ✅ Clear hidden columns (both live + draft)
+    st.session_state["bt_hidden_cols"] = []
+    st.session_state["bt_hidden_cols_draft"] = []
+
+    # ✅ Force data_editor to reset by changing its key
+    st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
+
+    st.session_state["bt_body_apply_flash"] = True
 
 # =========================================================
 # Streamlit App
@@ -2882,7 +2896,11 @@ with main_tab_create:
 
                             c1, c2 = st.columns([1, 1])
                             apply_clicked = c1.button("✅ Apply changes to preview", use_container_width=True)
-                            reset_clicked = c2.button("↩ Reset table edits", use_container_width=True)
+                            reset_clicked = c2.button(
+                                "↩ Reset table edits",
+                                use_container_width=True,
+                                on_click=reset_table_edits,
+                            )
                             
                             if apply_clicked:
                                 # ✅ Save hidden columns
@@ -2894,23 +2912,6 @@ with main_tab_create:
                                     base[col] = edited_df_visible[col].values
                             
                                 st.session_state["bt_df_uploaded"] = base
-                                st.session_state["bt_body_apply_flash"] = True
-                            
-                                st.rerun()
-                            
-                            if reset_clicked:
-                                # ✅ Restore original upload (true undo)
-                                src = st.session_state.get("bt_df_source")
-                                if isinstance(src, pd.DataFrame) and not src.empty:
-                                    st.session_state["bt_df_uploaded"] = src.copy(deep=True)
-                            
-                                # ✅ Clear hidden columns
-                                st.session_state["bt_hidden_cols"] = []
-                                st.session_state["bt_hidden_cols_draft"] = []
-                            
-                                # ✅ Force data_editor to fully reset (new key)
-                                st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
-                            
                                 st.session_state["bt_body_apply_flash"] = True
                             
                                 st.rerun()
