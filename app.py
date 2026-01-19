@@ -2469,7 +2469,7 @@ main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Ta
 with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
-    if st.button("🔄 Refresh Published Tables"):
+if st.button("🔄 Refresh Published Tables"):
     st.cache_data.clear()
     
     publish_owner = (PUBLISH_OWNER or "").strip().lower()
