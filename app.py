@@ -2900,7 +2900,7 @@ with left_col:
                 or (st.session_state.get("bt_iframe_code") or "").strip()
                 or (st.session_state.get("bt_last_published_url") or "").strip()
             )
-
+            
             if show_tabs:
                 published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
                 if published_url_val:
