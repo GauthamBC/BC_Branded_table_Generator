@@ -2702,24 +2702,24 @@ with left_col:
                     def add_update_fmt():
                         col = st.session_state.get("bt_fmt_selected_col")
                         mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                
-                        rule = {"mode": mode}
-                
+                    
                         if mode in ("prefix", "suffix"):
-                            rule["value"] = st.session_state.get("bt_fmt_value", "")
-                
+                            v = (st.session_state.get("bt_fmt_value", "") or "").strip()
+                    
+                            # ✅ If user cleared it, remove the formatting rule
+                            if not v:
+                                st.session_state["bt_col_format_rules"].pop(col, None)
+                                return
+                    
+                            rule = {"mode": mode, "value": v}
+                        else:
+                            rule = {"mode": mode}
+                    
                         st.session_state["bt_col_format_rules"][col] = rule
+
                 
-                    def remove_fmt():
-                        col = st.session_state.get("bt_fmt_selected_col")
-                        if col in st.session_state["bt_col_format_rules"]:
-                            del st.session_state["bt_col_format_rules"][col]
-                
-                    with b1:
-                        st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-                    with b2:
-                        st.button("🗑 Remove", use_container_width=True, on_click=remove_fmt)
-                
+                    st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
+
                     # tiny preview (minimal, not noisy)
                     if st.session_state["bt_col_format_rules"]:
                         st.caption("Current formatting rules:")
