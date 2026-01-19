@@ -167,6 +167,9 @@ def get_installation_token_for_user(username: str) -> str:
 def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
     api_base = "https://api.github.com"
 
+    owner = (owner or "").strip()
+    repo = (repo or "").strip()
+
     # First: check if repo exists (using GitHub App token)
     r = requests.get(
         f"{api_base}/repos/{owner}/{repo}",
@@ -191,31 +194,20 @@ def ensure_repo_exists(owner: str, repo: str, install_token: str) -> bool:
         "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
     }
 
-    # ✅ Repo does not exist → create it using PAT
-if not GITHUB_PAT:
-    raise RuntimeError("Repo does not exist and cannot be created because GITHUB_PAT is missing in secrets.")
+    # ✅ Create under org if owner is an org, otherwise under the PAT user
+    create_url = f"{api_base}/user/repos"
+    if owner:
+        create_url = f"{api_base}/orgs/{owner}/repos"
 
-payload = {
-    "name": repo,
-    "auto_init": True,
-    "private": False,
-    "description": "Branded Searchable Table (Auto-Created By Streamlit App).",
-}
+    r2 = requests.post(
+        create_url,
+        headers=github_headers(GITHUB_PAT),
+        json=payload,
+        timeout=20,
+    )
 
-# ✅ If publishing owner is an ORG, use org repo endpoint
-create_url = f"{api_base}/user/repos"
-if owner and owner.strip():
-    create_url = f"{api_base}/orgs/{owner}/repos"
-
-r2 = requests.post(
-    create_url,
-    headers=github_headers(GITHUB_PAT),
-    json=payload,
-    timeout=20,
-)
-
-if r2.status_code not in (200, 201):
-    raise RuntimeError(f"Error Creating Repo (PAT): {r2.status_code} {r2.text}")
+    if r2.status_code not in (200, 201):
+        raise RuntimeError(f"Error Creating Repo (PAT): {r2.status_code} {r2.text}")
 
     return True
 
