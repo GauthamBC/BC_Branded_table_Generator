@@ -2881,20 +2881,24 @@ with main_tab_create:
                             )
 
                             c1, c2 = st.columns([1, 1])
-                
-                            def apply_body_edits():
+                            apply_clicked = c1.button("✅ Apply changes to preview", use_container_width=True)
+                            reset_clicked = c2.button("↩ Reset table edits", use_container_width=True)
+                            
+                            if apply_clicked:
                                 # ✅ Save hidden columns
                                 st.session_state["bt_hidden_cols"] = st.session_state.get("bt_hidden_cols_draft", []) or []
-                
+                            
                                 # ✅ Apply edited visible columns back into the full live df
                                 base = st.session_state["bt_df_uploaded"].copy()
                                 for col in edited_df_visible.columns:
                                     base[col] = edited_df_visible[col].values
-                
+                            
                                 st.session_state["bt_df_uploaded"] = base
                                 st.session_state["bt_body_apply_flash"] = True
-                
-                            def reset_body_edits():
+                            
+                                st.rerun()
+                            
+                            if reset_clicked:
                                 # ✅ Restore original upload (true undo)
                                 src = st.session_state.get("bt_df_source")
                                 if isinstance(src, pd.DataFrame) and not src.empty:
@@ -2908,14 +2912,9 @@ with main_tab_create:
                                 st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
                             
                                 st.session_state["bt_body_apply_flash"] = True
+                            
                                 st.rerun()
-                
-                            with c1:
-                                st.button("✅ Apply changes to preview", use_container_width=True, on_click=apply_body_edits)
-                
-                            with c2:
-                                st.button("↩ Reset table edits", use_container_width=True, on_click=reset_body_edits)
-                
+                            
                             if st.session_state.get("bt_body_apply_flash", False):
                                 st.success("Preview updated ✅")
                                 st.session_state["bt_body_apply_flash"] = False
