@@ -2544,9 +2544,10 @@ main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Ta
 with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
-if st.button("🔄 Refresh Published Tables"):
-    st.cache_data.clear()
-    
+
+    # ✅ Refresh button MUST live inside this tab
+    refresh_clicked = st.button("🔄 Refresh Published Tables", use_container_width=False)
+
     publish_owner = (PUBLISH_OWNER or "").strip().lower()
 
     token_to_use = ""
@@ -2561,19 +2562,23 @@ if st.button("🔄 Refresh Published Tables"):
     if not publish_owner or not token_to_use:
         st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
     else:
-        df_pub = get_all_published_widgets(publish_owner, token_to_use)
+        # ✅ Only refetch when needed
+        if refresh_clicked or "df_pub_cache" not in st.session_state:
+            if refresh_clicked:
+                st.cache_data.clear()
+            st.session_state["df_pub_cache"] = get_all_published_widgets(publish_owner, token_to_use)
+
+        df_pub = st.session_state["df_pub_cache"]
 
         if df_pub.empty:
             st.info("No published tables found yet.")
         else:
-            # Optional filters
             brands = sorted([b for b in df_pub["Brand"].unique() if b])
             brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
 
             if brand_filter != "All":
                 df_pub = df_pub[df_pub["Brand"] == brand_filter]
 
-            # ✅ ONLY show Pages URL (NO repo column)
             st.dataframe(
                 df_pub[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
                 use_container_width=True,
