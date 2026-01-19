@@ -2387,7 +2387,6 @@ def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float =
 
     return False
 
-
 def reset_widget_state_for_new_upload():
     keys_to_clear = [
         "bt_confirmed_cfg",
@@ -2406,6 +2405,7 @@ def reset_widget_state_for_new_upload():
         "bt_widget_name_locked_value",
         "bt_df_uploaded",
         "bt_df_confirmed",
+        "bt_df_source",              # ✅ NEW
         "bt_allow_swap",
         "bt_bar_columns",
         "bt_bar_max_overrides",
@@ -2413,11 +2413,16 @@ def reset_widget_state_for_new_upload():
         "bt_embed_started",
         "bt_embed_show_html",
         "bt_table_name_input",
+        "bt_hidden_cols",            # ✅ NEW
+        "bt_hidden_cols_draft",      # ✅ NEW
+        "bt_enable_body_editor",     # ✅ NEW
+        "bt_df_editor",              # ✅ NEW
+        "bt_body_apply_flash",       # ✅ NEW
     ]
+
     for k in keys_to_clear:
         if k in st.session_state:
             del st.session_state[k]
-
 
 def ensure_confirm_state_exists():
     if "bt_confirmed_cfg" not in st.session_state:
@@ -2457,6 +2462,13 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_bar_max_overrides", {})
     st.session_state.setdefault("bt_bar_fixed_w", 200)
 
+    # ✅ NEW: body editing + hidden columns
+    st.session_state.setdefault("bt_hidden_cols", [])
+    st.session_state.setdefault("bt_hidden_cols_draft", [])
+    st.session_state.setdefault("bt_enable_body_editor", False)
+    st.session_state.setdefault("bt_body_apply_flash", False)
+
+
 def sync_bar_override(col: str):
     """
     Immediately sync a single override input into bt_bar_max_overrides.
@@ -2494,25 +2506,32 @@ def prune_bar_overrides():
     }
 
 def do_confirm_snapshot():
+    # ✅ Always snapshot what user currently has in live table
     st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
 
     cfg = draft_config_from_state()
     st.session_state["bt_confirmed_cfg"] = cfg
     st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
 
+    # ✅ Apply hidden columns to the confirmed snapshot
+    hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
+    df_confirm_for_html = st.session_state["bt_df_confirmed"].copy()
+    if hidden_cols:
+        df_confirm_for_html = df_confirm_for_html.drop(columns=hidden_cols, errors="ignore")
+
     live_rules = st.session_state.get("bt_col_format_rules", {})
     html = html_from_config(
-        st.session_state["bt_df_confirmed"],
+        df_confirm_for_html,
         st.session_state["bt_confirmed_cfg"],
         col_format_rules=live_rules,
     )
+
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
-
 
 # =========================================================
 # Streamlit App
@@ -2808,8 +2827,10 @@ with main_tab_create:
                 if prev_name != uploaded_name:
                     reset_widget_state_for_new_upload()
                     st.session_state["bt_uploaded_name"] = uploaded_name
-                    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy()
+                    st.session_state["bt_df_source"] = df_uploaded_now.copy()   # ✅ NEW: original backup
+                    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy() # ✅ NEW: live editable version
                     st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()
+
 
                 ensure_confirm_state_exists()
 
@@ -3058,14 +3079,14 @@ with main_tab_create:
                                     value=st.session_state.get("bt_striped_rows", True),
                                     key="bt_striped_rows",
                                 )
-
+                        
                                 st.selectbox(
                                     "Table Content Alignment",
                                     options=["Center", "Left", "Right"],
                                     index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                                     key="bt_cell_align",
                                 )
-
+                        
                                 st.selectbox(
                                     "Column header style",
                                     options=["Keep original", "Sentence case", "Title Case", "ALL CAPS"],
@@ -3073,13 +3094,13 @@ with main_tab_create:
                                     key="bt_header_style",
                                     help="Controls how column headers are displayed. This does not change your CSV data.",
                                 )
-
+                        
                                 st.divider()
                                 st.markdown("#### Table Controls")
-
+                        
                                 st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
                                 st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
-
+                        
                                 st.checkbox(
                                     "Show Page Numbers",
                                     value=st.session_state.get("bt_show_page_numbers", True),
@@ -3087,37 +3108,107 @@ with main_tab_create:
                                     disabled=not st.session_state.get("bt_show_pager", True),
                                     help="Only works when Pager is enabled.",
                                 )
-
+                        
                                 st.checkbox(
                                     "Show Embed / Download Button",
                                     value=st.session_state.get("bt_show_embed", True),
                                     key="bt_show_embed",
                                 )
-
+                        
+                                st.divider()
+                                st.markdown("#### Edit Table Content (Optional)")
+                        
+                                st.checkbox(
+                                    "Edit table content",
+                                    value=st.session_state.get("bt_enable_body_editor", False),
+                                    key="bt_enable_body_editor",
+                                    help="Lets you edit cell values and hide columns (applies to preview only until you confirm).",
+                                )
+                        
+                                df_live = st.session_state.get("bt_df_uploaded")
+                        
+                                if st.session_state.get("bt_enable_body_editor", False) and isinstance(df_live, pd.DataFrame) and not df_live.empty:
+                                    all_cols = list(df_live.columns)
+                        
+                                    st.session_state.setdefault("bt_hidden_cols_draft", st.session_state.get("bt_hidden_cols", []) or [])
+                        
+                                    hidden_cols_draft = st.multiselect(
+                                        "Hide columns",
+                                        options=all_cols,
+                                        default=st.session_state.get("bt_hidden_cols_draft", []),
+                                        key="bt_hidden_cols_draft",
+                                        help="Hidden columns will be removed from preview + final output after Apply.",
+                                    )
+                        
+                                    visible_cols = [c for c in all_cols if c not in set(hidden_cols_draft)]
+                                    df_visible = df_live[visible_cols].copy()
+                        
+                                    edited_df_visible = st.data_editor(
+                                        df_visible,
+                                        use_container_width=True,
+                                        hide_index=True,
+                                        num_rows="fixed",
+                                        key="bt_df_editor",
+                                    )
+                        
+                                    c1, c2 = st.columns([1, 1])
+                        
+                                    def apply_body_edits():
+                                        # ✅ Save hidden columns
+                                        st.session_state["bt_hidden_cols"] = st.session_state.get("bt_hidden_cols_draft", []) or []
+                        
+                                        # ✅ Apply edited visible columns back into the full live df
+                                        base = st.session_state["bt_df_uploaded"].copy()
+                                        for col in edited_df_visible.columns:
+                                            base[col] = edited_df_visible[col].values
+                        
+                                        st.session_state["bt_df_uploaded"] = base
+                                        st.session_state["bt_body_apply_flash"] = True
+                        
+                                    def reset_body_edits():
+                                        # ✅ Restore original upload
+                                        src = st.session_state.get("bt_df_source")
+                                        if isinstance(src, pd.DataFrame) and not src.empty:
+                                            st.session_state["bt_df_uploaded"] = src.copy()
+                        
+                                        st.session_state["bt_hidden_cols"] = []
+                                        st.session_state["bt_hidden_cols_draft"] = []
+                                        st.session_state["bt_body_apply_flash"] = True
+                        
+                                    with c1:
+                                        st.button("✅ Apply changes to preview", use_container_width=True, on_click=apply_body_edits)
+                        
+                                    with c2:
+                                        st.button("↩ Reset table edits", use_container_width=True, on_click=reset_body_edits)
+                        
+                                    if st.session_state.get("bt_body_apply_flash", False):
+                                        st.success("Preview updated ✅")
+                                        st.session_state["bt_body_apply_flash"] = False
+                        
                                 st.divider()
                                 st.markdown("#### Column Formatting (Live Preview Only)")
-
+                        
                                 st.session_state.setdefault("bt_col_format_rules", {})
-
+                        
                                 df_for_cols = st.session_state.get("bt_df_uploaded")
                                 all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
-
+                        
                                 if not all_cols:
                                     st.info("Upload a CSV to enable column formatting.")
                                 else:
                                     st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
                                     st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
-
+                        
                                     mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
                                     if mode in ("prefix", "suffix"):
                                         st.text_input("Value", key="bt_fmt_value", placeholder="$")
                                     else:
                                         st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
-
+                        
                                     def add_update_fmt():
                                         col = st.session_state.get("bt_fmt_selected_col")
                                         mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-
+                        
                                         if mode in ("prefix", "suffix"):
                                             v = (st.session_state.get("bt_fmt_value", "") or "").strip()
                                             if not v:
@@ -3126,11 +3217,11 @@ with main_tab_create:
                                             rule = {"mode": mode, "value": v}
                                         else:
                                             rule = {"mode": mode}
-
+                        
                                         st.session_state["bt_col_format_rules"][col] = rule
-
+                        
                                     st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-
+                        
                                     if st.session_state["bt_col_format_rules"]:
                                         st.caption("Current formatting rules:")
                                         st.json(st.session_state["bt_col_format_rules"])
@@ -3425,8 +3516,14 @@ with main_tab_create:
                 with preview_slot:
                     live_cfg = draft_config_from_state()
                     live_rules = st.session_state.get("bt_col_format_rules", {})
+                
+                    df_preview = st.session_state["bt_df_uploaded"].copy()
+                    hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
+                    if hidden_cols:
+                        df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
+                
                     live_preview_html = html_from_config(
-                        st.session_state["bt_df_uploaded"],
+                        df_preview,
                         live_cfg,
                         col_format_rules=live_rules,
                     )
