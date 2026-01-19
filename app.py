@@ -782,6 +782,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding:14px 14px;
       white-space:nowrap;
       transition:background-color .15s, color .15s, box-shadow .15s, transform .05s;
+      text-align: var(--cell-align, center);  /* ✅ ADD THIS */
     }
     #bt-block thead th.sortable{cursor:pointer; user-select:none}
     #bt-block thead th.sortable::after{content:"↕"; font-size:12px; opacity:.75; margin-left:8px; color:#ffffff}
