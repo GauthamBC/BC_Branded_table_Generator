@@ -2668,38 +2668,34 @@ with left_col:
                 if not all_cols:
                     st.info("Upload a CSV to enable column formatting.")
                 else:
-                    # --- minimal builder row ---
-                    c1, c2, c3 = st.columns([1.4, 1.1, 1.0])
-                
-                    with c1:
-                        st.selectbox(
-                            "Column",
-                            options=all_cols,
-                            key="bt_fmt_selected_col",
+                    # --- stacked builder fields (one after another) ---
+                    st.selectbox(
+                        "Column",
+                        options=all_cols,
+                        key="bt_fmt_selected_col",
+                    )
+                    
+                    st.selectbox(
+                        "Format",
+                        options=["prefix", "suffix", "plus_if_positive"],
+                        key="bt_fmt_selected_mode",
+                    )
+                    
+                    mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+                    if mode in ("prefix", "suffix"):
+                        st.text_input(
+                            "Value",
+                            key="bt_fmt_value",
+                            placeholder="$",
                         )
-                
-                    with c2:
-                        st.selectbox(
-                            "Format",
-                            options=["prefix", "suffix", "plus_if_positive"],
-                            key="bt_fmt_selected_mode",
+                    else:
+                        st.text_input(
+                            "Value",
+                            value="(auto)",
+                            disabled=True,
+                            key="bt_fmt_value_disabled",
                         )
-                
-                    with c3:
-                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                        if mode in ("prefix", "suffix"):
-                            st.text_input(
-                                "Value",
-                                key="bt_fmt_value",
-                                placeholder="$",
-                            )
-                        else:
-                            st.text_input(
-                                "Value",
-                                value="(auto)",
-                                disabled=True,
-                                key="bt_fmt_value_disabled",
-                            )
+
                 
                     b1, b2 = st.columns(2)
                 
