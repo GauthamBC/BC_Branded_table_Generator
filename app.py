@@ -2551,6 +2551,12 @@ with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
 
+    # ✅ Ensure filter keys exist (prevents weird state issues)
+    st.session_state.setdefault("pub_brand_filter", "All")
+    st.session_state.setdefault("pub_people_filter", "All")
+    st.session_state.setdefault("pub_month_filter", "All")
+    st.session_state.setdefault("pub_last_preview_url", "")
+
     # ✅ Refresh button MUST live inside this tab
     refresh_clicked = st.button(
         "🔄 Refresh Published Tables",
@@ -2580,135 +2586,126 @@ with main_tab_published:
 
         df_pub = st.session_state.get("df_pub_cache")
 
-        # ✅ Defensive: get_all_published_widgets should return a df, but just in case
         if df_pub is None or df_pub.empty:
             st.info("No published tables found yet.")
         else:
-            # ✅ Brand dropdown options should come from the FULL dataset
-            all_brands = sorted([b for b in df_pub["Brand"].unique() if b])
+            # ✅ Normalize datetime once (for Month/Year filter)
+            df_pub = df_pub.copy()
+            df_pub["Created DT"] = pd.to_datetime(df_pub.get("Created UTC", ""), errors="coerce", utc=True)
 
-            brand_filter = st.selectbox(
-                "Filter by brand",
-                ["All"] + all_brands,
-                key="pub_brand_filter",
-            )
-            # ✅ Defensive: get_all_published_widgets should return a df, but just in case
-            if df_pub is None or df_pub.empty:
-                st.info("No published tables found yet.")
-            else:
-                # ✅ Normalize datetime once (for Month/Year filter)
-                df_pub = df_pub.copy()
-                df_pub["Created DT"] = pd.to_datetime(df_pub.get("Created UTC", ""), errors="coerce", utc=True)
-            
-                # ✅ Build filter options from FULL dataset (not filtered)
-                all_brands = sorted([b for b in df_pub["Brand"].dropna().unique() if str(b).strip()])
-                all_people = sorted([p for p in df_pub["Created By"].dropna().unique() if str(p).strip()])
-            
-                # Month/Year values like "2026-01"
-                df_pub["Month"] = df_pub["Created DT"].dt.strftime("%Y-%m")
-                all_months = sorted([m for m in df_pub["Month"].dropna().unique() if str(m).strip()], reverse=True)
-            
-                st.markdown("### Filters")
-            
-                col1, col2, col3 = st.columns(3)
-            
-                with col1:
-                    brand_filter = st.selectbox(
-                        "Filter by brand",
-                        ["All"] + all_brands,
-                        key="pub_brand_filter",
-                    )
-            
-                with col2:
-                    people_filter = st.selectbox(
-                        "Filter by people",
-                        ["All"] + all_people,
-                        key="pub_people_filter",
-                    )
-            
-                with col3:
-                    month_filter = st.selectbox(
-                        "Filter by month (YYYY-MM)",
-                        ["All"] + all_months,
-                        key="pub_month_filter",
-                    )
-            
-                # ✅ Apply filters
-                df_view = df_pub.copy()
-            
-                if brand_filter != "All":
-                    df_view = df_view[df_view["Brand"] == brand_filter]
-            
-                if people_filter != "All":
-                    df_view = df_view[df_view["Created By"] == people_filter]
-            
-                if month_filter != "All":
-                    df_view = df_view[df_view["Month"] == month_filter]
-            
-                # ✅ Optional: clean helper columns from display
-                df_view = df_view.drop(columns=["Created DT", "Month"], errors="ignore")
-            
-                # ✅ If no matches after filtering
-                if df_view.empty:
-                    st.warning("No results match your filters.")
-                else:
-                    # ✅ CONTINUE with your existing preview/table code below...
-                    # (your click-to-preview dataframe + popup logic)
-                    pass
+            # ✅ Month label like "2026-01"
+            df_pub["Month"] = df_pub["Created DT"].dt.strftime("%Y-%m")
 
-            # ✅ Filtered view
+            # ✅ Build dropdown options from FULL dataset
+            all_brands = sorted([b for b in df_pub["Brand"].dropna().unique() if str(b).strip()])
+            all_people = sorted([p for p in df_pub["Created By"].dropna().unique() if str(p).strip()])
+            all_months = sorted([m for m in df_pub["Month"].dropna().unique() if str(m).strip()], reverse=True)
+
+            st.markdown("### Filters")
+
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 0.8])
+
+            with col1:
+                brand_filter = st.selectbox(
+                    "Filter by brand",
+                    ["All"] + all_brands,
+                    key="pub_brand_filter",
+                )
+
+            with col2:
+                people_filter = st.selectbox(
+                    "Filter by people",
+                    ["All"] + all_people,
+                    key="pub_people_filter",
+                )
+
+            with col3:
+                month_filter = st.selectbox(
+                    "Filter by month (YYYY-MM)",
+                    ["All"] + all_months,
+                    key="pub_month_filter",
+                )
+
+            # ✅ Reset button
+            with col4:
+                if st.button("Reset Filters", key="pub_reset_filters"):
+                    st.session_state["pub_brand_filter"] = "All"
+                    st.session_state["pub_people_filter"] = "All"
+                    st.session_state["pub_month_filter"] = "All"
+                    st.rerun()
+
+            # ✅ Apply filters
             df_view = df_pub.copy()
+
             if brand_filter != "All":
                 df_view = df_view[df_view["Brand"] == brand_filter]
 
-            # ✅ Published tables list (CLICK ROW → POPUP PREVIEW)
-            st.markdown("#### Click a row to preview")
-            
-            # ✅ Reset index so selected row maps correctly
-            df_view = df_view.reset_index(drop=True)
-            
-            # ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
-            df_display = df_view.copy()
-            df_display["Pages URL"] = df_display["Pages URL"].astype(str)
-            
-            event = st.dataframe(
-                df_display[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
-                use_container_width=True,
-                hide_index=True,
-                selection_mode="single-row",
-                on_select="rerun",
-                key="pub_table_click_df",
-                column_config={
-                    # ✅ This makes it plain text (NOT clickable)
-                    "Pages URL": st.column_config.TextColumn("Pages URL"),
-                },
-            )
-            
-            # ✅ Extract selected row → auto-preview popup
-            selected_rows = []
-            try:
-                selected_rows = event.selection.rows or []
-            except Exception:
+            if people_filter != "All":
+                df_view = df_view[df_view["Created By"] == people_filter]
+
+            if month_filter != "All":
+                df_view = df_view[df_view["Month"] == month_filter]
+
+            # ✅ If no matches
+            if df_view.empty:
+                st.warning("No results match your filters.")
+            else:
+                # ✅ Drop helper cols before showing table
+                df_view = df_view.drop(columns=["Created DT", "Month"], errors="ignore")
+
+                # ✅ Published tables list (CLICK ROW → POPUP PREVIEW)
+                st.markdown("#### Click a row to preview")
+
+                # ✅ Reset index so selected row maps correctly
+                df_view = df_view.reset_index(drop=True)
+
+                # ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
+                df_display = df_view.copy()
+                df_display["Pages URL"] = df_display["Pages URL"].astype(str)
+
+                event = st.dataframe(
+                    df_display[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
+                    use_container_width=True,
+                    hide_index=True,
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    key="pub_table_click_df",
+                    column_config={
+                        "Pages URL": st.column_config.TextColumn("Pages URL"),
+                    },
+                )
+
+                # ✅ Extract selected row → auto-preview popup
                 selected_rows = []
-            
-            if selected_rows:
-                selected_idx = selected_rows[0]
-                selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
-            
-                if selected_url:
-                    # ✅ Prevent re-opening popup every rerun if user clicks same row
-                    last = st.session_state.get("pub_last_preview_url", "")
-                    if selected_url != last:
-                        st.session_state["pub_last_preview_url"] = selected_url
-            
-                    # ✅ Popup modal preview (if supported)
-                    if hasattr(st, "dialog"):
-            
-                        @st.dialog("Table Preview", width="large")
-                        def preview_dialog(url):
-                            st.markdown(f"**Previewing:** {url}")
-                            components.iframe(url, height=820, scrolling=True)
-            
+                try:
+                    selected_rows = event.selection.rows or []
+                except Exception:
+                    selected_rows = []
+
+                if selected_rows:
+                    selected_idx = selected_rows[0]
+                    selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
+
+                    if selected_url:
+                        # ✅ Prevent re-opening popup every rerun if same row clicked again
+                        last = st.session_state.get("pub_last_preview_url", "")
+                        if selected_url != last:
+                            st.session_state["pub_last_preview_url"] = selected_url
+
+                        # ✅ Popup modal preview (if supported)
+                        if hasattr(st, "dialog"):
+
+                            @st.dialog("Table Preview", width="large")
+                            def preview_dialog(url):
+                                st.markdown(f"**Previewing:** {url}")
+                                components.iframe(url, height=820, scrolling=True)
+
+                            preview_dialog(selected_url)
+
+                        else:
+                            st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+                            components.iframe(selected_url, height=820, scrolling=True)
+
                         preview_dialog(selected_url)
             
                     else:
