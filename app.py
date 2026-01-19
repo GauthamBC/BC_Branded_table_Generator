@@ -2628,7 +2628,7 @@ with left_col:
                     key="bt_header_style",
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
-                                st.divider()
+                st.divider()
                 st.markdown("#### Table Controls")
 
                 st.checkbox(
