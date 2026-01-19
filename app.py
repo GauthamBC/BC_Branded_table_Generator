@@ -1817,49 +1817,73 @@ def generate_table_html_from_df(
     col_format_rules = col_format_rules or {}
 
     def apply_column_formatting(col_name: str, display_val: str, raw_val) -> str:
-        """
-        Applies per-column formatting rules AFTER numeric formatting.
-        Supports:
-          - moneyline_plus: adds + only for positive numbers
-          - prefix: adds prefix string
-          - suffix: adds suffix string
-        """
-        rules = col_format_rules.get(col_name) or {}
-        mode = str(rules.get("mode", "")).strip().lower()
+    """
+    Applies per-column formatting rules AFTER numeric formatting.
 
-        if display_val is None:
-            return ""
+    Supports:
+      - plus_if_positive (smart "+")
+      - moneyline_plus (alias for plus_if_positive)
+      - prefix / suffix (accepts ANY symbols)
+      - optional flags for prefix/suffix:
+          only_if_positive: true
+          only_if_negative: true
+          only_if_nonzero: true
+    """
+    rules = col_format_rules.get(col_name) or {}
+    mode = str(rules.get("mode", "")).strip().lower()
 
-        s = str(display_val).strip()
-        if s == "":
-            return s
+    if display_val is None:
+        return ""
 
-        # ✅ MONEYLINE: only add "+" if numeric and positive and not already signed
-        if mode == "moneyline_plus":
-            if s.startswith("+") or s.startswith("-"):
-                return s
-
-            plain = re.sub(r"[,\s]", "", s)
-            if re.fullmatch(r"\d+(\.\d+)?", plain):
-                try:
-                    num = float(plain)
-                    if num > 0:
-                        return f"+{s}"
-                except Exception:
-                    return s
-            return s
-
-        # ✅ Prefix
-        if mode == "prefix":
-            pref = str(rules.get("value", "") or "")
-            return f"{pref}{s}"
-
-        # ✅ Suffix
-        if mode == "suffix":
-            suf = str(rules.get("value", "") or "")
-            return f"{s}{suf}"
-
+    s = str(display_val).strip()
+    if s == "":
         return s
+
+    # Try to parse number from raw value (preferred), fallback to display string
+    num = None
+    try:
+        num = parse_number(raw_val)
+    except Exception:
+        try:
+            num = parse_number(s)
+        except Exception:
+            num = None
+
+    # ✅ SMART PLUS: only add "+" for positive numeric values
+    if mode in ("plus_if_positive", "moneyline_plus"):
+        if s.startswith("+") or s.startswith("-"):
+            return s
+        if num is not None and num > 0:
+            return f"+{s}"
+        return s
+
+    # Conditions for prefix/suffix
+    only_pos = bool(rules.get("only_if_positive", False))
+    only_neg = bool(rules.get("only_if_negative", False))
+    only_nz = bool(rules.get("only_if_nonzero", False))
+
+    # If any condition flag is set, require a valid numeric value
+    if (only_pos or only_neg or only_nz) and num is None:
+        return s
+
+    if only_pos and not (num > 0):
+        return s
+    if only_neg and not (num < 0):
+        return s
+    if only_nz and not (num != 0):
+        return s
+
+    # ✅ Prefix: allow ANY symbols ($, £, +, -, %, etc.)
+    if mode == "prefix":
+        pref = str(rules.get("value", "") or "")
+        return f"{pref}{s}"
+
+    # ✅ Suffix: allow ANY symbols ($, £, +, -, %, etc.)
+    if mode == "suffix":
+        suf = str(rules.get("value", "") or "")
+        return f"{s}{suf}"
+
+    return s
 
     # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
