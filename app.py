@@ -2836,10 +2836,83 @@ with main_tab_create:
 
                 left_col, right_col = st.columns([1, 3], gap="large")
 
-                # Create preview placeholder FIRST
+                # ✅ Right side: Preview + Body Editor tabs
                 with right_col:
-                    st.markdown("### Preview")
-                    preview_slot = st.container()
+                    preview_tab, edit_tab = st.tabs(["Preview", "Edit table content (Optional)"])
+                
+                    with preview_tab:
+                        st.markdown("### Preview")
+                        preview_slot = st.container()
+                
+                    with edit_tab:
+                        st.markdown("### Edit table content (Optional)")
+                        st.caption("Edit cells + hide columns here. Click **Apply changes to preview** to update the preview.")
+                
+                        df_live = st.session_state.get("bt_df_uploaded")
+                
+                        if not isinstance(df_live, pd.DataFrame) or df_live.empty:
+                            st.info("Upload a CSV to enable editing.")
+                        else:
+                            all_cols = list(df_live.columns)
+                
+                            st.session_state.setdefault(
+                                "bt_hidden_cols_draft",
+                                st.session_state.get("bt_hidden_cols", []) or []
+                            )
+                
+                            st.multiselect(
+                                "Hide columns",
+                                options=all_cols,
+                                default=st.session_state.get("bt_hidden_cols_draft", []),
+                                key="bt_hidden_cols_draft",
+                                help="Hidden columns will be removed from preview + final output after Apply.",
+                            )
+                
+                            hidden_cols_draft = st.session_state.get("bt_hidden_cols_draft", []) or []
+                            visible_cols = [c for c in all_cols if c not in set(hidden_cols_draft)]
+                            df_visible = df_live[visible_cols].copy()
+                
+                            edited_df_visible = st.data_editor(
+                                df_visible,
+                                use_container_width=True,
+                                hide_index=True,
+                                num_rows="fixed",
+                                key="bt_df_editor",
+                            )
+                
+                            c1, c2 = st.columns([1, 1])
+                
+                            def apply_body_edits():
+                                # ✅ Save hidden columns
+                                st.session_state["bt_hidden_cols"] = st.session_state.get("bt_hidden_cols_draft", []) or []
+                
+                                # ✅ Apply edited visible columns back into the full live df
+                                base = st.session_state["bt_df_uploaded"].copy()
+                                for col in edited_df_visible.columns:
+                                    base[col] = edited_df_visible[col].values
+                
+                                st.session_state["bt_df_uploaded"] = base
+                                st.session_state["bt_body_apply_flash"] = True
+                
+                            def reset_body_edits():
+                                # ✅ Restore original upload
+                                src = st.session_state.get("bt_df_source")
+                                if isinstance(src, pd.DataFrame) and not src.empty:
+                                    st.session_state["bt_df_uploaded"] = src.copy()
+                
+                                st.session_state["bt_hidden_cols"] = []
+                                st.session_state["bt_hidden_cols_draft"] = []
+                                st.session_state["bt_body_apply_flash"] = True
+                
+                            with c1:
+                                st.button("✅ Apply changes to preview", use_container_width=True, on_click=apply_body_edits)
+                
+                            with c2:
+                                st.button("↩ Reset table edits", use_container_width=True, on_click=reset_body_edits)
+                
+                            if st.session_state.get("bt_body_apply_flash", False):
+                                st.success("Preview updated ✅")
+                                st.session_state["bt_body_apply_flash"] = False
 
                 # ===================== Left: Tabs =====================
                 with left_col:
@@ -3114,76 +3187,6 @@ with main_tab_create:
                                     value=st.session_state.get("bt_show_embed", True),
                                     key="bt_show_embed",
                                 )
-                        
-                                st.divider()
-                                st.markdown("#### Edit Table Content (Optional)")
-                        
-                                st.checkbox(
-                                    "Edit table content",
-                                    value=st.session_state.get("bt_enable_body_editor", False),
-                                    key="bt_enable_body_editor",
-                                    help="Lets you edit cell values and hide columns (applies to preview only until you confirm).",
-                                )
-                        
-                                df_live = st.session_state.get("bt_df_uploaded")
-                        
-                                if st.session_state.get("bt_enable_body_editor", False) and isinstance(df_live, pd.DataFrame) and not df_live.empty:
-                                    all_cols = list(df_live.columns)
-                        
-                                    st.session_state.setdefault("bt_hidden_cols_draft", st.session_state.get("bt_hidden_cols", []) or [])
-                        
-                                    hidden_cols_draft = st.multiselect(
-                                        "Hide columns",
-                                        options=all_cols,
-                                        default=st.session_state.get("bt_hidden_cols_draft", []),
-                                        key="bt_hidden_cols_draft",
-                                        help="Hidden columns will be removed from preview + final output after Apply.",
-                                    )
-                        
-                                    visible_cols = [c for c in all_cols if c not in set(hidden_cols_draft)]
-                                    df_visible = df_live[visible_cols].copy()
-                        
-                                    edited_df_visible = st.data_editor(
-                                        df_visible,
-                                        use_container_width=True,
-                                        hide_index=True,
-                                        num_rows="fixed",
-                                        key="bt_df_editor",
-                                    )
-                        
-                                    c1, c2 = st.columns([1, 1])
-                        
-                                    def apply_body_edits():
-                                        # ✅ Save hidden columns
-                                        st.session_state["bt_hidden_cols"] = st.session_state.get("bt_hidden_cols_draft", []) or []
-                        
-                                        # ✅ Apply edited visible columns back into the full live df
-                                        base = st.session_state["bt_df_uploaded"].copy()
-                                        for col in edited_df_visible.columns:
-                                            base[col] = edited_df_visible[col].values
-                        
-                                        st.session_state["bt_df_uploaded"] = base
-                                        st.session_state["bt_body_apply_flash"] = True
-                        
-                                    def reset_body_edits():
-                                        # ✅ Restore original upload
-                                        src = st.session_state.get("bt_df_source")
-                                        if isinstance(src, pd.DataFrame) and not src.empty:
-                                            st.session_state["bt_df_uploaded"] = src.copy()
-                        
-                                        st.session_state["bt_hidden_cols"] = []
-                                        st.session_state["bt_hidden_cols_draft"] = []
-                                        st.session_state["bt_body_apply_flash"] = True
-                        
-                                    with c1:
-                                        st.button("✅ Apply changes to preview", use_container_width=True, on_click=apply_body_edits)
-                        
-                                    with c2:
-                                        st.button("↩ Reset table edits", use_container_width=True, on_click=reset_body_edits)
-                        
-                                    if st.session_state.get("bt_body_apply_flash", False):
-                                        st.success("Preview updated ✅")
-                                        st.session_state["bt_body_apply_flash"] = False
                         
                                 st.divider()
                                 st.markdown("#### Column Formatting (Live Preview Only)")
