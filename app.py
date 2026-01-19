@@ -2401,16 +2401,11 @@ ensure_confirm_state_exists()
 
 left_col, right_col = st.columns([1, 3], gap="large")
 
-# ===================== Right: Live Preview =====================
+# Create preview placeholder FIRST
 with right_col:
-
     st.markdown("### Preview")
-
-    live_cfg = draft_config_from_state()
-    live_rules = st.session_state.get("bt_col_format_rules", {})  # ✅ live-only
-    live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg, col_format_rules=live_rules)
-    components.html(live_preview_html, height=820, scrolling=True)
-
+    preview_slot = st.container()  # placeholder (will render later)
+    
 # ===================== Left: Tabs =====================
 with left_col:
     tab_edit, tab_embed = st.tabs(["Edit table contents", "Get Embed Script"])
@@ -3046,3 +3041,15 @@ with left_col:
                     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
                     st.caption("IFrame Code")
                     st.code(iframe_val or "", language="html")
+
+                # ✅ Render preview LAST so it uses the newest widget state
+                with preview_slot:
+                    live_cfg = draft_config_from_state()
+                    live_rules = st.session_state.get("bt_col_format_rules", {})
+                    live_preview_html = html_from_config(
+                        st.session_state["bt_df_uploaded"],
+                        live_cfg,
+                        col_format_rules=live_rules
+                    )
+                    components.html(live_preview_html, height=820, scrolling=True)
+
