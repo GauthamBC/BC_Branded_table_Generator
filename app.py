@@ -1739,7 +1739,8 @@ def generate_table_html_from_df(
     bar_columns: list[str] | None = None,
     bar_max_overrides: dict | None = None,
     bar_fixed_w: int = 200,
-    header_style: str = "Keep original",   # ✅ NEW
+    header_style: str = "Keep original",
+    col_format_rules: dict | None = None,
 ) -> str:
 
     df = df.copy()
@@ -1812,6 +1813,53 @@ def generate_table_html_from_df(
         # Otherwise show max 2 decimals, but trim trailing zeros
         out = f"{num:.{max_decimals}f}".rstrip("0").rstrip(".")
         return out
+        # ✅ Column formatting rules (prefix/suffix/moneyline)
+    col_format_rules = col_format_rules or {}
+
+    def apply_column_formatting(col_name: str, display_val: str, raw_val) -> str:
+        """
+        Applies per-column formatting rules AFTER numeric formatting.
+        Supports:
+          - moneyline_plus: adds + only for positive numbers
+          - prefix: adds prefix string
+          - suffix: adds suffix string
+        """
+        rules = col_format_rules.get(col_name) or {}
+        mode = str(rules.get("mode", "")).strip().lower()
+
+        if display_val is None:
+            return ""
+
+        s = str(display_val).strip()
+        if s == "":
+            return s
+
+        # ✅ MONEYLINE: only add "+" if numeric and positive and not already signed
+        if mode == "moneyline_plus":
+            if s.startswith("+") or s.startswith("-"):
+                return s
+
+            plain = re.sub(r"[,\s]", "", s)
+            if re.fullmatch(r"\d+(\.\d+)?", plain):
+                try:
+                    num = float(plain)
+                    if num > 0:
+                        return f"+{s}"
+                except Exception:
+                    return s
+            return s
+
+        # ✅ Prefix
+        if mode == "prefix":
+            pref = str(rules.get("value", "") or "")
+            return f"{pref}{s}"
+
+        # ✅ Suffix
+        if mode == "suffix":
+            suf = str(rules.get("value", "") or "")
+            return f"{s}{suf}"
+
+        return s
 
     # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
@@ -1857,7 +1905,8 @@ def generate_table_html_from_df(
         for col in df.columns:
             raw_val = row[col]
             display_val = format_numeric_for_display(raw_val, max_decimals=2)
-    
+            display_val = apply_column_formatting(col, display_val, raw_val)
+            
             safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
 
@@ -2007,7 +2056,7 @@ def draft_config_from_state() -> dict:
     }
 
 
-def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
+def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None = None) -> str:
     meta = get_brand_meta(cfg["brand"])
     return generate_table_html_from_df(
         df=df,
@@ -2034,8 +2083,10 @@ def html_from_config(df: pd.DataFrame, cfg: dict) -> str:
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
         bar_fixed_w=cfg.get("bar_fixed_w", 200),
         header_style=cfg.get("header_style", "Keep original"),
-    )
 
+        # ✅ LIVE-ONLY formatting rules
+        col_format_rules=col_format_rules,
+    )
 
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
@@ -2285,7 +2336,8 @@ with right_col:
     st.markdown("### Preview")
 
     live_cfg = draft_config_from_state()
-    live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg)
+    live_rules = st.session_state.get("bt_col_format_rules", {})  # ✅ live-only
+    live_preview_html = html_from_config(st.session_state["bt_df_uploaded"], live_cfg, col_format_rules=live_rules)
     components.html(live_preview_html, height=820, scrolling=True)
 
 # ===================== Left: Tabs =====================
@@ -2535,7 +2587,7 @@ with left_col:
                     index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                     key="bt_cell_align",
                 )
-                st.selectbox(
+                                st.selectbox(
                     "Column header style",
                     options=[
                         "Keep original",
@@ -2553,7 +2605,26 @@ with left_col:
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
 
+                # ✅ PASTE THIS BLOCK BELOW THIS LINE
+                st.divider()
+                st.markdown("#### Column Formatting (Live Preview Only)")
 
+                st.session_state.setdefault("bt_col_format_rules", {})
+
+                raw_rules = st.text_area(
+                    "Format Rules (JSON)",
+                    value=json.dumps(st.session_state["bt_col_format_rules"], indent=2),
+                    height=160,
+                    help='Example: {"Odds": {"mode":"moneyline_plus"}, "Price": {"mode":"prefix","value":"$"}}',
+                )
+
+                try:
+                    parsed = json.loads(raw_rules.strip() or "{}")
+                    if isinstance(parsed, dict):
+                        st.session_state["bt_col_format_rules"] = parsed
+                except Exception:
+                    st.warning("Invalid JSON — fix formatting to apply rules.")
+                # ✅ END PASTE BLOCK
 
                 st.checkbox(
                     "Show Search",
