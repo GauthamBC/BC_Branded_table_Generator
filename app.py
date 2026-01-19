@@ -498,21 +498,21 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
 
-# ✅ remove duplicates if registry + fallback both catch same html
-if not df.empty:
-    df = df.drop_duplicates(subset=["Pages URL"], keep="first")
-
-# ✅ Sort newest first (works best once commit dates exist)
-if not df.empty and "Created UTC" in df.columns:
-    df = df.sort_values("Created UTC", ascending=False, na_position="last")
-
-if not df.empty:
-    df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
-    df = df.sort_values("Created DT", ascending=False, na_position="last")
-    df = df.drop(columns=["Created DT"])
-
-    # ✅ ALWAYS return a dataframe (even if empty)
-    return df
+    # ✅ remove duplicates if registry + fallback both catch same html
+    if not df.empty:
+        df = df.drop_duplicates(subset=["Pages URL"], keep="first")
+    
+    # ✅ Sort newest first (works best once commit dates exist)
+    if not df.empty and "Created UTC" in df.columns:
+        df = df.sort_values("Created UTC", ascending=False, na_position="last")
+    
+    if not df.empty:
+        df["Created DT"] = pd.to_datetime(df["Created UTC"], errors="coerce", utc=True)
+        df = df.sort_values("Created DT", ascending=False, na_position="last")
+        df = df.drop(columns=["Created DT"])
+    
+        # ✅ ALWAYS return a dataframe (even if empty)
+        return df
    
 def update_widget_registry(
     owner: str,
