@@ -2630,76 +2630,76 @@ with left_col:
                 )
 
                 st.divider()
-st.markdown("#### Column Formatting (Live Preview Only)")
-
-st.session_state.setdefault("bt_col_format_rules", {})
-
-df_for_cols = st.session_state.get("bt_df_uploaded")
-all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
-
-if not all_cols:
-    st.info("Upload a CSV to enable column formatting.")
-else:
-    # --- minimal builder row ---
-    c1, c2, c3 = st.columns([1.4, 1.1, 1.0])
-
-    with c1:
-        st.selectbox(
-            "Column",
-            options=all_cols,
-            key="bt_fmt_selected_col",
-        )
-
-    with c2:
-        st.selectbox(
-            "Format",
-            options=["prefix", "suffix", "plus_if_positive"],
-            key="bt_fmt_selected_mode",
-        )
-
-    with c3:
-        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-        if mode in ("prefix", "suffix"):
-            st.text_input(
-                "Value",
-                key="bt_fmt_value",
-                placeholder="$",
-            )
-        else:
-            st.text_input(
-                "Value",
-                value="(auto)",
-                disabled=True,
-                key="bt_fmt_value_disabled",
-            )
-
-    b1, b2 = st.columns(2)
-
-    def add_update_fmt():
-        col = st.session_state.get("bt_fmt_selected_col")
-        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-
-        rule = {"mode": mode}
-
-        if mode in ("prefix", "suffix"):
-            rule["value"] = st.session_state.get("bt_fmt_value", "")
-
-        st.session_state["bt_col_format_rules"][col] = rule
-
-    def remove_fmt():
-        col = st.session_state.get("bt_fmt_selected_col")
-        if col in st.session_state["bt_col_format_rules"]:
-            del st.session_state["bt_col_format_rules"][col]
-
-    with b1:
-        st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-    with b2:
-        st.button("🗑 Remove", use_container_width=True, on_click=remove_fmt)
-
-    # tiny preview (minimal, not noisy)
-    if st.session_state["bt_col_format_rules"]:
-        st.caption("Current formatting rules:")
-        st.json(st.session_state["bt_col_format_rules"])
+                st.markdown("#### Column Formatting (Live Preview Only)")
+                
+                st.session_state.setdefault("bt_col_format_rules", {})
+                
+                df_for_cols = st.session_state.get("bt_df_uploaded")
+                all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
+                
+                if not all_cols:
+                    st.info("Upload a CSV to enable column formatting.")
+                else:
+                    # --- minimal builder row ---
+                    c1, c2, c3 = st.columns([1.4, 1.1, 1.0])
+                
+                    with c1:
+                        st.selectbox(
+                            "Column",
+                            options=all_cols,
+                            key="bt_fmt_selected_col",
+                        )
+                
+                    with c2:
+                        st.selectbox(
+                            "Format",
+                            options=["prefix", "suffix", "plus_if_positive"],
+                            key="bt_fmt_selected_mode",
+                        )
+                
+                    with c3:
+                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+                        if mode in ("prefix", "suffix"):
+                            st.text_input(
+                                "Value",
+                                key="bt_fmt_value",
+                                placeholder="$",
+                            )
+                        else:
+                            st.text_input(
+                                "Value",
+                                value="(auto)",
+                                disabled=True,
+                                key="bt_fmt_value_disabled",
+                            )
+                
+                    b1, b2 = st.columns(2)
+                
+                    def add_update_fmt():
+                        col = st.session_state.get("bt_fmt_selected_col")
+                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+                
+                        rule = {"mode": mode}
+                
+                        if mode in ("prefix", "suffix"):
+                            rule["value"] = st.session_state.get("bt_fmt_value", "")
+                
+                        st.session_state["bt_col_format_rules"][col] = rule
+                
+                    def remove_fmt():
+                        col = st.session_state.get("bt_fmt_selected_col")
+                        if col in st.session_state["bt_col_format_rules"]:
+                            del st.session_state["bt_col_format_rules"][col]
+                
+                    with b1:
+                        st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
+                    with b2:
+                        st.button("🗑 Remove", use_container_width=True, on_click=remove_fmt)
+                
+                    # tiny preview (minimal, not noisy)
+                    if st.session_state["bt_col_format_rules"]:
+                        st.caption("Current formatting rules:")
+                        st.json(st.session_state["bt_col_format_rules"])
     # ---------- EMBED TAB ----------
     with tab_embed:
         st.markdown("#### Get Embed Script")
