@@ -314,6 +314,121 @@ def write_github_json(owner: str, repo: str, token: str, path: str, payload: dic
     content = json.dumps(payload or {}, indent=2, ensure_ascii=False)
     upload_file_to_github(owner, repo, token, path, content, message, branch=branch)
 
+def list_repos_for_owner(owner: str, token: str) -> list[dict]:
+    api_base = "https://api.github.com"
+    headers = github_headers(token)
+
+    # detect if user/org
+    r = requests.get(f"{api_base}/users/{owner}", headers=headers, timeout=20)
+    if r.status_code != 200:
+        return []
+
+    user_type = (r.json() or {}).get("type", "")
+
+    repos = []
+    page = 1
+    while True:
+        if user_type == "Organization":
+            url = f"{api_base}/orgs/{owner}/repos"
+        else:
+            url = f"{api_base}/users/{owner}/repos"
+
+        rr = requests.get(url, headers=headers, params={"per_page": 100, "page": page}, timeout=20)
+        if rr.status_code != 200:
+            break
+
+        batch = rr.json() or []
+        if not batch:
+            break
+
+        repos.extend(batch)
+        page += 1
+
+        # safety stop
+        if page > 20:
+            break
+
+    return repos
+
+
+@st.cache_data(ttl=10 * 60)
+def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
+    """
+    Reads widget_registry.json from every repo that has it.
+    Returns a DataFrame of all published tables.
+    """
+    rows = []
+    repos = list_repos_for_owner(owner, token)
+
+    for r in repos:
+        repo_name = (r.get("name") or "").strip()
+        if not repo_name:
+            continue
+
+        try:
+            reg = read_github_json(owner, repo_name, token, "widget_registry.json", branch="main")
+            if not isinstance(reg, dict) or not reg:
+                continue
+
+            for fname, meta in reg.items():
+                if not isinstance(meta, dict):
+                    continue
+
+                rows.append({
+                    "Brand": meta.get("brand", ""),
+                    "Table Name": meta.get("table_title", "") or fname,
+                    "Pages URL": meta.get("pages_url", ""),
+                    "GitHub Repo": meta.get("github_repo_url", f"https://github.com/{owner}/{repo_name}"),
+                    "Created By": meta.get("created_by", ""),
+                    "Created UTC": meta.get("created_at_utc", ""),
+                    "Repo": repo_name,
+                    "File": fname,
+                })
+
+        except Exception:
+            continue
+
+    df = pd.DataFrame(rows)
+
+    # optional sorting newest first
+    if not df.empty and "Created UTC" in df.columns:
+        df = df.sort_values("Created UTC", ascending=False)
+
+    return df
+    
+def update_widget_registry(
+    owner: str,
+    repo: str,
+    token: str,
+    widget_file_name: str,
+    meta: dict,
+    branch: str = "main",
+):
+    """
+    Adds/updates a single widget record inside widget_registry.json
+    """
+    widget_file_name = (widget_file_name or "").strip()
+    if not widget_file_name:
+        return
+
+    registry_path = "widget_registry.json"
+
+    # read existing registry (or empty)
+    registry = read_github_json(owner, repo, token, registry_path, branch=branch)
+    if not isinstance(registry, dict):
+        registry = {}
+
+    registry[widget_file_name] = meta
+
+    write_github_json(
+        owner=owner,
+        repo=repo,
+        token=token,
+        path=registry_path,
+        payload=registry,
+        message="Update widget registry",
+        branch=branch,
+    )
 
 # =========================================================
 # Brand Metadata
@@ -2309,7 +2424,49 @@ st.markdown(
 )
 
 st.title("Branded Table Generator")
+main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Tables"])
 
+with main_tab_create:
+with main_tab_published:
+    st.markdown("### Published Tables")
+    st.caption("All published tables found in GitHub Pages across repos.")
+
+    publish_owner = (PUBLISH_OWNER or "").strip().lower()
+
+    token_to_use = ""
+    if GITHUB_PAT:
+        token_to_use = GITHUB_PAT
+    else:
+        try:
+            token_to_use = get_installation_token_for_user(publish_owner)
+        except Exception:
+            token_to_use = ""
+
+    if not publish_owner or not token_to_use:
+        st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
+    else:
+        df_pub = get_all_published_widgets(publish_owner, token_to_use)
+
+        if df_pub.empty:
+            st.info("No published tables found yet.")
+        else:
+            # Optional filters
+            brands = sorted([b for b in df_pub["Brand"].unique() if b])
+            brand_filter = st.selectbox("Filter by brand", ["All"] + brands)
+
+            if brand_filter != "All":
+                df_pub = df_pub[df_pub["Brand"] == brand_filter]
+
+            # ✅ clickable URLs
+            st.dataframe(
+                df_pub[["Brand", "Table Name", "Pages URL", "GitHub Repo", "Created By", "Created UTC"]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pages URL": st.column_config.LinkColumn("Pages URL"),
+                    "GitHub Repo": st.column_config.LinkColumn("GitHub Repo"),
+                },
+            )
 # =========================================================
 # ✅ Global "Created by" (mandatory before upload)
 # =========================================================
@@ -2991,6 +3148,32 @@ with left_col:
 
                     pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                     st.session_state["bt_last_published_url"] = pages_url
+                    created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+                    github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
+                    table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
+                    
+                    meta = {
+                        "brand": current_brand,
+                        "table_title": table_title,
+                        "file": widget_file_name,
+                        "pages_url": pages_url,
+                        "github_repo_url": github_repo_url,
+                        "created_by": created_by_user,
+                        "created_at_utc": created_utc,
+                    }
+                    
+                    try:
+                        update_widget_registry(
+                            owner=publish_owner,
+                            repo=repo_name,
+                            token=installation_token,
+                            widget_file_name=widget_file_name,
+                            meta=meta,
+                            branch="main",
+                        )
+                    except Exception:
+                        pass
 
                     with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
