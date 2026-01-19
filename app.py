@@ -3042,14 +3042,14 @@ with left_col:
                     st.caption("IFrame Code")
                     st.code(iframe_val or "", language="html")
 
-                # ✅ Render preview LAST so it uses the newest widget state
-                with preview_slot:
-                    live_cfg = draft_config_from_state()
-                    live_rules = st.session_state.get("bt_col_format_rules", {})
-                    live_preview_html = html_from_config(
-                        st.session_state["bt_df_uploaded"],
-                        live_cfg,
-                        col_format_rules=live_rules
-                    )
-                    components.html(live_preview_html, height=820, scrolling=True)
+# ✅ Render preview LAST so it uses the newest widget state
+with preview_slot:
+    live_cfg = draft_config_from_state()
+    live_rules = st.session_state.get("bt_col_format_rules", {})
+    live_preview_html = html_from_config(
+        st.session_state["bt_df_uploaded"],
+        live_cfg,
+        col_format_rules=live_rules
+    )
+    components.html(live_preview_html, height=820, scrolling=True)
 
