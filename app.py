@@ -2629,7 +2629,7 @@ with left_col:
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
 
-               st.divider()
+st.divider()
 st.markdown("#### Column Formatting (Live Preview Only)")
 
 # ✅ Ensure rules dict exists
