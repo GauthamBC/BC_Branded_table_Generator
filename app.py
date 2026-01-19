@@ -2602,37 +2602,40 @@ with main_tab_published:
             all_months = sorted([m for m in df_pub["Month"].dropna().unique() if str(m).strip()], reverse=True)
 
             st.markdown("### Filters")
-
-            col1, col2, col3, col4 = st.columns([1, 1, 1, 0.8])
-
+            
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 0.55])
+            
             with col1:
                 brand_filter = st.selectbox(
                     "Filter by brand",
                     ["All"] + all_brands,
                     key="pub_brand_filter",
                 )
-
+            
             with col2:
                 people_filter = st.selectbox(
                     "Filter by people",
                     ["All"] + all_people,
                     key="pub_people_filter",
                 )
-
+            
             with col3:
                 month_filter = st.selectbox(
                     "Filter by month (YYYY-MM)",
                     ["All"] + all_months,
                     key="pub_month_filter",
                 )
-
-            # ✅ Reset button
+            
             with col4:
-                if st.button("Reset Filters", key="pub_reset_filters"):
+                # ✅ pushes the button DOWN so it aligns with selectboxes
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            
+                if st.button("Reset Filters", key="pub_reset_filters", use_container_width=True):
                     st.session_state["pub_brand_filter"] = "All"
                     st.session_state["pub_people_filter"] = "All"
                     st.session_state["pub_month_filter"] = "All"
                     st.rerun()
+
 
             # ✅ Apply filters
             df_view = df_pub.copy()
@@ -2698,7 +2701,7 @@ with main_tab_published:
                             @st.dialog("Table Preview", width="large")
                             def preview_dialog(url):
                                 st.markdown(f"**Previewing:** {url}")
-                                components.iframe(url, height=820, scrolling=True)
+                                components.iframe(url, height=650, scrolling=True)
 
                             preview_dialog(selected_url)
 
