@@ -217,7 +217,7 @@ r2 = requests.post(
 if r2.status_code not in (200, 201):
     raise RuntimeError(f"Error Creating Repo (PAT): {r2.status_code} {r2.text}")
 
-return True
+    return True
 
 
 def ensure_pages_enabled(owner: str, repo: str, token: str, branch: str = "main") -> None:
