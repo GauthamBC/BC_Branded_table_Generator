@@ -1209,6 +1209,44 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:flex-end;
       align-items:center;
     }
+        /* ✅ Heatmap scale (footer legend) */
+    .vi-table-embed .footer-scale-wrap{
+      flex: 0 0 auto;
+      display:flex;
+      align-items:center;
+      min-width: 220px;
+      max-width: 340px;
+    }
+
+    .vi-table-embed .footer-scale{
+      width: 100%;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background:#ffffff;
+      border: 1px solid rgba(0,0,0,.10);
+      box-shadow: 0 10px 22px rgba(0,0,0,.08);
+      border-left: 6px solid var(--brand-500);
+    }
+
+    .vi-table-embed .footer-scale .scale-bar{
+      height: 10px;
+      border-radius: 999px;
+      overflow:hidden;
+      border: 1px solid rgba(0,0,0,.10);
+    }
+
+    .vi-table-embed .footer-scale .scale-labels{
+      display:flex;
+      justify-content:space-between;
+      font: 11.5px/1 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      color:#6b7280;
+    }
+
+    /* If scale is hidden */
+    .vi-table-embed .footer-scale-wrap.vi-hide{ display:none !important; }
 
     /* When logo is LEFT, swap order so notes go to the right */
     .vi-table-embed.footer-left .footer-inner{ flex-direction: row-reverse; }
@@ -1321,15 +1359,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
   </div>
 
   <!-- Footer -->
-  <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
+    <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
     <div class="footer-inner">
-            <div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
-              <div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
-            </div>
+
+      <div class="footer-scale-wrap [[FOOTER_SCALE_VIS_CLASS]]">
+        [[FOOTER_SCALE_HTML]]
+      </div>
+
+      <div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
+        <div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
+      </div>
+
       <div class="footer-logo">
         <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
       </div>
-</div>
+
+    </div>
   </div>
 
   <script>
@@ -1965,6 +2010,7 @@ def generate_table_html_from_df(
     footer_logo_h: int = 36,
     show_footer_notes: bool = False,
     footer_notes: str = "",
+    show_heat_scale: bool = False,
     bar_columns: list[str] | None = None,
     bar_max_overrides: dict | None = None,
     bar_fixed_w: int = 200,
@@ -2011,6 +2057,29 @@ def generate_table_html_from_df(
         escaped = re.sub(r"\*(.+?)\*", r"<em>\1</em>", escaped)
         escaped = escaped.replace("\n", "<br>")
         footer_notes_html = escaped
+    # ✅ Heatmap scale (mutually exclusive with footer notes)
+    show_heat_scale = bool(show_heat_scale)
+    if show_footer_notes:
+        show_heat_scale = False
+
+    # Only show scale if user enabled it AND there is at least one heat column selected
+    if show_heat_scale and not heat_columns_set:
+        show_heat_scale = False
+
+    footer_scale_html = ""
+    if show_heat_scale:
+        if (heatmap_style or "").strip().lower().startswith("standard"):
+            bar_bg = "linear-gradient(90deg, #2ecc71, #3498db, #f1c40f, #e67e22, #e74c3c)"
+        else:
+            # branded gradient
+            bar_bg = "linear-gradient(90deg, rgba(var(--brand-500-rgb), 0.05), rgba(var(--brand-500-rgb), 0.90))"
+
+        footer_scale_html = f"""
+          <div class="footer-scale" aria-label="Heatmap scale">
+            <div class="scale-bar" style="background:{bar_bg};"></div>
+            <div class="scale-labels"><span>Low</span><span>High</span></div>
+          </div>
+        """
 
     def parse_number(v) -> float:
         try:
@@ -2323,7 +2392,7 @@ def generate_table_html_from_df(
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
 
     footer_logo_align = (footer_logo_align or "Center").strip().lower()
-    if show_footer_notes and footer_logo_align == "center":
+    if (show_footer_notes or show_heat_scale) and footer_logo_align == "center":
         footer_logo_align = "right"
     if footer_logo_align == "center":
         footer_align_class = "footer-center"
@@ -2366,6 +2435,8 @@ def generate_table_html_from_df(
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
+        .replace("[[FOOTER_SCALE_VIS_CLASS]]", "" if show_heat_scale else "vi-hide")
+        .replace("[[FOOTER_SCALE_HTML]]", footer_scale_html)
     )
     return html
 
@@ -2406,6 +2477,7 @@ def draft_config_from_state() -> dict:
         "footer_logo_h": st.session_state.get("bt_footer_logo_h", 36),
         "show_footer_notes": st.session_state.get("bt_show_footer_notes", False),
         "footer_notes": st.session_state.get("bt_footer_notes", ""),
+        "show_heat_scale": st.session_state.get("bt_show_heat_scale", False),
         "cell_align": st.session_state.get("bt_cell_align", "Center"),
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
@@ -2444,6 +2516,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         footer_logo_h=cfg.get("footer_logo_h", 36),
         show_footer_notes=cfg.get("show_footer_notes", False),
         footer_notes=cfg.get("footer_notes", ""),
+        show_heat_scale=cfg.get("show_heat_scale", False),
         cell_align=cfg["cell_align"],
         bar_columns=cfg.get("bar_columns", []),
         bar_max_overrides=cfg.get("bar_max_overrides", {}),
@@ -2582,6 +2655,8 @@ def ensure_confirm_state_exists():
 
     st.session_state.setdefault("bt_show_footer_notes", False)
     st.session_state.setdefault("bt_footer_notes", "")
+    st.session_state.setdefault("bt_show_heat_scale", False)
+    st.session_state.setdefault("bt_heat_scale_label_mode", "Low/High")
     st.session_state.setdefault("bt_gh_user", "Select a user...")
     st.session_state.setdefault("bt_widget_file_name", "table.html")
 
@@ -3149,10 +3224,13 @@ with main_tab_create:
                                 st.divider()
 
                                 show_footer_notes = st.checkbox(
+                                 # ✅ mutual exclusion: heat scale vs footer notes
+                                if st.session_state.get("bt_show_heat_scale", False):
+                                    st.session_state["bt_show_footer_notes"] = False
                                     "Show Footer Notes",
                                     value=st.session_state.get("bt_show_footer_notes", False),
                                     key="bt_show_footer_notes",
-                                    disabled=not show_footer,
+                                    disabled=(not show_footer) or bool(st.session_state.get("bt_show_heat_scale", False)),
                                     help="Adds a notes area in the footer. When enabled, logo cannot be centered.",
                                 )
 
@@ -3467,6 +3545,17 @@ with main_tab_create:
                                             key="bt_heat_strength",
                                             help="Controls max opacity of the heat shading.",
                                         )
+                                        st.checkbox(
+                                            "Show heatmap scale in footer",
+                                            value=bool(st.session_state.get("bt_show_heat_scale", False)),
+                                            key="bt_show_heat_scale",
+                                            disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
+                                            help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
+                                        )
+
+                                        # ✅ mutual exclusion: footer notes vs heat scale
+                                        if st.session_state.get("bt_show_footer_notes", False):
+                                            st.session_state["bt_show_heat_scale"] = False
     
                                         st.divider()
                                         st.markdown("#### Range Overrides (Optional)")
