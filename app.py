@@ -2230,7 +2230,8 @@ def generate_table_html_from_df(
                     h_mn, h_mx = heat_minmax[col]
                     h_pct = (num_val - h_mn) / (h_mx - h_mn)
                     h_pct = max(0.0, min(1.0, h_pct))
-                    h_alpha = h_pct * heat_strength
+                    min_alpha = 0.12
+                    h_alpha = min_alpha + (h_pct * (heat_strength - min_alpha))
 
                     heat_td_class = "dw-bar-td dw-heat-td"
                     heat_td_style = f' style="background-image: linear-gradient(0deg, rgba(var(--brand-500-rgb), {h_alpha:.3f}), rgba(var(--brand-500-rgb), {h_alpha:.3f}));"'
@@ -2253,8 +2254,10 @@ def generate_table_html_from_df(
                 mn, mx = heat_minmax[col]
                 pct = (num_val - mn) / (mx - mn)
                 pct = max(0.0, min(1.0, pct))
+                pct = pct ** 0.5  # boosts low values
 
-                alpha = pct * heat_strength
+                min_alpha = 0.12
+                alpha = min_alpha + (pct * (heat_strength - min_alpha))
 
                 heat_style = f"background-image: linear-gradient(0deg, rgba(var(--brand-500-rgb), {alpha:.3f}), rgba(var(--brand-500-rgb), {alpha:.3f}));"
 
