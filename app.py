@@ -1971,6 +1971,7 @@ def generate_table_html_from_df(
     heat_columns: list[str] | None = None,
     heat_overrides: dict | None = None,
     heat_strength: float = 0.55,
+    heatmap_style: str = "Branded heatmap",
     header_style: str = "Keep original",
     col_format_rules: dict | None = None,
 ) -> str:
@@ -2124,6 +2125,32 @@ def generate_table_html_from_df(
             return f"{s}{suf}"
     
         return s
+        def heat_background_css(pct_0_to_1: float, alpha: float) -> str:
+        """
+        Returns CSS for heat background based on selected style.
+        - Branded: rgba overlay of brand color using alpha
+        - Standard: 5-color scale (Green, Blue, Yellow, Orange, Red)
+        """
+        p = max(0.0, min(1.0, float(pct_0_to_1)))
+
+        style = (heatmap_style or "").strip().lower()
+        if "standard" in style:
+            # 5 stops: green -> blue -> yellow -> orange -> red
+            stops = ["#2ecc71", "#3498db", "#f1c40f", "#e67e22", "#e74c3c"]
+            idx = int(round(p * (len(stops) - 1)))
+            idx = max(0, min(len(stops) - 1, idx))
+            color = stops[idx]
+
+            # alpha controls opacity, same slider still works
+            a = max(0.0, min(1.0, float(alpha)))
+            return f"background-color: {color}; opacity: 1; background-image: linear-gradient(0deg, rgba(255,255,255, {1-a:.3f}), rgba(255,255,255, {1-a:.3f}));"
+
+        # default branded
+        return (
+            f"background-image: linear-gradient(0deg, "
+            f"rgba(var(--brand-500-rgb), {alpha:.3f}), "
+            f"rgba(var(--brand-500-rgb), {alpha:.3f}));"
+        )
 
     # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
@@ -2229,11 +2256,7 @@ def generate_table_html_from_df(
                     h_alpha = min_alpha + (h_pct * (heat_strength - min_alpha))
 
                     td_class = "dw-bar-td dw-heat-td"
-                    td_style = (
-                        f' style="background-image: linear-gradient(0deg, '
-                        f'rgba(var(--brand-500-rgb), {h_alpha:.3f}), '
-                        f'rgba(var(--brand-500-rgb), {h_alpha:.3f}));"'
-                    )
+                    td_style = f' style="{heat_background_css(h_pct, h_alpha)}"'
 
                 cells.append(
                     f"""
@@ -2262,11 +2285,7 @@ def generate_table_html_from_df(
                 min_alpha = 0.12
                 alpha = min_alpha + (pct * (heat_strength - min_alpha))
 
-                heat_style = (
-                    f"background-image: linear-gradient(0deg, "
-                    f"rgba(var(--brand-500-rgb), {alpha:.3f}), "
-                    f"rgba(var(--brand-500-rgb), {alpha:.3f}));"
-                )
+                heat_style = heat_background_css(pct, alpha)
 
                 cells.append(
                     f'<td class="dw-heat-td" style="{heat_style}"><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>'
@@ -2398,6 +2417,7 @@ def draft_config_from_state() -> dict:
         "heat_columns": st.session_state.get("bt_heat_columns", []),
         "heat_overrides": st.session_state.get("bt_heat_overrides", {}),
         "heat_strength": st.session_state.get("bt_heat_strength", 0.55),
+        "heatmap_style": st.session_state.get("bt_heatmap_style", "Branded heatmap"),
         "header_style": st.session_state.get("bt_header_style", "Keep original"),
     }
 
@@ -2431,6 +2451,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         heat_columns=cfg.get("heat_columns", []),
         heat_overrides=cfg.get("heat_overrides", {}),
         heat_strength=cfg.get("heat_strength", 0.55),
+        heatmap_style=cfg.get("heatmap_style", "Branded heatmap"),
         header_style=cfg.get("header_style", "Keep original"),
 
         # ✅ LIVE-ONLY formatting rules
@@ -2581,6 +2602,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_heat_columns", [])
     st.session_state.setdefault("bt_heat_overrides", {})   # { "Col": {"min": 0, "max": 100} }
     st.session_state.setdefault("bt_heat_strength", 0.55)  # 0.10–0.85 typical
+    st.session_state.setdefault("bt_heatmap_style", "Branded heatmap")
 
     # ✅ NEW: body editing + hidden columns
     st.session_state.setdefault("bt_hidden_cols", [])
@@ -3425,6 +3447,15 @@ with main_tab_create:
                                             default=st.session_state.get("bt_heat_columns", []),
                                             key="bt_heat_columns",
                                             help="Applies background intensity based on value within each column.",
+                                        )
+                                        st.selectbox(
+                                            "Heatmap style",
+                                            options=["Branded heatmap", "Standard heatmap (5 colors)"],
+                                            index=["Branded heatmap", "Standard heatmap (5 colors)"].index(
+                                                st.session_state.get("bt_heatmap_style", "Branded heatmap")
+                                            ),
+                                            key="bt_heatmap_style",
+                                            help="Branded = current brand color intensity. Standard = 5-color scale (Green → Blue → Yellow → Orange → Red).",
                                         )
     
                                         st.slider(
