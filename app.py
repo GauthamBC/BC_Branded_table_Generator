@@ -2215,7 +2215,7 @@ def generate_table_html_from_df(
             display_val = format_numeric_for_display(raw_val, max_decimals=2)
             display_val = apply_column_formatting(col, display_val, raw_val)
             
-                        safe_val = html_mod.escape(display_val)
+            safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
 
             if col in bar_columns_set and guess_column_type(df[col]) == "num":
