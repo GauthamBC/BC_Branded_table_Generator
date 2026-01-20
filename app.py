@@ -3223,16 +3223,18 @@ with main_tab_create:
 
                                 st.divider()
 
-                                show_footer_notes = st.checkbox(
-                                 # ✅ mutual exclusion: heat scale vs footer notes
+                                # ✅ mutual exclusion: if heat scale is ON, force footer notes OFF
                                 if st.session_state.get("bt_show_heat_scale", False):
                                     st.session_state["bt_show_footer_notes"] = False
+
+                                show_footer_notes = st.checkbox(
                                     "Show Footer Notes",
                                     value=st.session_state.get("bt_show_footer_notes", False),
                                     key="bt_show_footer_notes",
                                     disabled=(not show_footer) or bool(st.session_state.get("bt_show_heat_scale", False)),
                                     help="Adds a notes area in the footer. When enabled, logo cannot be centered.",
                                 )
+
 
                                 if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
                                     st.session_state["bt_footer_logo_align"] = "Right"
