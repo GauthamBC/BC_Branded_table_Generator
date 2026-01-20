@@ -2215,23 +2215,25 @@ def generate_table_html_from_df(
             display_val = format_numeric_for_display(raw_val, max_decimals=2)
             display_val = apply_column_formatting(col, display_val, raw_val)
             
-            safe_val = html_mod.escape(display_val)
+                        safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
 
-                    if col in bar_columns_set and guess_column_type(df[col]) == "num":
-                    num_val = parse_number(row[col])
-                    denom = bar_max.get(col, 1.0) or 1.0
-                    pct = max(0.0, min(100.0, (num_val / denom) * 100.0))
-    
-                    # ✅ Heat behind bars (only if this col is also selected for heat)
-                    td_class = "dw-bar-td"
-                    td_style = ""
+            if col in bar_columns_set and guess_column_type(df[col]) == "num":
+                num_val = parse_number(row[col])
+                denom = bar_max.get(col, 1.0) or 1.0
+                pct_bar = max(0.0, min(100.0, (num_val / denom) * 100.0))
+
+                # ✅ Heat behind bars (only if this col is also selected for heat)
+                td_class = "dw-bar-td"
+                td_style = ""
 
                 if col in heat_columns_set and col in heat_minmax:
                     h_mn, h_mx = heat_minmax[col]
                     h_pct = (num_val - h_mn) / (h_mx - h_mn)
                     h_pct = max(0.0, min(1.0, h_pct))
-                    h_pct = h_pct ** 0.5  # boosts low values (optional)
+
+                    # optional curve: makes low values more visible
+                    h_pct = h_pct ** 0.8
 
                     min_alpha = 0.12
                     h_alpha = min_alpha + (h_pct * (heat_strength - min_alpha))
@@ -2248,7 +2250,7 @@ def generate_table_html_from_df(
                     <td class="{td_class}"{td_style}>
                       <div class="dw-bar-wrap" title="{safe_title}">
                         <div class="dw-bar-track">
-                          <div class="dw-bar-fill" style="width:{pct:.2f}%;"></div>
+                          <div class="dw-bar-fill" style="width:{pct_bar:.2f}%;"></div>
                           <div class="dw-bar-text">
                             <span class="dw-bar-pill">{safe_val}</span>
                           </div>
@@ -2257,21 +2259,29 @@ def generate_table_html_from_df(
                     </td>
                     """
                 )
+
             elif col in heat_columns_set and guess_column_type(df[col]) == "num" and col in heat_minmax:
                 num_val = parse_number(row[col])
                 mn, mx = heat_minmax[col]
                 pct = (num_val - mn) / (mx - mn)
                 pct = max(0.0, min(1.0, pct))
-                pct = pct ** 0.8  # boosts low values
+
+                # optional curve: makes low values more visible
+                pct = pct ** 0.8
 
                 min_alpha = 0.12
                 alpha = min_alpha + (pct * (heat_strength - min_alpha))
 
-                heat_style = f"background-image: linear-gradient(0deg, rgba(var(--brand-500-rgb), {alpha:.3f}), rgba(var(--brand-500-rgb), {alpha:.3f}));"
+                heat_style = (
+                    f"background-image: linear-gradient(0deg, "
+                    f"rgba(var(--brand-500-rgb), {alpha:.3f}), "
+                    f"rgba(var(--brand-500-rgb), {alpha:.3f}));"
+                )
 
                 cells.append(
                     f'<td class="dw-heat-td" style="{heat_style}"><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>'
                 )
+
             else:
                 cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
 
