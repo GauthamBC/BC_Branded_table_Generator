@@ -2353,14 +2353,33 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     return f"https://{user}.github.io/{repo}/{filename}"
 
 
-def build_iframe_snippet(url: str, height: int = 800) -> str:
+def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     url = (url or "").strip()
     if not url:
         return ""
 
     h = int(height) if height else 800
+    brand_clean = (brand or "").strip().lower()
 
-    return f"""<div style="max-width: 720px; margin: 0 auto; padding: 0 16px;">
+    # ✅ Canada Sports Betting → FULL width (no max-width wrapper)
+    if brand_clean == "canada sports betting":
+        return f"""<!-- ✅ Canada Sports Betting (FULL width, matches article text width) -->
+<div style="width: 100%; margin: 0; padding: 0;">
+  <iframe
+    src="{html_mod.escape(url, quote=True)}"
+    width="100%"
+    height="{h}"
+    style="border:0; border-radius:0; overflow:hidden; display:block;"
+    loading="lazy"
+    referrerpolicy="no-referrer-when-downgrade"
+    allow="clipboard-write"
+    sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox"
+  ></iframe>
+</div>"""
+
+    # ✅ Everyone else → aligned article-width (720px centered)
+    return f"""<!-- ✅ Standard embed (aligned to article text width) -->
+<div style="max-width: 720px; margin: 0 auto; padding: 0 16px;">
   <iframe
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
