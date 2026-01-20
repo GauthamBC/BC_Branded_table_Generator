@@ -606,7 +606,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-         color:#181a1f;background:#ffffff;border:1px solid #DCEFE6;border-radius:12px;
+         color:#181a1f;background:#ffffff;border:0;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 16px rgba(0,0,0,.09);">
 
   <style>
