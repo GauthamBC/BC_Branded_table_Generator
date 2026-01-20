@@ -2883,12 +2883,6 @@ with main_tab_published:
                         else:
                             st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                             components.iframe(selected_url, height=820, scrolling=True)
-
-                        preview_dialog(selected_url)
-            
-                    else:
-                        st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-                        components.iframe(selected_url, height=820, scrolling=True)
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
