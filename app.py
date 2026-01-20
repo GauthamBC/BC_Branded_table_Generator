@@ -3390,7 +3390,7 @@ with main_tab_create:
                                                         st.session_state["bt_bar_max_overrides"][col] = float(new_val)
                                                     except Exception:
                                                         st.warning(f"'{new_val}' is not a valid number for {col}.")
-                       with sub_heat:
+                    with sub_heat:
                             with st.container(height=SETTINGS_PANEL_HEIGHT):
                                 st.markdown("#### Heatmap Columns")
 
