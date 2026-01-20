@@ -2237,7 +2237,7 @@ def generate_table_html_from_df(
                     </td>
                     """
                 )
-                        elif col in heat_columns_set and guess_column_type(df[col]) == "num" and col in heat_minmax:
+            elif col in heat_columns_set and guess_column_type(df[col]) == "num" and col in heat_minmax:
                 num_val = parse_number(row[col])
                 mn, mx = heat_minmax[col]
                 pct = (num_val - mn) / (mx - mn)
