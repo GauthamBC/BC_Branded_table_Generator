@@ -512,7 +512,7 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
         df = df.drop(columns=["Created DT"])
     
         # ✅ ALWAYS return a dataframe (even if empty)
-        return df
+    return df
    
 def update_widget_registry(
     owner: str,
