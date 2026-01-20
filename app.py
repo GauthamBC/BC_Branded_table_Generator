@@ -1943,16 +1943,6 @@ def format_column_header(col_name: str, mode: str) -> str:
 
     return s
 
-    if mode in ("sentence case", "sentence"):
-        # First letter uppercase, rest lowercase
-        return s2[:1].upper() + s2[1:].lower()
-
-    if mode in ("title case", "title"):
-        # Title Case (simple + clean)
-        return s2.title()
-
-    return s
-
 
 def generate_table_html_from_df(
     df: pd.DataFrame,
