@@ -2125,12 +2125,12 @@ def generate_table_html_from_df(
             return f"{s}{suf}"
     
         return s
-        def heat_background_css(pct_0_to_1: float, alpha: float) -> str:
-            """
-            Returns CSS for heat background based on selected style.
-            - Branded: rgba overlay of brand color using alpha
-            - Standard: 5-color scale (Green, Blue, Yellow, Orange, Red)
-            """
+    def heat_background_css(pct_0_to_1: float, alpha: float) -> str:
+        """
+        Returns CSS for heat background based on selected style.
+        - Branded: rgba overlay of brand color using alpha
+        - Standard: 5-color scale (Green, Blue, Yellow, Orange, Red)
+        """
         p = max(0.0, min(1.0, float(pct_0_to_1)))
 
         style = (heatmap_style or "").strip().lower()
