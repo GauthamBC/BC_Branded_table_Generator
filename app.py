@@ -2218,14 +2218,14 @@ def generate_table_html_from_df(
             safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
 
-                        if col in bar_columns_set and guess_column_type(df[col]) == "num":
-                num_val = parse_number(row[col])
-                denom = bar_max.get(col, 1.0) or 1.0
-                pct = max(0.0, min(100.0, (num_val / denom) * 100.0))
-
-                # ✅ Heat behind bars (only if this col is also selected for heat)
-                td_class = "dw-bar-td"
-                td_style = ""
+                if col in bar_columns_set and guess_column_type(df[col]) == "num":
+                    num_val = parse_number(row[col])
+                    denom = bar_max.get(col, 1.0) or 1.0
+                    pct = max(0.0, min(100.0, (num_val / denom) * 100.0))
+    
+                    # ✅ Heat behind bars (only if this col is also selected for heat)
+                    td_class = "dw-bar-td"
+                    td_style = ""
 
                 if col in heat_columns_set and col in heat_minmax:
                     h_mn, h_mx = heat_minmax[col]
