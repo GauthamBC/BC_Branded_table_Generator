@@ -2218,26 +2218,34 @@ def generate_table_html_from_df(
             safe_val = html_mod.escape(display_val)
             safe_title = html_mod.escape(display_val, quote=True)
 
-            if col in bar_columns_set and guess_column_type(df[col]) == "num":
+                        if col in bar_columns_set and guess_column_type(df[col]) == "num":
                 num_val = parse_number(row[col])
                 denom = bar_max.get(col, 1.0) or 1.0
                 pct = max(0.0, min(100.0, (num_val / denom) * 100.0))
-                # ✅ If this column is ALSO a heat column, compute heat background for the <td>
-                heat_td_class = "dw-bar-td"
-                heat_td_style = ""
+
+                # ✅ Heat behind bars (only if this col is also selected for heat)
+                td_class = "dw-bar-td"
+                td_style = ""
 
                 if col in heat_columns_set and col in heat_minmax:
                     h_mn, h_mx = heat_minmax[col]
                     h_pct = (num_val - h_mn) / (h_mx - h_mn)
                     h_pct = max(0.0, min(1.0, h_pct))
+                    h_pct = h_pct ** 0.5  # boosts low values (optional)
+
                     min_alpha = 0.12
                     h_alpha = min_alpha + (h_pct * (heat_strength - min_alpha))
 
-                    heat_td_class = "dw-bar-td dw-heat-td"
-                    heat_td_style = f' style="background-image: linear-gradient(0deg, rgba(var(--brand-500-rgb), {h_alpha:.3f}), rgba(var(--brand-500-rgb), {h_alpha:.3f}));"'
+                    td_class = "dw-bar-td dw-heat-td"
+                    td_style = (
+                        f' style="background-image: linear-gradient(0deg, '
+                        f'rgba(var(--brand-500-rgb), {h_alpha:.3f}), '
+                        f'rgba(var(--brand-500-rgb), {h_alpha:.3f}));"'
+                    )
+
                 cells.append(
                     f"""
-                    <td class="{heat_td_class}"{heat_td_style}>
+                    <td class="{td_class}"{td_style}>
                       <div class="dw-bar-wrap" title="{safe_title}">
                         <div class="dw-bar-track">
                           <div class="dw-bar-fill" style="width:{pct:.2f}%;"></div>
@@ -2254,7 +2262,7 @@ def generate_table_html_from_df(
                 mn, mx = heat_minmax[col]
                 pct = (num_val - mn) / (mx - mn)
                 pct = max(0.0, min(1.0, pct))
-                pct = pct ** 0.5  # boosts low values
+                pct = pct ** 0.8  # boosts low values
 
                 min_alpha = 0.12
                 alpha = min_alpha + (pct * (heat_strength - min_alpha))
@@ -3404,80 +3412,80 @@ with main_tab_create:
                                                         st.session_state["bt_bar_max_overrides"][col] = float(new_val)
                                                     except Exception:
                                                         st.warning(f"'{new_val}' is not a valid number for {col}.")
-                    with sub_heat:
-                        with st.container(height=SETTINGS_PANEL_HEIGHT):
-                            st.markdown("#### Heatmap Columns")
-
-                            df_for_cols = st.session_state.get("bt_df_uploaded")
-                            if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
-                                st.info("Upload a CSV to enable heatmap.")
-                            else:
-                                numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
-
-                                if not numeric_cols:
-                                    st.warning("No numeric columns found for heatmap.")
+                        with sub_heat:
+                            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                                st.markdown("#### Heatmap Columns")
+    
+                                df_for_cols = st.session_state.get("bt_df_uploaded")
+                                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
+                                    st.info("Upload a CSV to enable heatmap.")
                                 else:
-                                    st.multiselect(
-                                        "Choose numeric columns to shade as a heatmap",
-                                        options=numeric_cols,
-                                        default=st.session_state.get("bt_heat_columns", []),
-                                        key="bt_heat_columns",
-                                        help="Applies background intensity based on value within each column.",
-                                    )
-
-                                    st.slider(
-                                        "Heat strength",
-                                        min_value=0.10,
-                                        max_value=0.85,
-                                        value=float(st.session_state.get("bt_heat_strength", 0.55)),
-                                        step=0.05,
-                                        key="bt_heat_strength",
-                                        help="Controls max opacity of the heat shading.",
-                                    )
-
-                                    st.divider()
-                                    st.markdown("#### Range Overrides (Optional)")
-                                    st.session_state.setdefault("bt_heat_overrides", {})
-
-                                    selected = st.session_state.get("bt_heat_columns", [])
-                                    if not selected:
-                                        st.caption("Select at least one heat column to set overrides.")
+                                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
+    
+                                    if not numeric_cols:
+                                        st.warning("No numeric columns found for heatmap.")
                                     else:
-                                        for col in selected:
-                                            cur = st.session_state["bt_heat_overrides"].get(col, {}) or {}
-                                            c1, c2 = st.columns(2)
-
-                                            vmin = c1.text_input(
-                                                f"Min override: {col}",
-                                                value="" if cur.get("min") is None else str(cur.get("min")),
-                                                key=f"bt_heat_min_{col}",
-                                                help="Leave blank to auto-use column min.",
-                                            ).strip()
-
-                                            vmax = c2.text_input(
-                                                f"Max override: {col}",
-                                                value="" if cur.get("max") is None else str(cur.get("max")),
-                                                key=f"bt_heat_max_{col}",
-                                                help="Leave blank to auto-use column max.",
-                                            ).strip()
-
-                                            st.session_state["bt_heat_overrides"].setdefault(col, {})
-
-                                            if vmin == "":
-                                                st.session_state["bt_heat_overrides"][col].pop("min", None)
-                                            else:
-                                                try:
-                                                    st.session_state["bt_heat_overrides"][col]["min"] = float(vmin)
-                                                except Exception:
-                                                    st.warning(f"'{vmin}' is not a valid min for {col}.")
-
-                                            if vmax == "":
-                                                st.session_state["bt_heat_overrides"][col].pop("max", None)
-                                            else:
-                                                try:
-                                                    st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
-                                                except Exception:
-                                                    st.warning(f"'{vmax}' is not a valid max for {col}.")                                   
+                                        st.multiselect(
+                                            "Choose numeric columns to shade as a heatmap",
+                                            options=numeric_cols,
+                                            default=st.session_state.get("bt_heat_columns", []),
+                                            key="bt_heat_columns",
+                                            help="Applies background intensity based on value within each column.",
+                                        )
+    
+                                        st.slider(
+                                            "Heat strength",
+                                            min_value=0.10,
+                                            max_value=0.85,
+                                            value=float(st.session_state.get("bt_heat_strength", 0.55)),
+                                            step=0.05,
+                                            key="bt_heat_strength",
+                                            help="Controls max opacity of the heat shading.",
+                                        )
+    
+                                        st.divider()
+                                        st.markdown("#### Range Overrides (Optional)")
+                                        st.session_state.setdefault("bt_heat_overrides", {})
+    
+                                        selected = st.session_state.get("bt_heat_columns", [])
+                                        if not selected:
+                                            st.caption("Select at least one heat column to set overrides.")
+                                        else:
+                                            for col in selected:
+                                                cur = st.session_state["bt_heat_overrides"].get(col, {}) or {}
+                                                c1, c2 = st.columns(2)
+    
+                                                vmin = c1.text_input(
+                                                    f"Min override: {col}",
+                                                    value="" if cur.get("min") is None else str(cur.get("min")),
+                                                    key=f"bt_heat_min_{col}",
+                                                    help="Leave blank to auto-use column min.",
+                                                ).strip()
+    
+                                                vmax = c2.text_input(
+                                                    f"Max override: {col}",
+                                                    value="" if cur.get("max") is None else str(cur.get("max")),
+                                                    key=f"bt_heat_max_{col}",
+                                                    help="Leave blank to auto-use column max.",
+                                                ).strip()
+    
+                                                st.session_state["bt_heat_overrides"].setdefault(col, {})
+    
+                                                if vmin == "":
+                                                    st.session_state["bt_heat_overrides"][col].pop("min", None)
+                                                else:
+                                                    try:
+                                                        st.session_state["bt_heat_overrides"][col]["min"] = float(vmin)
+                                                    except Exception:
+                                                        st.warning(f"'{vmin}' is not a valid min for {col}.")
+    
+                                                if vmax == "":
+                                                    st.session_state["bt_heat_overrides"][col].pop("max", None)
+                                                else:
+                                                    try:
+                                                        st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
+                                                    except Exception:
+                                                        st.warning(f"'{vmax}' is not a valid max for {col}.")                                   
 
                     # ---------- EMBED TAB ----------
                     with tab_embed:
