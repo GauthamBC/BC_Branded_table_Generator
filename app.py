@@ -1,3 +1,4 @@
+
 import base64
 import datetime
 import html as html_mod
@@ -1147,7 +1148,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed .footer-inner{
       display:flex;
-      justify-content:space-between;   /* ✅ this is what you want */
+      justify-content:flex-end;
       align-items:center;
       gap:12px;
       height:100%;
@@ -1155,6 +1156,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
+
+    /* Footer notes layout */
+    .vi-table-embed .footer-inner{
+      justify-content:space-between;
+    }
     
     /* ✅ Wrapper gives us “card” spacing + keeps layout stable */
     .vi-table-embed .footer-notes-wrap{
@@ -1206,13 +1212,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
         /* ✅ Heatmap scale (footer legend) */
     .vi-table-embed .footer-scale-wrap{
-      flex: 1 1 0;        /* ✅ SAME behavior as footer-notes-wrap */
-      min-width: 0;       /* ✅ allows shrinking */
+      flex: 0 0 auto;
       display:flex;
       align-items:center;
-      padding-right: 10px;
+      min-width: 220px;
+      max-width: 340px;
     }
-    
 
     .vi-table-embed .footer-scale{
       width: 100%;
@@ -1262,25 +1267,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%); }
     .vi-table-embed.brand-bolavip .vi-footer img{ filter: none !important; width: auto; display: inline-block; }
     .vi-table-embed.brand-aceodds .vi-footer img{ filter: none !important; width: auto; display: inline-block; }
-    @media (max-width: 680px){
-      .vi-table-embed .footer-inner{
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-    
-      .vi-table-embed .footer-scale-wrap{
-        flex: 1 1 100%;
-      }
-    
-      .vi-table-embed .footer-notes-wrap{
-        flex: 1 1 100%;
-      }
-    
-      .vi-table-embed .footer-logo{
-        width: 100%;
-        justify-content: flex-end;
-      }
-    }
+
     .vi-hide{ display:none !important; }
 
     /* EXPORT MODE */
