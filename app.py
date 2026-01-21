@@ -604,7 +604,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
 <body style="margin:0; overflow:auto;">
 
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]] [[FOOTER_CONTENT_CLASS]]" style="width:100%;max-width:100%;margin:0;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:0;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.07),0 6px 16px rgba(0,0,0,.09);">
@@ -1132,85 +1132,92 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
     }
 
-        /* Footer */
+    /* Footer */
     .vi-table-embed .vi-footer {
       display:flex;
       align-items:center;
-      padding:0 14px;
-      height:64px;
+      padding:0 14px;            /* fixed-height footer; no vertical padding */
+      height:64px;               /* ✅ fixed footer height */
       border-top:1px solid var(--footer-border);
       background:linear-gradient(90deg,var(--brand-50),#ffffff);
       position: sticky;
       bottom: 0;
       z-index: 20;
-      overflow:hidden;
+      overflow:hidden;           /* keep footer height fixed even if logo is large */
     }
-    
-    /* 3-slot footer row */
     .vi-table-embed .footer-inner{
       display:flex;
+      justify-content:flex-end;
       align-items:center;
       gap:12px;
       height:100%;
       width:100%;
     }
-    
-    /* Default orders (logo RIGHT) */
-    .vi-table-embed .footer-scale-wrap{ order: 1; }
-    .vi-table-embed .footer-notes-wrap{ order: 2; }
-    .vi-table-embed .footer-logo{ order: 3; }
-    
-    /* If logo is LEFT, swap logo and scale, notes stays center */
-    .vi-table-embed.footer-left .footer-logo{ order: 1; }
-    .vi-table-embed.footer-left .footer-notes-wrap{ order: 2; }
-    .vi-table-embed.footer-left .footer-scale-wrap{ order: 3; }
-    
-    /* Logo */
-    .vi-table-embed .footer-logo{
-      flex: 0 0 auto;
-      display:flex;
-      align-items:center;
-      justify-content:flex-end;
-    }
-    .vi-table-embed.footer-left .footer-logo{ justify-content:flex-start; }
-    
-    .vi-table-embed .vi-footer img{
-      height: var(--footer-logo-h);
-      max-height:100%;
-      width:auto;
-      display:inline-block;
+    .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
+    .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
+
+    /* Footer notes layout */
+    .vi-table-embed .footer-inner{
+      justify-content:space-between;
     }
     
-    /* Notes slot (center) */
+    /* ✅ Wrapper gives us “card” spacing + keeps layout stable */
     .vi-table-embed .footer-notes-wrap{
       flex: 1 1 0;
       min-width: 0;
       display:flex;
       align-items:center;
-      justify-content:center; /* keep notes centered */
+      padding-right: 10px;
     }
+    
+    /* ✅ Auto-expand notes to all available width */
     .vi-table-embed .footer-notes{
+      flex: 1 1 0;
       width: 100%;
-      max-width: none;
+      max-width: none;   /* ✅ THIS is the key change */
+    
       padding: 10px 12px;
       border-radius: 12px;
+    
       background: #ffffff;
       border: 1px solid rgba(0,0,0,.10);
       box-shadow: 0 10px 22px rgba(0,0,0,.08);
+    
       border-left: 6px solid var(--brand-500);
+    
       font: 12.5px/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
       color:#374151;
+    
       max-height: 46px;
       overflow:auto;
     }
+        
+    /* Optional typographic polish */
+    .vi-table-embed .footer-notes strong{ color:#111827; font-weight:750; }
+    .vi-table-embed .footer-notes em{ color:#374151; }
     
-    /* Scale slot */
-    .vi-table-embed .footer-scale-wrap{
-      flex: 1 1 0;           /* ✅ expands when only 2 items present */
-      min-width: 180px;
+    /* nicer scrollbar */
+    .vi-table-embed .footer-notes::-webkit-scrollbar{ width: 6px; height: 6px; }
+    .vi-table-embed .footer-notes::-webkit-scrollbar-thumb{
+      background: rgba(var(--brand-500-rgb), .45);
+      border-radius: 9999px;
+    }
+    
+    .vi-table-embed .footer-logo{
+      flex: 0 0 auto;
       display:flex;
+      justify-content:flex-end;
       align-items:center;
     }
+        /* ✅ Heatmap scale (footer legend) */
+    .vi-table-embed .footer-scale-wrap{
+      flex: 0 0 auto;
+      display:flex;
+      align-items:center;
+      min-width: 220px;
+      max-width: 340px;
+    }
+
     .vi-table-embed .footer-scale{
       width: 100%;
       display:flex;
@@ -1223,31 +1230,44 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       box-shadow: 0 10px 22px rgba(0,0,0,.08);
       border-left: 6px solid var(--brand-500);
     }
+
     .vi-table-embed .footer-scale .scale-bar{
       height: 10px;
       border-radius: 999px;
       overflow:hidden;
       border: 1px solid rgba(0,0,0,.10);
     }
+
     .vi-table-embed .footer-scale .scale-labels{
       display:flex;
       justify-content:space-between;
       font: 11.5px/1 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
       color:#6b7280;
     }
-    
-    /* Visibility */
+
+    /* If scale is hidden */
     .vi-table-embed .footer-scale-wrap.vi-hide{ display:none !important; }
-    .vi-table-embed .footer-notes-wrap.vi-hide{ display:none !important; }
-    
-    /* ✅ When BOTH notes + scale exist, keep scale in a “slot width” so notes has room */
-    .vi-table-embed.has-scale.has-notes .footer-scale-wrap{
-      flex: 0 0 320px;
-      max-width: 340px;
+
+    /* When logo is LEFT, swap order so notes go to the right */
+    .vi-table-embed.footer-left .footer-inner{ flex-direction: row-reverse; }
+    .vi-table-embed.footer-left .footer-logo{ justify-content:flex-start; }
+
+    /* When centered requested but notes are enabled, we treat it like RIGHT (handled in Python) */
+    .vi-table-embed .vi-footer img{height: var(--footer-logo-h); width:auto; display:inline-block; max-height:100%; width:auto; display:inline-block; }
+
+    .vi-table-embed.brand-actionnetwork .vi-footer img{
+      filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%); width: auto;
+      display: inline-block;
     }
-    .vi-table-embed.has-scale.has-notes .footer-notes-wrap{
-      flex: 1 1 auto;
-    }
+    .vi-table-embed.brand-vegasinsider .vi-footer img{ filter: none !important; }
+    .vi-table-embed.brand-canadasb .vi-footer img{
+      filter: brightness(0) saturate(100%) invert(32%) sepia(85%) saturate(2386%) hue-rotate(347deg) brightness(96%) contrast(104%); }
+    .vi-table-embed.brand-rotogrinders .vi-footer img{
+      filter: brightness(0) saturate(100%) invert(23%) sepia(95%) saturate(1704%) hue-rotate(203deg) brightness(93%) contrast(96%); }
+    .vi-table-embed.brand-bolavip .vi-footer img{ filter: none !important; width: auto; display: inline-block; }
+    .vi-table-embed.brand-aceodds .vi-footer img{ filter: none !important; width: auto; display: inline-block; }
+
+    .vi-hide{ display:none !important; }
 
     /* EXPORT MODE */
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
@@ -2039,6 +2059,9 @@ def generate_table_html_from_df(
         footer_notes_html = escaped
     # ✅ Heatmap scale (mutually exclusive with footer notes)
     show_heat_scale = bool(show_heat_scale)
+    if show_footer_notes:
+        show_heat_scale = False
+
     # Only show scale if user enabled it AND there is at least one heat column selected
     if show_heat_scale and not heat_columns_set:
         show_heat_scale = False
@@ -2385,13 +2408,6 @@ def generate_table_html_from_df(
         cell_align_class = "align-right"
     else:
         cell_align_class = "align-center"
-    # ✅ Footer content flags (used by CSS layout)
-    footer_content_class = []
-    if show_heat_scale:
-        footer_content_class.append("has-scale")
-    if show_footer_notes and footer_notes_html:
-        footer_content_class.append("has-notes")
-    footer_content_class = " ".join(footer_content_class)
 
     html = (
         HTML_TEMPLATE_TABLE
@@ -2414,7 +2430,6 @@ def generate_table_html_from_df(
         .replace("[[EMBED_VIS_CLASS]]", embed_vis)
         .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
-        .replace("[[FOOTER_CONTENT_CLASS]]", footer_content_class)
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
