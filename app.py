@@ -1,4 +1,3 @@
-
 import base64
 import datetime
 import html as html_mod
@@ -2764,6 +2763,20 @@ def reset_table_edits():
     st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
 
     st.session_state["bt_body_apply_flash"] = True
+def on_footer_notes_toggle():
+    # if notes turned ON, force heat scale OFF
+    if st.session_state.get("bt_show_footer_notes", False):
+        st.session_state["bt_show_heat_scale"] = False
+
+        # if logo was centered, push it right (since notes take room)
+        if st.session_state.get("bt_footer_logo_align") == "Center":
+            st.session_state["bt_footer_logo_align"] = "Right"
+
+
+def on_heat_scale_toggle():
+    # if heat scale turned ON, force notes OFF
+    if st.session_state.get("bt_show_heat_scale", False):
+        st.session_state["bt_show_footer_notes"] = False
 
 # =========================================================
 # Streamlit App
@@ -3224,21 +3237,14 @@ with main_tab_create:
 
                                 st.divider()
 
-                                # ✅ mutual exclusion: if heat scale is ON, force footer notes OFF
-                                if st.session_state.get("bt_show_heat_scale", False):
-                                    st.session_state["bt_show_footer_notes"] = False
-
                                 show_footer_notes = st.checkbox(
                                     "Show Footer Notes",
                                     value=st.session_state.get("bt_show_footer_notes", False),
                                     key="bt_show_footer_notes",
-                                    disabled=(not show_footer) or bool(st.session_state.get("bt_show_heat_scale", False)),
-                                    help="Adds a notes area in the footer. When enabled, logo cannot be centered.",
+                                    disabled=(not show_footer),
+                                    on_change=on_footer_notes_toggle,
+                                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically.",
                                 )
-
-
-                                if show_footer_notes and st.session_state.get("bt_footer_logo_align", "Center") == "Center":
-                                    st.session_state["bt_footer_logo_align"] = "Right"
 
                                 st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
 
@@ -3553,12 +3559,9 @@ with main_tab_create:
                                             value=bool(st.session_state.get("bt_show_heat_scale", False)),
                                             key="bt_show_heat_scale",
                                             disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
+                                            on_change=on_heat_scale_toggle,   # ✅ ADD THIS
                                             help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
                                         )
-
-                                        # ✅ mutual exclusion: footer notes vs heat scale
-                                        if st.session_state.get("bt_show_footer_notes", False):
-                                            st.session_state["bt_show_heat_scale"] = False
     
                                         st.divider()
                                         st.markdown("#### Range Overrides (Optional)")
