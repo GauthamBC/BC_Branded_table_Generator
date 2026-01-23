@@ -1209,13 +1209,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:flex-end;
       align-items:center;
     }
-        /* ✅ Heatmap scale (footer legend) */
+
     .vi-table-embed .footer-scale-wrap{
-      flex: 0 0 auto;
       display:flex;
       align-items:center;
-      min-width: 220px;
-      max-width: 340px;
+      min-width: 220px;     /* mobile-safe default */
+      max-width: 340px;     /* mobile-safe default */
+      flex: 0 0 auto;       /* default compact */
+    }
+    
+    /* ✅ Desktop: allow scale to grow wider (up to half the footer/table) */
+    @media (min-width: 900px){
+      .vi-table-embed .footer-scale-wrap{
+        flex: 1 1 0;
+        max-width: 50%;
+        min-width: 340px;
+      }
     }
 
     .vi-table-embed .footer-scale{
