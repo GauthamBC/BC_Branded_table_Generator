@@ -2612,7 +2612,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_live_confirmed"] = True
 
     st.session_state["bt_confirm_flash"] = True  # optional: show “loaded” message
-    st.experimental_rerun()
+    st.rerun()
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
     try:
