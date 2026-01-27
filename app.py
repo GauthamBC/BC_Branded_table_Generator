@@ -3002,7 +3002,7 @@ with main_tab_published:
         st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
     else:
         # ✅ Only refetch when needed
-        if refresh_clicked or "df_pub_cache" not in st.session_state:
+        if refresh_clicked or "df_pub_cache" not in st.session_state or "Has CSV" not in st.session_state["df_pub_cache"].columns:
             if refresh_clicked:
                 st.cache_data.clear()
             st.session_state["df_pub_cache"] = get_all_published_widgets(publish_owner, token_to_use)
