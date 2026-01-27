@@ -2657,6 +2657,8 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
     st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
     st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
+    st.session_state.setdefault("bt_last_published_file", "")  # remembers which filename was published
+    st.session_state.setdefault("bt_last_published_repo", "")  # remembers which repo was published
 
 
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
@@ -2762,7 +2764,7 @@ def do_confirm_snapshot():
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
-        # ✅ If user already generated embed scripts once, a new Confirm makes them out-of-date
+    # ✅ If user already generated embed scripts once, a new Confirm makes them out-of-date
     if st.session_state.get("bt_embed_generated", False):
         st.session_state["bt_embed_stale"] = True
 
@@ -3709,7 +3711,7 @@ with main_tab_create:
 
                         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
 
-                        if file_exists and not embed_done:
+                        if file_exists and not embed_done and not same_target_as_last_publish:
                             st.info("ℹ️ A page with this table name already exists.")
                             if existing_pages_url:
                                 st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
@@ -3728,7 +3730,16 @@ with main_tab_create:
 
                         allow_swap = bool(st.session_state.get("bt_allow_swap", False))
 
-                        swap_confirmed = (not file_exists) or allow_swap
+                        # ✅ If the user already published this exact file in this session,
+                        # allow updates WITHOUT needing the overwrite checkbox.
+                        same_target_as_last_publish = bool(
+                            st.session_state.get("bt_embed_generated", False)
+                            and st.session_state.get("bt_last_published_file") == widget_file_name
+                            and st.session_state.get("bt_last_published_repo") == repo_name
+                        )
+                        
+                        swap_confirmed = (not file_exists) or allow_swap or same_target_as_last_publish
+                        
                         can_publish = bool(
                             html_generated
                             and publish_owner
@@ -3792,6 +3803,9 @@ with main_tab_create:
                                 st.session_state["bt_embed_generated"] = True
                                 st.session_state["bt_embed_stale"] = False
                                 st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
+                                st.session_state["bt_last_published_file"] = widget_file_name
+                                st.session_state["bt_last_published_repo"] = repo_name
+
 
                                 github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
                                 table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
