@@ -3776,10 +3776,10 @@ with main_tab_create:
                                     disabled=True,
                                     help=f"Only the original creator ({existing_created_by or 'unknown'}) can overwrite this page.",
                                 )
+                                owner_label = f"{existing_created_by}'s" if existing_created_by else "another user's"
                                 st.warning(
-                                    f"⛔ You’re signed in as **{created_by_user or 'unknown'}**, so you can’t overwrite this page."
+                                    f"⛔ This is **{owner_label} page**, so you can’t overwrite it."
                                 )
-
                         
                         # ✅ Read AFTER the checkbox renders
                         allow_swap = bool(st.session_state.get("bt_allow_swap", False))
