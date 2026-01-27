@@ -2653,13 +2653,12 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
+    st.session_state.setdefault("bt_last_published_repo", "")
+    st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
     st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
     st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
     st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
-    st.session_state.setdefault("bt_last_published_file", "")  # remembers which filename was published
-    st.session_state.setdefault("bt_last_published_repo", "")  # remembers which repo was published
-
 
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
     if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
@@ -3710,7 +3709,15 @@ with main_tab_create:
                                     existing_meta = {}
 
                         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
-
+                        
+                        # ✅ If the user already published this exact repo+file in this session,
+                        # allow updates WITHOUT needing the overwrite checkbox.
+                        same_target_as_last_publish = bool(
+                            st.session_state.get("bt_embed_generated", False)
+                            and st.session_state.get("bt_last_published_file") == widget_file_name
+                            and st.session_state.get("bt_last_published_repo") == repo_name
+                        )
+                        
                         if file_exists and not embed_done and not same_target_as_last_publish:
                             st.info("ℹ️ A page with this table name already exists.")
                             if existing_pages_url:
@@ -3721,22 +3728,15 @@ with main_tab_create:
                                     f"Created by: {existing_meta.get('created_by','?')} | "
                                     f"UTC: {existing_meta.get('created_at_utc','?')}"
                                 )
-
+                        
                             st.checkbox(
                                 "Overwrite existing page",
                                 value=bool(st.session_state.get("bt_allow_swap", False)),
                                 key="bt_allow_swap",
                             )
-
+                        
+                        # ✅ Read AFTER the checkbox renders
                         allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-
-                        # ✅ If the user already published this exact file in this session,
-                        # allow updates WITHOUT needing the overwrite checkbox.
-                        same_target_as_last_publish = bool(
-                            st.session_state.get("bt_embed_generated", False)
-                            and st.session_state.get("bt_last_published_file") == widget_file_name
-                            and st.session_state.get("bt_last_published_repo") == repo_name
-                        )
                         
                         swap_confirmed = (not file_exists) or allow_swap or same_target_as_last_publish
                         
@@ -3749,7 +3749,7 @@ with main_tab_create:
                             and created_by_user
                             and swap_confirmed
                         )
-
+                        
                         publish_clicked = st.button(
                             btn_label,
                             use_container_width=True,
@@ -3798,6 +3798,8 @@ with main_tab_create:
 
                                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                                 st.session_state["bt_last_published_url"] = pages_url
+                                st.session_state["bt_last_published_repo"] = repo_name
+                                st.session_state["bt_last_published_file"] = widget_file_name        
                                 created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                                 # ✅ mark embed scripts as generated + fresh
                                 st.session_state["bt_embed_generated"] = True
