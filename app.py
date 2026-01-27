@@ -2955,6 +2955,24 @@ main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Ta
 with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
+        # ✅ Who are you? (needed so "Edit" permissions work in this tab)
+    allowed_users = list(PUBLISH_USERS)
+    created_by_options = ["Select a user..."] + allowed_users
+
+    st.session_state.setdefault("bt_created_by_user_select", "Select a user...")
+
+    created_by_input_pub = st.selectbox(
+        "Created by (so Edit works)",
+        options=created_by_options,
+        key="bt_created_by_user_select",
+    )
+
+    created_by_user_pub = ""
+    if created_by_input_pub and created_by_input_pub != "Select a user...":
+        created_by_user_pub = created_by_input_pub.strip().lower()
+
+    # ✅ store globally (used by can_edit logic)
+    st.session_state["bt_created_by_user"] = created_by_user_pub
 
     # ✅ Ensure filter keys exist (prevents weird state issues)
     st.session_state.setdefault("pub_brand_filter", "All")
@@ -3114,7 +3132,12 @@ with main_tab_published:
                     selected_file = (row.get("File") or "").strip()
                     row_created_by = (df_view.loc[selected_idx, "Created By"] or "").strip().lower()
                     current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-                    can_edit = (not row_created_by) or (row_created_by == current_user)
+
+                    # ✅ must pick a user in Published tab for editing
+                    if not current_user:
+                        can_edit = False
+                    else:
+                        can_edit = (not row_created_by) or (row_created_by == current_user)
 
                     if selected_url:
                         # ✅ Prevent re-opening popup every rerun if same row clicked again
@@ -3139,7 +3162,7 @@ with main_tab_published:
                                         st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
                                         st.caption(f"Only {owner_name} can edit this table.")
                                     else:
-                                        has_csv = df_view.loc[selected_idx, "Has CSV"] == "✅"
+                                        has_csv = df_display.loc[selected_idx, "Has CSV"] == "✅"
 
                                         if not has_csv:
                                             st.button("✏️ Edit this table", disabled=True, use_container_width=True)
