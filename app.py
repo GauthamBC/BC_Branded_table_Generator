@@ -2592,6 +2592,9 @@ def build_publish_bundle(widget_file_name: str) -> dict:
 def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name: str):
     bundle_path = f"bundles/{widget_file_name}.json"
     bundle = read_github_json(owner, repo, token, bundle_path, branch="main")
+    st.session_state["bt_uploaded_name"] = f"bundle:{widget_file_name}"   # ✅ makes Create tab treat it like a "loaded file"
+    st.session_state["bt_created_by_user"] = (bundle.get("created_by","") or "").strip().lower()
+    st.session_state["bt_created_by_user_select_create"] = st.session_state["bt_created_by_user"] or "Select a user..."
 
     csv_text = (bundle.get("csv") or "")
     if csv_text.strip():
@@ -3240,34 +3243,46 @@ if main_tab == "Create New Table":
             key="brand_table",
         )
 
-        if uploaded_file is None:
+        # ✅ Allow Create tab to work for BOTH:
+        # 1) normal uploaded CSV
+        # 2) bundle-loaded df in session_state (Edit flow)
+        
+        df_loaded = st.session_state.get("bt_df_uploaded")
+        has_loaded_df = isinstance(df_loaded, pd.DataFrame) and not df_loaded.empty
+        
+        if uploaded_file is None and not has_loaded_df:
             st.info("Upload A CSV To Start.")
         elif brand_selected_global == "Choose a brand...":
             st.info("Choose a **Brand** to load the table preview.")
         else:
-            # =========================================================
-            # ✅ Read CSV
-            # =========================================================
-            try:
-                df_uploaded_now = pd.read_csv(uploaded_file)
-            except Exception as e:
-                st.error(f"Error Reading CSV: {e}")
-                df_uploaded_now = pd.DataFrame()
-
+            # ✅ Source of data: upload wins, otherwise use loaded bundle df
+            if uploaded_file is not None:
+                try:
+                    df_uploaded_now = pd.read_csv(uploaded_file)
+                except Exception as e:
+                    st.error(f"Error Reading CSV: {e}")
+                    df_uploaded_now = pd.DataFrame()
+        
+                uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
+        
+            else:
+                # bundle-loaded case
+                df_uploaded_now = df_loaded.copy()
+                uploaded_name = st.session_state.get("bt_uploaded_name", "loaded_bundle.csv")
+        
             if df_uploaded_now.empty:
                 st.error("Uploaded CSV Has No Rows.")
             else:
-                uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
                 prev_name = st.session_state.get("bt_uploaded_name")
-
+        
+                # ✅ Only reset/init when the "source" changes
                 if prev_name != uploaded_name:
                     reset_widget_state_for_new_upload()
                     st.session_state["bt_uploaded_name"] = uploaded_name
-                    st.session_state["bt_df_source"] = df_uploaded_now.copy()   # ✅ NEW: original backup
-                    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy() # ✅ NEW: live editable version
-                    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()
-
-
+                    st.session_state["bt_df_source"] = df_uploaded_now.copy(deep=True)     # original backup
+                    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy(deep=True)   # live editable version
+                    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy(deep=True)  # confirmed snapshot seed
+        
                 ensure_confirm_state_exists()
 
                 left_col, right_col = st.columns([1, 3], gap="large")
