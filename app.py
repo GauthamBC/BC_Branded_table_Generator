@@ -2539,13 +2539,21 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
     )
-
+    
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
     repo = (repo or "").strip()
     filename = (filename or "").lstrip("/").strip() or "branded_table.html"
     return f"https://{user}.github.io/{repo}/{filename}"
 
+def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return False
+        return f"BT_PUBLISH_HASH:{expected_hash}" in r.text
+    except Exception:
+        return False
 
 def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     url = (url or "").strip()
@@ -2659,6 +2667,10 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
     st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
     st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
+    st.session_state.setdefault("bt_publish_in_progress", False)
+    st.session_state.setdefault("bt_publish_started_at", None)
+    st.session_state.setdefault("bt_expected_live_hash", "")
+    st.session_state.setdefault("bt_live_confirmed", False)
 
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
     if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
@@ -3627,6 +3639,21 @@ with main_tab_create:
 
                     # ---------- EMBED TAB ----------
                     with tab_embed:
+                        # Live publish status UI
+                        if st.session_state.get("bt_publish_in_progress", False):
+                            st.info("🚀 Publishing updates… This can take up to a minute.")
+                        
+                            pages_url = st.session_state.get("bt_last_published_url")
+                            expected_hash = st.session_state.get("bt_expected_live_hash")
+                        
+                            if pages_url and expected_hash:
+                                if st.button("Check if page is live"):
+                                    if is_page_live_with_hash(pages_url, expected_hash):
+                                        st.session_state["bt_publish_in_progress"] = False
+                                        st.session_state["bt_live_confirmed"] = True
+                                        st.success("✅ Page is live with the latest updates.")
+                                    else:
+                                        st.warning("⏳ Still updating. Please try again in a few seconds.")
                         st.markdown("#### Get Embed Script")
 
                         st.session_state.setdefault("bt_embed_started", False)
@@ -3771,9 +3798,18 @@ with main_tab_create:
 
                         if publish_clicked:
                             st.session_state["bt_embed_tabs_visible"] = True
+                            # mark publish as in-progress
+                            st.session_state["bt_publish_in_progress"] = True
+                            st.session_state["bt_publish_started_at"] = time.time()
+                            st.session_state["bt_expected_live_hash"] = st.session_state.get("bt_html_hash", "")
+                            st.session_state["bt_live_confirmed"] = False
+                        
 
                             try:
-                                html_final = st.session_state.get("bt_html_code", "")
+                                html_final = (
+                                    f"<!-- BT_PUBLISH_HASH:{st.session_state.get('bt_html_hash','')} -->\n"
+                                    + st.session_state.get("bt_html_code", "")
+                                )
                                 if not html_final:
                                     raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
 
@@ -3798,6 +3834,7 @@ with main_tab_create:
 
                                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                                 st.session_state["bt_last_published_url"] = pages_url
+                                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
                                 st.session_state["bt_last_published_repo"] = repo_name
                                 st.session_state["bt_last_published_file"] = widget_file_name        
                                 created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -3850,7 +3887,10 @@ with main_tab_create:
                             except Exception as e:
                                 st.error(f"Publish / IFrame generation failed: {e}")
 
-                        show_tabs = bool(st.session_state.get("bt_embed_generated", False))
+                        show_tabs = bool(
+                            st.session_state.get("bt_embed_generated", False)
+                            and st.session_state.get("bt_live_confirmed", False)
+                        )
 
                         if show_tabs:
                             published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
