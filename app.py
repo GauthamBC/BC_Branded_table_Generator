@@ -498,13 +498,13 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                         rows.append({
                             "Brand": brand,
                             "Table Name": name,
+                            "Has CSV": "—",  # ❌ legacy tables have no bundle
                             "Pages URL": compute_url(repo_name, name),
                             "Created By": created_by,
                             "Created UTC": created_utc,
                             "Repo": repo_name,
                             "File": name,
                         })
-
         except Exception:
             continue
 
