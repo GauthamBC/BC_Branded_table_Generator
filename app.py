@@ -3734,6 +3734,9 @@ with main_tab_create:
                                     existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
                                 except Exception:
                                     existing_meta = {}
+                                # ✅ overwrite is only allowed for the original creator
+                                existing_created_by = (existing_meta.get("created_by", "") or "").strip().lower()
+                                can_overwrite_owner = (not existing_created_by) or (existing_created_by == created_by_user)
 
                         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
                         
@@ -3756,16 +3759,32 @@ with main_tab_create:
                                     f"UTC: {existing_meta.get('created_at_utc','?')}"
                                 )
                         
-                            st.checkbox(
-                                "Overwrite existing page",
-                                value=bool(st.session_state.get("bt_allow_swap", False)),
-                                key="bt_allow_swap",
-                            )
+                            if can_overwrite_owner:
+                                st.checkbox(
+                                    "Overwrite existing page",
+                                    value=bool(st.session_state.get("bt_allow_swap", False)),
+                                    key="bt_allow_swap",
+                                )
+                            else:
+                                # ✅ ensure swap cannot be enabled for non-owners
+                                st.session_state["bt_allow_swap"] = False
+                            
+                                st.checkbox(
+                                    "Overwrite existing page",
+                                    value=False,
+                                    key="bt_allow_swap_disabled",
+                                    disabled=True,
+                                    help=f"Only the original creator ({existing_created_by or 'unknown'}) can overwrite this page.",
+                                )
+                                st.warning(
+                                    f"⛔ You’re signed in as **{created_by_user or 'unknown'}**, so you can’t overwrite this page."
+                                )
+
                         
                         # ✅ Read AFTER the checkbox renders
                         allow_swap = bool(st.session_state.get("bt_allow_swap", False))
                         
-                        swap_confirmed = (not file_exists) or allow_swap or same_target_as_last_publish
+                        swap_confirmed = (not file_exists) or (allow_swap and can_overwrite_owner) or same_target_as_last_publish
                         
                         can_publish = bool(
                             html_generated
@@ -3792,7 +3811,10 @@ with main_tab_create:
                             if publish_owner and not installation_token:
                                 missing.append("publishing token")
                             if file_exists and not swap_confirmed:
-                                missing.append("confirm override (checkbox + SWAP)")
+                                if not can_overwrite_owner:
+                                    missing.append("you can’t overwrite (different creator)")
+                                else:
+                                    missing.append("confirm override (checkbox)")
                             if missing:
                                 st.caption("To enable publishing: " + ", ".join(missing) + ".")
 
