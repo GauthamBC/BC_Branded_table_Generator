@@ -4,6 +4,8 @@ import html as html_mod
 import json
 import re
 import time
+import io
+import json
 from collections.abc import Mapping
 
 import jwt  # ✅ PyJWT
@@ -2545,6 +2547,72 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     repo = (repo or "").strip()
     filename = (filename or "").lstrip("/").strip() or "branded_table.html"
     return f"https://{user}.github.io/{repo}/{filename}"
+    
+def build_publish_bundle(widget_file_name: str) -> dict:
+    # IMPORTANT: keep this aligned with what your editor actually uses
+    cfg = draft_config_from_state()
+    rules = st.session_state.get("bt_col_format_rules", {}) or {}
+
+    df = st.session_state.get("bt_df_uploaded")
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        csv_text = df.to_csv(index=False)
+    else:
+        csv_text = ""
+
+    bundle = {
+        "schema_version": 1,
+        "widget_file_name": widget_file_name,
+        "brand": st.session_state.get("brand_table", ""),
+        "created_by": (st.session_state.get("bt_created_by_user", "") or "").strip().lower(),
+        "created_at_utc": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "table_name_words": st.session_state.get("bt_table_name_words", ""),
+        "widget_title": st.session_state.get("bt_widget_title", ""),
+        "widget_subtitle": st.session_state.get("bt_widget_subtitle", ""),
+        "config": cfg,
+        "col_format_rules": rules,
+        "csv": csv_text,
+        "hidden_cols": st.session_state.get("bt_hidden_cols", []) or [],
+        "bar_columns": st.session_state.get("bt_bar_columns", []) or [],
+        "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}) or {},
+        "heat_columns": st.session_state.get("bt_heat_columns", []) or [],
+        "heat_overrides": st.session_state.get("bt_heat_overrides", {}) or {},
+    }
+    return bundle
+    
+def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name: str):
+    bundle_path = f"bundles/{widget_file_name}.json"
+    bundle = read_github_json(owner, repo, token, bundle_path, branch="main")
+
+    csv_text = (bundle.get("csv") or "")
+    if csv_text.strip():
+        df = pd.read_csv(io.StringIO(csv_text))
+        st.session_state["bt_df_uploaded"] = df
+
+    # restore core editor fields
+    st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
+    st.session_state["bt_widget_title"] = bundle.get("widget_title", "")
+    st.session_state["bt_widget_subtitle"] = bundle.get("widget_subtitle", "")
+
+    # restore toggles/rules
+    st.session_state["bt_col_format_rules"] = bundle.get("col_format_rules", {}) or {}
+    st.session_state["bt_hidden_cols"] = bundle.get("hidden_cols", []) or []
+    st.session_state["bt_bar_columns"] = bundle.get("bar_columns", []) or []
+    st.session_state["bt_bar_max_overrides"] = bundle.get("bar_max_overrides", {}) or []
+    st.session_state["bt_heat_columns"] = bundle.get("heat_columns", []) or []
+    st.session_state["bt_heat_overrides"] = bundle.get("heat_overrides", {}) or {}
+
+    # restore config (best effort)
+    cfg = bundle.get("config") or {}
+    for k, v in cfg.items():
+        st.session_state[k] = v
+
+    # force user back to editor UX
+    st.session_state["bt_embed_tabs_visible"] = True
+    st.session_state["bt_publish_in_progress"] = False
+    st.session_state["bt_live_confirmed"] = True
+
+    st.session_state["bt_confirm_flash"] = True  # optional: show “loaded” message
+    st.experimental_rerun()
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
     try:
@@ -3853,8 +3921,23 @@ with main_tab_create:
                                     f"Add/Update {widget_file_name} from Branded Table App",
                                     branch="main",
                                 )
-
+                                
+                                # ✅ NEW: also publish the editable bundle (CSV + config + rules)
+                                bundle = build_publish_bundle(widget_file_name)
+                                bundle_path = f"bundles/{widget_file_name}.json"
+                                
+                                upload_file_to_github(
+                                    publish_owner,
+                                    repo_name,
+                                    installation_token,
+                                    bundle_path,
+                                    json.dumps(bundle, indent=2),
+                                    f"Add/Update bundle for {widget_file_name}",
+                                    branch="main",
+                                )
+                                
                                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
+                                
                                 st.session_state["bt_last_published_url"] = pages_url
                                 st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
                                 st.session_state["bt_last_published_repo"] = repo_name
@@ -3924,6 +4007,25 @@ with main_tab_create:
                                 st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
 
                             html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
+                                                    
+                            # ✅ ADD THIS BLOCK RIGHT HERE
+                            pages_url = published_url_val
+                            current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+                            row_created_by = (existing_meta.get("created_by", "") or "").strip().lower()  # or selected_row.get(...)
+                            can_edit = (not row_created_by) or (row_created_by == current_user)
+                        
+                            c1, c2 = st.columns([1, 1])
+                            with c1:
+                                st.link_button("🔗 Open live page", pages_url, use_container_width=True)
+                        
+                            with c2:
+                                if not can_edit:
+                                    owner_name = row_created_by or "someone else"
+                                    st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
+                                    st.caption(f"Only {owner_name} can edit this table.")
+                                else:
+                                    if st.button("✏️ Edit this table", use_container_width=True):
+                                        load_bundle_into_editor(publish_owner, repo_name, installation_token, widget_file_name)
 
                             with html_tab:
                                 html_code_val = (st.session_state.get("bt_html_code") or "").strip()
