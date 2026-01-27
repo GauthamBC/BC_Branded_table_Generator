@@ -2587,6 +2587,8 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     if csv_text.strip():
         df = pd.read_csv(io.StringIO(csv_text))
         st.session_state["bt_df_uploaded"] = df
+        st.session_state["bt_df_source"] = df.copy(deep=True)
+        st.session_state["bt_df_confirmed"] = df.copy(deep=True)
 
     # restore core editor fields
     st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
@@ -2601,10 +2603,41 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_heat_columns"] = bundle.get("heat_columns", []) or []
     st.session_state["bt_heat_overrides"] = bundle.get("heat_overrides", {}) or {}
 
-    # restore config (best effort)
+    # restore config (mapped to editor session keys)
     cfg = bundle.get("config") or {}
-    for k, v in cfg.items():
-        st.session_state[k] = v
+    
+    CFG_TO_STATE = {
+        "brand": "brand_table",
+        "title": "bt_widget_title",
+        "subtitle": "bt_widget_subtitle",
+        "striped": "bt_striped_rows",
+        "show_header": "bt_show_header",
+        "center_titles": "bt_center_titles",
+        "branded_title_color": "bt_branded_title_color",
+        "show_footer": "bt_show_footer",
+        "footer_logo_align": "bt_footer_logo_align",
+        "footer_logo_h": "bt_footer_logo_h",
+        "show_footer_notes": "bt_show_footer_notes",
+        "footer_notes": "bt_footer_notes",
+        "show_heat_scale": "bt_show_heat_scale",
+        "cell_align": "bt_cell_align",
+        "show_search": "bt_show_search",
+        "show_pager": "bt_show_pager",
+        "show_embed": "bt_show_embed",
+        "show_page_numbers": "bt_show_page_numbers",
+        "bar_columns": "bt_bar_columns",
+        "bar_max_overrides": "bt_bar_max_overrides",
+        "bar_fixed_w": "bt_bar_fixed_w",
+        "heat_columns": "bt_heat_columns",
+        "heat_overrides": "bt_heat_overrides",
+        "heat_strength": "bt_heat_strength",
+        "heatmap_style": "bt_heatmap_style",
+        "header_style": "bt_header_style",
+    }
+    
+    for cfg_key, state_key in CFG_TO_STATE.items():
+        if cfg_key in cfg:
+            st.session_state[state_key] = cfg[cfg_key]
 
     # force user back to editor UX
     st.session_state["bt_embed_tabs_visible"] = True
@@ -3061,9 +3094,12 @@ with main_tab_published:
 
                 if selected_rows:
                     selected_idx = selected_rows[0]
-                    selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()   # ✅ ADD THIS LINE
-                    selected_repo = (df_view.loc[selected_idx, "Repo"] or "").strip()
-                    selected_file = (df_view.loc[selected_idx, "File"] or "").strip()
+                    selected_url = (df_display.loc[selected_idx, "Pages URL"] or "").strip()
+                    
+                    row = df_view[df_view["Pages URL"] == selected_url].iloc[0]
+                    
+                    selected_repo = (row.get("Repo") or "").strip()
+                    selected_file = (row.get("File") or "").strip()
                     row_created_by = (df_view.loc[selected_idx, "Created By"] or "").strip().lower()
                     current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
                     can_edit = (not row_created_by) or (row_created_by == current_user)
@@ -3091,8 +3127,17 @@ with main_tab_published:
                                         st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
                                         st.caption(f"Only {owner_name} can edit this table.")
                                     else:
-                                        if st.button("✏️ Edit this table", use_container_width=True):
-                                            load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+                                        bundle_path = f"bundles/{selected_file}.json"
+                                        bundle_exists = github_file_exists(
+                                            publish_owner, selected_repo, token_to_use, bundle_path, branch="main"
+                                        )
+                                        
+                                        if not bundle_exists:
+                                            st.button("✏️ Edit this table", disabled=True, use_container_width=True)
+                                            st.caption("This table was published before editable bundles were enabled.")
+                                        else:
+                                            if st.button("✏️ Edit this table", use_container_width=True):
+                                                load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
                             
                                 components.iframe(url, height=650, scrolling=True)
                             
@@ -3977,6 +4022,8 @@ with main_tab_create:
                                     "github_repo_url": github_repo_url,
                                     "created_by": created_by_user,
                                     "created_at_utc": created_utc,
+                                    "bundle_path": f"bundles/{widget_file_name}.json",
+                                    "has_bundle": True,
                                 }
 
                                 try:
