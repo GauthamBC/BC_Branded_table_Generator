@@ -2597,7 +2597,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_col_format_rules"] = bundle.get("col_format_rules", {}) or {}
     st.session_state["bt_hidden_cols"] = bundle.get("hidden_cols", []) or []
     st.session_state["bt_bar_columns"] = bundle.get("bar_columns", []) or []
-    st.session_state["bt_bar_max_overrides"] = bundle.get("bar_max_overrides", {}) or []
+    st.session_state["bt_bar_max_overrides"] = bundle.get("bar_max_overrides", {}) or {}
     st.session_state["bt_heat_columns"] = bundle.get("heat_columns", []) or []
     st.session_state["bt_heat_overrides"] = bundle.get("heat_overrides", {}) or {}
 
@@ -3061,7 +3061,11 @@ with main_tab_published:
 
                 if selected_rows:
                     selected_idx = selected_rows[0]
-                    selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
+                    selected_repo = (df_view.loc[selected_idx, "Repo"] or "").strip()
+                    selected_file = (df_view.loc[selected_idx, "File"] or "").strip()
+                    row_created_by = (df_view.loc[selected_idx, "Created By"] or "").strip().lower()
+                    current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+                    can_edit = (not row_created_by) or (row_created_by == current_user)
 
                     if selected_url:
                         # ✅ Prevent re-opening popup every rerun if same row clicked again
@@ -3075,10 +3079,24 @@ with main_tab_published:
                             @st.dialog("Table Preview", width="large")
                             def preview_dialog(url):
                                 st.markdown(f"**Previewing:** {url}")
+                            
+                                c1, c2 = st.columns([1, 1])
+                                with c1:
+                                    st.link_button("🔗 Open live page", url, use_container_width=True)
+                            
+                                with c2:
+                                    if not can_edit:
+                                        owner_name = row_created_by or "someone else"
+                                        st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
+                                        st.caption(f"Only {owner_name} can edit this table.")
+                                    else:
+                                        if st.button("✏️ Edit this table", use_container_width=True):
+                                            load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+                            
                                 components.iframe(url, height=650, scrolling=True)
-
+                            
                             preview_dialog(selected_url)
-
+                            
                         else:
                             st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                             components.iframe(selected_url, height=820, scrolling=True)
