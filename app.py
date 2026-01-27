@@ -3191,12 +3191,12 @@ with main_tab_create:
     allowed_users = list(PUBLISH_USERS)
     created_by_options = ["Select a user..."] + allowed_users
 
-    st.session_state.setdefault("bt_created_by_user_select", "Select a user...")
+    st.session_state.setdefault("bt_created_by_user_select_create", "Select a user...")
 
     created_by_input_global = st.selectbox(
-        "Created by (tracking only)",
-        options=created_by_options,
-        key="bt_created_by_user_select",
+    "Created by (tracking only)",
+    options=created_by_options,
+    key="bt_created_by_user_select_create",
     )
 
     created_by_user_global = ""
