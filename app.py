@@ -3092,12 +3092,6 @@ with main_tab_published:
                     selection_mode="single-row",
                     on_select="rerun",
                     key="pub_table_click_df",
-                )
-                    use_container_width=True,
-                    hide_index=True,
-                    selection_mode="single-row",
-                    on_select="rerun",
-                    key="pub_table_click_df",
                     column_config={
                         "Pages URL": st.column_config.TextColumn("Pages URL"),
                     },
