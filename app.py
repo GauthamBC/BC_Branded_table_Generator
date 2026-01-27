@@ -455,9 +455,19 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                         created_by = created_by or cb
                         created_utc = created_utc or cu
 
+                    bundle_path = f"bundles/{fname}.json"
+                    has_csv = github_file_exists(
+                        owner,
+                        repo_name,
+                        token,
+                        bundle_path,
+                        branch="main",
+                    )
+                    
                     rows.append({
                         "Brand": brand,
                         "Table Name": meta.get("table_title", "") or fname,
+                        "Has CSV": "✅" if has_csv else "—",
                         "Pages URL": pages_url,
                         "Created By": created_by,
                         "Created UTC": created_utc,
@@ -3074,7 +3084,15 @@ with main_tab_published:
                 df_display["Pages URL"] = df_display["Pages URL"].astype(str)
 
                 event = st.dataframe(
-                    df_display[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
+                    df_display[
+                        ["Brand", "Table Name", "Has CSV", "Pages URL", "Created By", "Created UTC"]
+                    ],
+                    use_container_width=True,
+                    hide_index=True,
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    key="pub_table_click_df",
+                )
                     use_container_width=True,
                     hide_index=True,
                     selection_mode="single-row",
@@ -3127,17 +3145,16 @@ with main_tab_published:
                                         st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
                                         st.caption(f"Only {owner_name} can edit this table.")
                                     else:
-                                        bundle_path = f"bundles/{selected_file}.json"
-                                        bundle_exists = github_file_exists(
-                                            publish_owner, selected_repo, token_to_use, bundle_path, branch="main"
-                                        )
-                                        
-                                        if not bundle_exists:
+                                        has_csv = df_view.loc[selected_idx, "Has CSV"] == "✅"
+
+                                        if not has_csv:
                                             st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                            st.caption("This table was published before editable bundles were enabled.")
+                                            st.caption("This table was published before editable CSV support.")
                                         else:
                                             if st.button("✏️ Edit this table", use_container_width=True):
-                                                load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+                                                load_bundle_into_editor(
+                                                    publish_owner, selected_repo, token_to_use, selected_file
+                                                )
                             
                                 components.iframe(url, height=650, scrolling=True)
                             
