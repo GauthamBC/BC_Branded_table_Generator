@@ -3841,10 +3841,6 @@ with main_tab_create:
                                 # ✅ mark embed scripts as generated + fresh
                                 st.session_state["bt_embed_generated"] = True
                                 st.session_state["bt_embed_stale"] = False
-                                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
-                                st.session_state["bt_last_published_file"] = widget_file_name
-                                st.session_state["bt_last_published_repo"] = repo_name
-
 
                                 github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
                                 table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
@@ -3879,18 +3875,25 @@ with main_tab_create:
                                         pages_url,
                                         height=int(st.session_state.get("bt_iframe_height", 800)),
                                     )
+                                
+                                    # ✅ IMPORTANT: mark the page live + stop "in progress" state
+                                    st.session_state["bt_publish_in_progress"] = False
+                                    st.session_state["bt_live_confirmed"] = True
+                                
                                     st.success("✅ Page is live. IFrame is ready.")
                                 else:
                                     st.session_state["bt_iframe_code"] = ""
+                                
+                                    # ✅ still deploying
+                                    st.session_state["bt_live_confirmed"] = False
+                                
                                     st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
 
                             except Exception as e:
                                 st.error(f"Publish / IFrame generation failed: {e}")
 
-                        show_tabs = bool(
-                            st.session_state.get("bt_embed_generated", False)
-                            and st.session_state.get("bt_live_confirmed", False)
-                        )
+                        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+                        show_tabs = bool(published_url_val and st.session_state.get("bt_live_confirmed", False))
 
                         if show_tabs:
                             published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
