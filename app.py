@@ -2947,12 +2947,13 @@ st.markdown(
 )
 
 st.title("Branded Table Generator")
-main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Tables"])
+st.session_state.setdefault("main_tab", "Create New Table")
+main_tab = st.radio("", ["Create New Table", "Published Tables"], horizontal=True, key="main_tab", label_visibility="collapsed")
 
 # =========================================================
 # ✅ TAB 2: Published Tables  (ONLY THIS VIEW)
 # =========================================================
-with main_tab_published:
+if main_tab == "Published Tables":
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
         # ✅ Who are you? (needed so "Edit" permissions work in this tab)
@@ -3168,11 +3169,11 @@ with main_tab_published:
                                             st.button("✏️ Edit this table", disabled=True, use_container_width=True)
                                             st.caption("This table was published before editable CSV support.")
                                         else:
-                                            if st.button("✏️ Edit this table", use_container_width=True):
-                                                load_bundle_into_editor(
-                                                    publish_owner, selected_repo, token_to_use, selected_file
-                                                )
-                            
+                                            if st.button("✏️ Edit this table", key=f"pub_edit_{selected_repo}_{selected_file}", use_container_width=True):
+                                                st.session_state["main_tab"] = "Create New Table"
+                                                st.session_state["pub_last_preview_url"] = ""  # prevents popup reopening on rerun
+                                                load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+                                                                    
                                 components.iframe(url, height=650, scrolling=True)
                             
                             preview_dialog(selected_url)
@@ -3183,7 +3184,7 @@ with main_tab_published:
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
-with main_tab_create:
+if main_tab == "Create New Table":
 
     # =========================================================
     # ✅ Global "Created by" (mandatory before upload)
