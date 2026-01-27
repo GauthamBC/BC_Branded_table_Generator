@@ -2654,6 +2654,10 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
+    st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
+    st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
+    st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
+
 
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
     if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
@@ -2758,6 +2762,10 @@ def do_confirm_snapshot():
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
+        # ✅ If user already generated embed scripts once, a new Confirm makes them out-of-date
+    if st.session_state.get("bt_embed_generated", False):
+        st.session_state["bt_embed_stale"] = True
+
 def reset_table_edits():
     # ✅ Restore original upload (true undo)
     src = st.session_state.get("bt_df_source")
@@ -3629,6 +3637,14 @@ with main_tab_create:
                         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
 
                         st.session_state["bt_embed_started"] = True
+                        embed_generated = bool(st.session_state.get("bt_embed_generated", False))
+                        embed_stale = bool(st.session_state.get("bt_embed_stale", False))
+                    
+                        if embed_generated and embed_stale:
+                            st.warning("Your embed scripts are out of date. Click **Update embed scripts** to publish the latest confirmed version.")
+                    
+                        btn_label = "Update embed scripts" if (embed_generated and embed_stale) else "Get embed script"
+
 
                         if not html_generated:
                             st.warning("Click **Confirm & Save** first so the latest HTML is generated.")
@@ -3724,7 +3740,7 @@ with main_tab_create:
                         )
 
                         publish_clicked = st.button(
-                            "Get embed script",
+                            btn_label,
                             use_container_width=True,
                             disabled=not can_publish,
                         )
@@ -3772,6 +3788,10 @@ with main_tab_create:
                                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
                                 st.session_state["bt_last_published_url"] = pages_url
                                 created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                                # ✅ mark embed scripts as generated + fresh
+                                st.session_state["bt_embed_generated"] = True
+                                st.session_state["bt_embed_stale"] = False
+                                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
 
                                 github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
                                 table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
@@ -3814,12 +3834,7 @@ with main_tab_create:
                             except Exception as e:
                                 st.error(f"Publish / IFrame generation failed: {e}")
 
-                        show_tabs = bool(
-                            st.session_state.get("bt_embed_tabs_visible", False)
-                            or (st.session_state.get("bt_html_code") or "").strip()
-                            or (st.session_state.get("bt_iframe_code") or "").strip()
-                            or (st.session_state.get("bt_last_published_url") or "").strip()
-                        )
+                        show_tabs = bool(st.session_state.get("bt_embed_generated", False))
 
                         if show_tabs:
                             published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
