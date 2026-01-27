@@ -3061,6 +3061,7 @@ with main_tab_published:
 
                 if selected_rows:
                     selected_idx = selected_rows[0]
+                    selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()   # ✅ ADD THIS LINE
                     selected_repo = (df_view.loc[selected_idx, "Repo"] or "").strip()
                     selected_file = (df_view.loc[selected_idx, "File"] or "").strip()
                     row_created_by = (df_view.loc[selected_idx, "Created By"] or "").strip().lower()
