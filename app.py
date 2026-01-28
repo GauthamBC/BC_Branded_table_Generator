@@ -3151,28 +3151,31 @@ if main_tab == "Published Tables":
                 df_master["Pages URL"] = df_master["Pages URL"].astype(str)
                 
                 # ---------------------------------------------------------
-                # ONE editor table: use pub_master_editor as the ONLY state
+                # ONE editor table: persist checkbox state (DO NOT use widget key as storage)
                 # ---------------------------------------------------------
+                st.session_state.setdefault("pub_master_state", None)
+                st.session_state.setdefault("pub_editor_version", 0)
+                
                 def _build_state_from_master(master_df: pd.DataFrame) -> pd.DataFrame:
                     state = master_df.copy()
                     state.insert(0, "Preview?", False)
                     state.insert(1, "Delete?", False)
                     return state
                 
-                # pull the latest editor state (this includes the user's most recent click)
-                prev_state = st.session_state.get("pub_master_editor", None)
+                # Build / rebuild state_df
+                if st.session_state["pub_master_state"] is None:
+                    st.session_state["pub_master_state"] = _build_state_from_master(df_master)
+                else:
+                    prev_state = st.session_state["pub_master_state"].copy()
                 
-                if isinstance(prev_state, pd.DataFrame) and not prev_state.empty:
-                    # normalize identity
-                    try:
-                        prev_state["Pages URL"] = prev_state["Pages URL"].astype(str)
-                    except Exception:
-                        pass
+                    # identity by Pages URL
+                    prev_state["Pages URL"] = prev_state["Pages URL"].astype(str)
+                    df_master["Pages URL"] = df_master["Pages URL"].astype(str)
                 
-                    prev_urls = set(prev_state["Pages URL"].astype(str).tolist())
-                    new_urls  = set(df_master["Pages URL"].astype(str).tolist())
+                    prev_urls = set(prev_state["Pages URL"].tolist())
+                    new_urls = set(df_master["Pages URL"].tolist())
                 
-                    # if rows changed (filters/refresh), rebuild but preserve checks by Pages URL
+                    # If row set changed (filters/refresh): rebuild BUT preserve checks
                     if prev_urls != new_urls:
                         prev_preview = dict(zip(prev_state["Pages URL"], prev_state.get("Preview?", False)))
                         prev_delete  = dict(zip(prev_state["Pages URL"], prev_state.get("Delete?", False)))
@@ -3182,18 +3185,16 @@ if main_tab == "Published Tables":
                         state_df["Preview?"] = state_df["Pages URL"].map(lambda u: bool(prev_preview.get(u, False)))
                         state_df["Delete?"]  = state_df["Pages URL"].map(lambda u: bool(prev_delete.get(u, False)))
                 
-                        # IMPORTANT: seed the editor's state ONCE (so it renders correctly)
-                        st.session_state["pub_master_editor"] = state_df
-                    else:
-                        # rows are same → just reuse the current editor state
-                        state_df = prev_state.copy()
-                else:
-                    # first run
-                    state_df = _build_state_from_master(df_master)
-                    st.session_state["pub_master_editor"] = state_df
+                        st.session_state["pub_master_state"] = state_df
+                
+                        # bump key so the editor resets cleanly to the new dataframe
+                        st.session_state["pub_editor_version"] += 1
+                
+                # Versioned widget key (avoids stale editor state when df changes)
+                editor_key = f"pub_master_editor_{st.session_state['pub_editor_version']}"
                 
                 edited = st.data_editor(
-                    st.session_state["pub_master_editor"],
+                    st.session_state["pub_master_state"],
                     use_container_width=True,
                     hide_index=True,
                     num_rows="fixed",
@@ -3202,10 +3203,12 @@ if main_tab == "Published Tables":
                         "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick multiple rows to delete"),
                         "Pages URL": st.column_config.TextColumn("Pages URL"),
                     },
-                    disabled=[c for c in st.session_state["pub_master_editor"].columns if c not in ("Preview?", "Delete?")],
-                    key="pub_master_editor",
+                    disabled=[c for c in st.session_state["pub_master_state"].columns if c not in ("Preview?", "Delete?")],
+                    key=editor_key,
                 )
                 
+                # Save the latest click state (allowed, because it's NOT the widget key)
+                st.session_state["pub_master_state"] = edited.copy()
                 # ---------------------------------------------------------
                 # Preview handling (enforce single preview)
                 # ---------------------------------------------------------
