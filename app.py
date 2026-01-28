@@ -3150,22 +3150,41 @@ if main_tab == "Published Tables":
                 df_master = df_master[base_cols].reset_index(drop=True)
                 df_master["Pages URL"] = df_master["Pages URL"].astype(str)
                 
-                # ----------------------------
-                # Persist ONLY minimal state
-                # ----------------------------
-                st.session_state.setdefault("pub_preview_url", "")
-                st.session_state.setdefault("pub_delete_urls", set())
+                # ---------------------------------------------------------
+                # ONE editor table: persist checkbox state inside session_state
+                # ---------------------------------------------------------
+                st.session_state.setdefault("pub_master_state", None)
                 
-                prev_preview_url = st.session_state["pub_preview_url"]
-                prev_delete_urls = set(st.session_state["pub_delete_urls"] or set())
+                def _build_state_from_master(master_df: pd.DataFrame) -> pd.DataFrame:
+                    state = master_df.copy()
+                    state.insert(0, "Preview?", False)
+                    state.insert(1, "Delete?", False)
+                    return state
                 
-                # Build UI df with checkbox cols derived from state
-                df_ui = df_master.copy()
-                df_ui.insert(0, "Preview?", df_ui["Pages URL"].apply(lambda u: u == prev_preview_url))
-                df_ui.insert(1, "Delete?", df_ui["Pages URL"].apply(lambda u: u in prev_delete_urls))
+                # If first load OR row set changed, rebuild state but preserve checks by Pages URL
+                if st.session_state["pub_master_state"] is None:
+                    st.session_state["pub_master_state"] = _build_state_from_master(df_master)
+                else:
+                    prev_state = st.session_state["pub_master_state"].copy()
+                
+                    # build checkbox maps by Pages URL (stable row identity)
+                    try:
+                        prev_state["Pages URL"] = prev_state["Pages URL"].astype(str)
+                    except Exception:
+                        pass
+                
+                    prev_preview = dict(zip(prev_state["Pages URL"], prev_state.get("Preview?", False)))
+                    prev_delete = dict(zip(prev_state["Pages URL"], prev_state.get("Delete?", False)))
+                
+                    # rebuild from latest df_master and re-apply old checks
+                    new_state = _build_state_from_master(df_master)
+                    new_state["Preview?"] = new_state["Pages URL"].map(lambda u: bool(prev_preview.get(u, False)))
+                    new_state["Delete?"]  = new_state["Pages URL"].map(lambda u: bool(prev_delete.get(u, False)))
+                
+                    st.session_state["pub_master_state"] = new_state
                 
                 edited = st.data_editor(
-                    df_ui,
+                    st.session_state["pub_master_state"],
                     use_container_width=True,
                     hide_index=True,
                     num_rows="fixed",
@@ -3174,36 +3193,32 @@ if main_tab == "Published Tables":
                         "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick multiple rows to delete"),
                         "Pages URL": st.column_config.TextColumn("Pages URL"),
                     },
-                    disabled=[c for c in df_ui.columns if c not in ("Preview?", "Delete?")],
+                    disabled=[c for c in st.session_state["pub_master_state"].columns if c not in ("Preview?", "Delete?")],
                     key="pub_master_editor",
                 )
                 
-                # ----------------------------
-                # Preview handling (force single)
-                # ----------------------------
-                preview_rows = edited[edited["Preview?"] == True]
-                new_preview_url = ""
+                # Save state back (this is what makes it 1-click, stable)
+                st.session_state["pub_master_state"] = edited.copy()
                 
-                if not preview_rows.empty:
-                    # If multiple checked, keep the last one (by row order)
-                    new_preview_url = str(preview_rows.iloc[-1]["Pages URL"] or "").strip()
+                # ---------------------------------------------------------
+                # Preview handling (enforce single preview)
+                # ---------------------------------------------------------
+                preview_rows = edited.index[edited["Preview?"] == True].tolist()
                 
-                # If multiple preview ticks, normalize to single and rerun once
+                # If multiple checked, keep only the last one and rerun once
                 if len(preview_rows) > 1:
+                    keep_idx = preview_rows[-1]
                     fixed = edited.copy()
-                    fixed["Preview?"] = fixed["Pages URL"].apply(lambda u: str(u) == new_preview_url)
-                    # IMPORTANT: write it back via our state, not by rewriting widget input
-                    st.session_state["pub_preview_url"] = new_preview_url
+                    fixed["Preview?"] = False
+                    fixed.loc[keep_idx, "Preview?"] = True
+                    st.session_state["pub_master_state"] = fixed
                     st.rerun()
                 
-                # Save preview state
-                st.session_state["pub_preview_url"] = new_preview_url
+                if len(preview_rows) == 1:
+                    idx = preview_rows[0]
+                    row = edited.loc[idx]
                 
-                # Open preview dialog when preview target changes
-                if new_preview_url and new_preview_url != prev_preview_url and hasattr(st, "dialog"):
-                    row = edited[edited["Pages URL"] == new_preview_url].iloc[0]
-                
-                    selected_url = new_preview_url
+                    selected_url = (row.get("Pages URL") or "").strip()
                     selected_repo = (row.get("Repo") or "").strip()
                     selected_file = (row.get("File") or "").strip()
                 
@@ -3213,43 +3228,50 @@ if main_tab == "Published Tables":
                     can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
                     has_csv = (row.get("Has CSV") or "").strip() == "✅"
                 
-                    @st.dialog("Table Preview", width="large")
-                    def preview_dialog(url: str):
-                        st.markdown(f"**Previewing:** {url}")
+                    # prevent reopening on rerun if same URL stays checked
+                    st.session_state.setdefault("pub_last_preview_url", "")
                 
-                        c1, c2 = st.columns([1, 1])
-                        with c1:
-                            st.link_button("🔗 Open live page", url, use_container_width=True)
+                    if selected_url and hasattr(st, "dialog") and selected_url != st.session_state["pub_last_preview_url"]:
+                        st.session_state["pub_last_preview_url"] = selected_url
                 
-                        with c2:
-                            if (not can_edit) or (not has_csv):
-                                if not can_edit:
-                                    owner_name = row_created_by or "someone else"
-                                    st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                                    st.caption(f"Only {owner_name} can edit this table.")
+                        @st.dialog("Table Preview", width="large")
+                        def preview_dialog(url: str):
+                            st.markdown(f"**Previewing:** {url}")
+                
+                            c1, c2 = st.columns([1, 1])
+                            with c1:
+                                st.link_button("🔗 Open live page", url, use_container_width=True)
+                
+                            with c2:
+                                if (not can_edit) or (not has_csv):
+                                    if not can_edit:
+                                        owner_name = row_created_by or "someone else"
+                                        st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
+                                        st.caption(f"Only {owner_name} can edit this table.")
+                                    else:
+                                        st.button("✏️ Edit this table", disabled=True, use_container_width=True)
+                                        st.caption("This table was published before editable CSV support.")
                                 else:
-                                    st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                    st.caption("This table was published before editable CSV support.")
-                            else:
-                                if st.button(
-                                    "✏️ Edit this table",
-                                    key=f"pub_edit_{selected_repo}_{selected_file}",
-                                    use_container_width=True,
-                                ):
-                                    # clear preview selection so it doesn't re-open on rerun
-                                    st.session_state["pub_preview_url"] = ""
-                                    load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+                                    if st.button(
+                                        "✏️ Edit this table",
+                                        key=f"pub_edit_{selected_repo}_{selected_file}_{idx}",
+                                        use_container_width=True,
+                                    ):
+                                        # clear preview tick so modal doesn't reopen
+                                        fixed = st.session_state["pub_master_state"].copy()
+                                        fixed["Preview?"] = False
+                                        st.session_state["pub_master_state"] = fixed
+                                        st.session_state["pub_last_preview_url"] = ""
+                                        load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
                 
-                        components.iframe(url, height=650, scrolling=True)
+                            components.iframe(url, height=650, scrolling=True)
                 
-                    preview_dialog(selected_url)
+                        preview_dialog(selected_url)
                 
-                # ----------------------------
+                # ---------------------------------------------------------
                 # Delete handling (multi)
-                # ----------------------------
+                # ---------------------------------------------------------
                 to_delete = edited[edited["Delete?"] == True].copy()
-                new_delete_urls = set(to_delete["Pages URL"].astype(str).tolist())
-                st.session_state["pub_delete_urls"] = new_delete_urls
                 
                 c1, c2 = st.columns([1, 1])
                 with c1:
@@ -3318,8 +3340,8 @@ if main_tab == "Published Tables":
                                 pass
                 
                             st.session_state.pop("df_pub_cache", None)
-                            st.session_state["pub_preview_url"] = ""
-                            st.session_state["pub_delete_urls"] = set()
+                            st.session_state["pub_master_state"] = None
+                            st.session_state["pub_last_preview_url"] = ""
                             st.rerun()
                 
                         confirm_delete_dialog()
