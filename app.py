@@ -1,5 +1,6 @@
 import base64
 import datetime
+import hmac
 import html as html_mod
 import json
 import re
@@ -559,7 +560,49 @@ def update_widget_registry(
         message="Update widget registry",
         branch=branch,
     )
+    
+def get_github_file_sha(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
+    r = requests.get(url, headers=headers, params={"ref": branch}, timeout=15)
+    if r.status_code == 404:
+        return ""  # already gone
+    r.raise_for_status()
+    return (r.json() or {}).get("sha", "") or ""
 
+def delete_github_file(owner: str, repo: str, token: str, path: str, branch: str = "main"):
+    sha = get_github_file_sha(owner, repo, token, path, branch=branch)
+    if not sha:
+        return  # treat as success (already deleted)
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
+    payload = {
+        "message": f"Delete {path} via Branded Table Generator",
+        "sha": sha,
+        "branch": branch,
+    }
+    r = requests.delete(url, headers=headers, json=payload, timeout=20)
+    r.raise_for_status()
+
+def remove_from_widget_registry(owner: str, repo: str, token: str, widget_file_name: str, branch: str = "main"):
+    # read registry
+    registry_path = "widget_registry.json"
+    registry = read_github_json(owner, repo, token, registry_path, branch=branch)
+    if not isinstance(registry, dict):
+        registry = {}
+
+    if widget_file_name in registry:
+        registry.pop(widget_file_name, None)
+        upload_file_to_github(
+            owner,
+            repo,
+            token,
+            registry_path,
+            json.dumps(registry, indent=2),
+            f"Remove {widget_file_name} from widget_registry.json",
+            branch=branch,
+        )
 # =========================================================
 # Brand Metadata
 # =========================================================
@@ -3085,105 +3128,242 @@ if main_tab == "Published Tables":
                 df_view = df_view[df_view["MonthKey"] == month_filter]
             
             # ✅ Optional: hide helper columns from display
-            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")
-            
+            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")     
 
             # ✅ If no matches
-            if df_view.empty:
-                st.warning("No results match your filters.")
-            else:
-                # ✅ Drop helper cols before showing table
-                df_view = df_view.drop(columns=["Created DT", "Month"], errors="ignore")
+if df_view.empty:
+    st.warning("No results match your filters.")
+else:
+    # ✅ Clean up any helper cols safely (no-ops if they don't exist)
+    df_view = df_view.drop(columns=["Created DT", "Month", "MonthKey", "MonthLabel"], errors="ignore")
 
-                # ✅ Published tables list (CLICK ROW → POPUP PREVIEW)
-                st.markdown("#### Click a row to preview")
+    # ✅ Reset index once so selection rows map correctly everywhere
+    df_view = df_view.reset_index(drop=True)
 
-                # ✅ Reset index so selected row maps correctly
-                df_view = df_view.reset_index(drop=True)
+    # =========================================================
+    # ✅ DELETE TABLES (ADMIN)
+    # =========================================================
+    st.markdown("#### Delete tables (admin)")
 
-                # ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
-                df_display = df_view.copy()
-                df_display["Pages URL"] = df_display["Pages URL"].astype(str)
+    delete_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Repo", "File", "Created By", "Created UTC"]
+    df_delete = df_view.copy()
 
-                event = st.dataframe(
-                    df_display[
-                        ["Brand", "Table Name", "Has CSV", "Pages URL", "Created By", "Created UTC"]
-                    ],
+    # Make sure all required columns exist (prevents KeyError)
+    for c in delete_cols:
+        if c not in df_delete.columns:
+            df_delete[c] = ""
+
+    df_delete = df_delete[delete_cols].reset_index(drop=True)
+
+    # Add checkbox column (multi-select)
+    df_delete.insert(0, "Delete?", False)
+
+    edited = st.data_editor(
+        df_delete,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="fixed",
+        column_config={
+            "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick rows you want to delete"),
+            "Pages URL": st.column_config.TextColumn("Pages URL"),
+        },
+        disabled=[c for c in df_delete.columns if c != "Delete?"],
+        key="pub_delete_editor",
+    )
+
+    to_delete = edited[edited["Delete?"] == True].copy()
+    st.session_state["pub_to_delete"] = to_delete.to_dict("records")  # ✅ snapshot for dialog
+    delete_disabled = to_delete.empty
+
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        st.caption(f"Selected: **{len(to_delete)}**")
+
+    with c2:
+        delete_clicked = st.button(
+            "🗑️ Delete selected",
+            disabled=delete_disabled,
+            use_container_width=True,
+            type="secondary",
+            key="pub_delete_btn",
+        )
+
+    if delete_clicked:
+        if not hasattr(st, "dialog"):
+            st.error("Your Streamlit version doesn’t support dialogs. Update Streamlit or use an inline confirmation block.")
+        else:
+            @st.dialog("Confirm delete", width="large")
+            def confirm_delete_dialog():
+                rows = st.session_state.get("pub_to_delete", []) or []
+                df_del = pd.DataFrame(rows)
+
+                st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
+                st.markdown("**You are deleting:**")
+
+                if df_del.empty:
+                    st.info("No rows selected.")
+                    return
+
+                st.dataframe(
+                    df_del[["Brand", "Table Name", "Repo", "File", "Created By", "Created UTC"]],
                     use_container_width=True,
                     hide_index=True,
-                    selection_mode="single-row",
-                    on_select="rerun",
-                    key="pub_table_click_df",
-                    column_config={
-                        "Pages URL": st.column_config.TextColumn("Pages URL"),
-                    },
                 )
 
-                # ✅ Extract selected row → auto-preview popup
-                selected_rows = []
-                try:
-                    selected_rows = event.selection.rows or []
-                except Exception:
-                    selected_rows = []
+                passkey = st.text_input("Enter admin passkey", type="password", key="pub_delete_passkey")
+                i_understand = st.checkbox("I understand this cannot be undone", key="pub_delete_ack")
 
-                if selected_rows:
-                    selected_idx = selected_rows[0]
-                    selected_url = (df_display.loc[selected_idx, "Pages URL"] or "").strip()
-                    
-                    row = df_view[df_view["Pages URL"] == selected_url].iloc[0]
-                    
-                    selected_repo = (row.get("Repo") or "").strip()
-                    selected_file = (row.get("File") or "").strip()
-                    row_created_by = (df_view.loc[selected_idx, "Created By"] or "").strip().lower()
-                    current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+                do_it = st.button(
+                    "✅ Confirm delete",
+                    disabled=not (passkey and i_understand),
+                    type="primary",
+                    key="pub_confirm_delete_btn",
+                )
 
-                    # ✅ must pick a user in Published tab for editing
-                    if not current_user:
-                        can_edit = False
+                if do_it:
+                    expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
+                    if not expected or not hmac.compare_digest(passkey, expected):
+                        st.error("Wrong passkey.")
+                        return
+
+                    errors = []
+                    for _, r in df_del.iterrows():
+                        repo = (r.get("Repo") or "").strip()
+                        file = (r.get("File") or "").strip()
+
+                        if not repo or not file:
+                            errors.append(f"Missing Repo/File for row: {r.get('Pages URL')}")
+                            continue
+
+                        try:
+                            # delete main HTML
+                            delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
+
+                            # delete bundle written as bundles/{widget_file_name}.json (widget_file_name already ends with .html)
+                            bundle_path = f"bundles/{file}.json"
+                            delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
+
+                            # remove from widget_registry.json (recommended)
+                            remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
+
+                        except Exception as e:
+                            errors.append(f"{repo}/{file}: {e}")
+
+                    if errors:
+                        st.error("Some deletes failed:")
+                        st.write(errors)
                     else:
-                        can_edit = (not row_created_by) or (row_created_by == current_user)
+                        st.success("Deleted successfully.")
 
-                    if selected_url:
-                        # ✅ Prevent re-opening popup every rerun if same row clicked again
-                        last = st.session_state.get("pub_last_preview_url", "")
-                        if selected_url != last:
-                            st.session_state["pub_last_preview_url"] = selected_url
+                    # Refresh list after deletes
+                    try:
+                        st.cache_data.clear()
+                    except Exception:
+                        pass
+                    st.session_state.pop("df_pub_cache", None)
+                    st.session_state.pop("pub_to_delete", None)
+                    st.rerun()
 
-                        # ✅ Popup modal preview (if supported)
-                        if hasattr(st, "dialog"):
+            confirm_delete_dialog()
 
-                            @st.dialog("Table Preview", width="large")
-                            def preview_dialog(url):
-                                st.markdown(f"**Previewing:** {url}")
-                            
-                                c1, c2 = st.columns([1, 1])
-                                with c1:
-                                    st.link_button("🔗 Open live page", url, use_container_width=True)
-                            
-                                with c2:
-                                    if not can_edit:
-                                        owner_name = row_created_by or "someone else"
-                                        st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                                        st.caption(f"Only {owner_name} can edit this table.")
-                                    else:
-                                        has_csv = df_display.loc[selected_idx, "Has CSV"] == "✅"
+    st.divider()
 
-                                        if not has_csv:
-                                            st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                            st.caption("This table was published before editable CSV support.")
-                                        else:
-                                            if st.button("✏️ Edit this table", key=f"pub_edit_{selected_repo}_{selected_file}", use_container_width=True):
-                                                st.session_state["main_tab"] = "Create New Table"
-                                                st.session_state["pub_last_preview_url"] = ""  # prevents popup reopening on rerun
-                                                load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-                                                                    
-                                components.iframe(url, height=650, scrolling=True)
-                            
-                            preview_dialog(selected_url)
-                            
+    # =========================================================
+    # ✅ PREVIEW TABLES (CLICK ROW → POPUP PREVIEW)
+    # =========================================================
+    st.markdown("#### Click a row to preview")
+
+    df_display = df_view.copy()
+    if "Pages URL" in df_display.columns:
+        df_display["Pages URL"] = df_display["Pages URL"].astype(str)
+    else:
+        df_display["Pages URL"] = ""
+
+    preview_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Created By", "Created UTC"]
+    for c in preview_cols:
+        if c not in df_display.columns:
+            df_display[c] = ""
+
+    event = st.dataframe(
+        df_display[preview_cols],
+        use_container_width=True,
+        hide_index=True,
+        selection_mode="single-row",
+        on_select="rerun",
+        key="pub_table_click_df",
+        column_config={
+            "Pages URL": st.column_config.TextColumn("Pages URL"),
+        },
+    )
+
+    # ✅ Extract selected row → auto-preview popup
+    selected_rows = []
+    try:
+        selected_rows = event.selection.rows or []
+    except Exception:
+        selected_rows = []
+
+    if selected_rows:
+        selected_idx = selected_rows[0]
+        selected_url = (df_display.loc[selected_idx, "Pages URL"] or "").strip()
+
+        # ✅ row comes from df_display to ensure index alignment
+        row = df_display.loc[selected_idx]
+
+        selected_repo = (row.get("Repo") or "").strip()
+        selected_file = (row.get("File") or "").strip()
+
+        row_created_by = (row.get("Created By") or "").strip().lower()
+        current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+
+        # ✅ must pick a user in Published tab for editing
+        can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
+
+        if selected_url:
+            # ✅ Prevent re-opening popup every rerun if same row clicked again
+            last = st.session_state.get("pub_last_preview_url", "")
+            if selected_url != last:
+                st.session_state["pub_last_preview_url"] = selected_url
+
+            # ✅ Popup modal preview (if supported)
+            if hasattr(st, "dialog"):
+
+                @st.dialog("Table Preview", width="large")
+                def preview_dialog(url):
+                    st.markdown(f"**Previewing:** {url}")
+
+                    c1, c2 = st.columns([1, 1])
+                    with c1:
+                        st.link_button("🔗 Open live page", url, use_container_width=True)
+
+                    with c2:
+                        if not can_edit:
+                            owner_name = row_created_by or "someone else"
+                            st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
+                            st.caption(f"Only {owner_name} can edit this table.")
                         else:
-                            st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-                            components.iframe(selected_url, height=820, scrolling=True)
+                            has_csv = (row.get("Has CSV") == "✅")
+
+                            if not has_csv:
+                                st.button("✏️ Edit this table", disabled=True, use_container_width=True)
+                                st.caption("This table was published before editable CSV support.")
+                            else:
+                                if st.button(
+                                    "✏️ Edit this table",
+                                    key=f"pub_edit_{selected_repo}_{selected_file}",
+                                    use_container_width=True,
+                                ):
+                                    # ✅ close popup next rerun + jump workflow to Create view with bundle loaded
+                                    st.session_state["pub_last_preview_url"] = ""
+                                    load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+
+                    components.iframe(url, height=650, scrolling=True)
+
+                preview_dialog(selected_url)
+
+            else:
+                st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+                components.iframe(selected_url, height=820, scrolling=True)
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
