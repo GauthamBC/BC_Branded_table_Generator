@@ -3151,40 +3151,49 @@ if main_tab == "Published Tables":
                 df_master["Pages URL"] = df_master["Pages URL"].astype(str)
                 
                 # ---------------------------------------------------------
-                # ONE editor table: persist checkbox state inside session_state
+                # ONE editor table: use pub_master_editor as the ONLY state
                 # ---------------------------------------------------------
-                st.session_state.setdefault("pub_master_state", None)
-                
                 def _build_state_from_master(master_df: pd.DataFrame) -> pd.DataFrame:
                     state = master_df.copy()
                     state.insert(0, "Preview?", False)
                     state.insert(1, "Delete?", False)
                     return state
                 
-                # If first load OR row set changed, rebuild state but preserve checks by Pages URL
-                if st.session_state["pub_master_state"] is None:
-                    st.session_state["pub_master_state"] = _build_state_from_master(df_master)
-                else:
-                    prev_state = st.session_state["pub_master_state"].copy()
+                # pull the latest editor state (this includes the user's most recent click)
+                prev_state = st.session_state.get("pub_master_editor", None)
                 
-                    # build checkbox maps by Pages URL (stable row identity)
+                if isinstance(prev_state, pd.DataFrame) and not prev_state.empty:
+                    # normalize identity
                     try:
                         prev_state["Pages URL"] = prev_state["Pages URL"].astype(str)
                     except Exception:
                         pass
                 
-                    prev_preview = dict(zip(prev_state["Pages URL"], prev_state.get("Preview?", False)))
-                    prev_delete = dict(zip(prev_state["Pages URL"], prev_state.get("Delete?", False)))
+                    prev_urls = set(prev_state["Pages URL"].astype(str).tolist())
+                    new_urls  = set(df_master["Pages URL"].astype(str).tolist())
                 
-                    # rebuild from latest df_master and re-apply old checks
-                    new_state = _build_state_from_master(df_master)
-                    new_state["Preview?"] = new_state["Pages URL"].map(lambda u: bool(prev_preview.get(u, False)))
-                    new_state["Delete?"]  = new_state["Pages URL"].map(lambda u: bool(prev_delete.get(u, False)))
+                    # if rows changed (filters/refresh), rebuild but preserve checks by Pages URL
+                    if prev_urls != new_urls:
+                        prev_preview = dict(zip(prev_state["Pages URL"], prev_state.get("Preview?", False)))
+                        prev_delete  = dict(zip(prev_state["Pages URL"], prev_state.get("Delete?", False)))
                 
-                    st.session_state["pub_master_state"] = new_state
+                        state_df = _build_state_from_master(df_master)
+                        state_df["Pages URL"] = state_df["Pages URL"].astype(str)
+                        state_df["Preview?"] = state_df["Pages URL"].map(lambda u: bool(prev_preview.get(u, False)))
+                        state_df["Delete?"]  = state_df["Pages URL"].map(lambda u: bool(prev_delete.get(u, False)))
+                
+                        # IMPORTANT: seed the editor's state ONCE (so it renders correctly)
+                        st.session_state["pub_master_editor"] = state_df
+                    else:
+                        # rows are same → just reuse the current editor state
+                        state_df = prev_state.copy()
+                else:
+                    # first run
+                    state_df = _build_state_from_master(df_master)
+                    st.session_state["pub_master_editor"] = state_df
                 
                 edited = st.data_editor(
-                    st.session_state["pub_master_state"],
+                    st.session_state["pub_master_editor"],
                     use_container_width=True,
                     hide_index=True,
                     num_rows="fixed",
@@ -3193,12 +3202,22 @@ if main_tab == "Published Tables":
                         "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick multiple rows to delete"),
                         "Pages URL": st.column_config.TextColumn("Pages URL"),
                     },
-                    disabled=[c for c in st.session_state["pub_master_state"].columns if c not in ("Preview?", "Delete?")],
+                    disabled=[c for c in st.session_state["pub_master_editor"].columns if c not in ("Preview?", "Delete?")],
                     key="pub_master_editor",
                 )
                 
-                # Save state back (this is what makes it 1-click, stable)
-                st.session_state["pub_master_state"] = edited.copy()
+                # ---------------------------------------------------------
+                # Preview handling (enforce single preview)
+                # ---------------------------------------------------------
+                preview_rows = edited.index[edited["Preview?"] == True].tolist()
+                
+                if len(preview_rows) > 1:
+                    keep_idx = preview_rows[-1]
+                    fixed = edited.copy()
+                    fixed["Preview?"] = False
+                    fixed.loc[keep_idx, "Preview?"] = True
+                    st.session_state["pub_master_editor"] = fixed
+                    st.rerun()
                 
                 # ---------------------------------------------------------
                 # Preview handling (enforce single preview)
