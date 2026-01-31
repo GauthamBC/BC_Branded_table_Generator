@@ -3107,13 +3107,21 @@ if main_tab == "Published Tables":
                     format_func=lambda k: "All" if k == "All" else month_label_map.get(k, k),
                 )
             
+            def reset_pub_filters():
+            st.session_state["pub_brand_filter"] = "All"
+            st.session_state["pub_people_filter"] = "All"
+            st.session_state["pub_month_filter"] = "All"
+            st.session_state["pub_last_preview_url"] = ""
+            st.rerun()  # <- strongly recommended so the rest of this run doesn't use stale local vars
+        
             with col4:
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("Reset Filters", key="pub_reset_filters", use_container_width=True):
-                    st.session_state["pub_brand_filter"] = "All"
-                    st.session_state["pub_people_filter"] = "All"
-                    st.session_state["pub_month_filter"] = "All"
-                    st.rerun()
+                st.button(
+                    "Reset Filters",
+                    key="pub_reset_filters",
+                    use_container_width=True,
+                    on_click=reset_pub_filters,
+                )
             
             # ✅ Apply filters
             df_view = df_pub.copy()
