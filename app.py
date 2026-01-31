@@ -3108,11 +3108,11 @@ if main_tab == "Published Tables":
                 )
             
             def reset_pub_filters():
-            st.session_state["pub_brand_filter"] = "All"
-            st.session_state["pub_people_filter"] = "All"
-            st.session_state["pub_month_filter"] = "All"
-            st.session_state["pub_last_preview_url"] = ""
-            st.rerun()  # <- strongly recommended so the rest of this run doesn't use stale local vars
+                st.session_state["pub_brand_filter"] = "All"
+                st.session_state["pub_people_filter"] = "All"
+                st.session_state["pub_month_filter"] = "All"
+                st.session_state["pub_last_preview_url"] = ""
+                st.rerun()  # <- strongly recommended so the rest of this run doesn't use stale local vars
         
             with col4:
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
