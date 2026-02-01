@@ -3321,12 +3321,6 @@ if main_tab == "Published Tables":
         selected_repo = (row.get("Repo") or "").strip()
         selected_file = (row.get("File") or "").strip()
 
-        row_created_by = (row.get("Created By") or "").strip().lower()
-        current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-
-        # ✅ must pick a user in Published tab for editing
-        can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
-
         if selected_url:
             # ✅ Prevent re-opening popup every rerun if same row clicked again
             last = st.session_state.get("pub_last_preview_url", "")
