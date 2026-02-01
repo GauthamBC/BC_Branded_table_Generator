@@ -4311,25 +4311,6 @@ if main_tab == "Create New Table":
                                 st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
 
                             html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
-                                                    
-                            # ✅ ADD THIS BLOCK RIGHT HERE
-                            pages_url = published_url_val
-                            current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-                            row_created_by = (existing_meta.get("created_by", "") or "").strip().lower()  # or selected_row.get(...)
-                            can_edit = (not row_created_by) or (row_created_by == current_user)
-                        
-                            c1, c2 = st.columns([1, 1])
-                            with c1:
-                                st.link_button("🔗 Open live page", pages_url, use_container_width=True)
-                        
-                            with c2:
-                                if not can_edit:
-                                    owner_name = row_created_by or "someone else"
-                                    st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                                    st.caption(f"Only {owner_name} can edit this table.")
-                                else:
-                                    if st.button("✏️ Edit this table", use_container_width=True):
-                                        load_bundle_into_editor(publish_owner, repo_name, installation_token, widget_file_name)
 
                             with html_tab:
                                 html_code_val = (st.session_state.get("bt_html_code") or "").strip()
