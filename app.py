@@ -1,12 +1,10 @@
+
 import base64
 import datetime
-import hmac
 import html as html_mod
 import json
 import re
 import time
-import io
-import json
 from collections.abc import Mapping
 
 import jwt  # ✅ PyJWT
@@ -456,19 +454,9 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                         created_by = created_by or cb
                         created_utc = created_utc or cu
 
-                    bundle_path = f"bundles/{fname}.json"
-                    has_csv = github_file_exists(
-                        owner,
-                        repo_name,
-                        token,
-                        bundle_path,
-                        branch="main",
-                    )
-                    
                     rows.append({
                         "Brand": brand,
                         "Table Name": meta.get("table_title", "") or fname,
-                        "Has CSV": "✅" if has_csv else "—",
                         "Pages URL": pages_url,
                         "Created By": created_by,
                         "Created UTC": created_utc,
@@ -499,13 +487,13 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
                         rows.append({
                             "Brand": brand,
                             "Table Name": name,
-                            "Has CSV": "—",  # ❌ legacy tables have no bundle
                             "Pages URL": compute_url(repo_name, name),
                             "Created By": created_by,
                             "Created UTC": created_utc,
                             "Repo": repo_name,
                             "File": name,
                         })
+
         except Exception:
             continue
 
@@ -560,49 +548,7 @@ def update_widget_registry(
         message="Update widget registry",
         branch=branch,
     )
-    
-def get_github_file_sha(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
-    r = requests.get(url, headers=headers, params={"ref": branch}, timeout=15)
-    if r.status_code == 404:
-        return ""  # already gone
-    r.raise_for_status()
-    return (r.json() or {}).get("sha", "") or ""
 
-def delete_github_file(owner: str, repo: str, token: str, path: str, branch: str = "main"):
-    sha = get_github_file_sha(owner, repo, token, path, branch=branch)
-    if not sha:
-        return  # treat as success (already deleted)
-
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
-    payload = {
-        "message": f"Delete {path} via Branded Table Generator",
-        "sha": sha,
-        "branch": branch,
-    }
-    r = requests.delete(url, headers=headers, json=payload, timeout=20)
-    r.raise_for_status()
-
-def remove_from_widget_registry(owner: str, repo: str, token: str, widget_file_name: str, branch: str = "main"):
-    # read registry
-    registry_path = "widget_registry.json"
-    registry = read_github_json(owner, repo, token, registry_path, branch=branch)
-    if not isinstance(registry, dict):
-        registry = {}
-
-    if widget_file_name in registry:
-        registry.pop(widget_file_name, None)
-        upload_file_to_github(
-            owner,
-            repo,
-            token,
-            registry_path,
-            json.dumps(registry, indent=2),
-            f"Remove {widget_file_name} from widget_registry.json",
-            branch=branch,
-        )
 # =========================================================
 # Brand Metadata
 # =========================================================
@@ -2594,123 +2540,13 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
     )
-    
+
 def compute_pages_url(user: str, repo: str, filename: str) -> str:
     user = (user or "").strip()
     repo = (repo or "").strip()
     filename = (filename or "").lstrip("/").strip() or "branded_table.html"
     return f"https://{user}.github.io/{repo}/{filename}"
-    
-def build_publish_bundle(widget_file_name: str) -> dict:
-    # IMPORTANT: keep this aligned with what your editor actually uses
-    cfg = draft_config_from_state()
-    rules = st.session_state.get("bt_col_format_rules", {}) or {}
 
-    df = st.session_state.get("bt_df_uploaded")
-    if isinstance(df, pd.DataFrame) and not df.empty:
-        csv_text = df.to_csv(index=False)
-    else:
-        csv_text = ""
-
-    bundle = {
-        "schema_version": 1,
-        "widget_file_name": widget_file_name,
-        "brand": st.session_state.get("brand_table", ""),
-        "created_by": (st.session_state.get("bt_created_by_user", "") or "").strip().lower(),
-        "created_at_utc": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "table_name_words": st.session_state.get("bt_table_name_words", ""),
-        "widget_title": st.session_state.get("bt_widget_title", ""),
-        "widget_subtitle": st.session_state.get("bt_widget_subtitle", ""),
-        "config": cfg,
-        "col_format_rules": rules,
-        "csv": csv_text,
-        "hidden_cols": st.session_state.get("bt_hidden_cols", []) or [],
-        "bar_columns": st.session_state.get("bt_bar_columns", []) or [],
-        "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}) or {},
-        "heat_columns": st.session_state.get("bt_heat_columns", []) or [],
-        "heat_overrides": st.session_state.get("bt_heat_overrides", {}) or {},
-    }
-    return bundle
-    
-def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name: str):
-    bundle_path = f"bundles/{widget_file_name}.json"
-    bundle = read_github_json(owner, repo, token, bundle_path, branch="main")
-    st.session_state["bt_uploaded_name"] = f"bundle:{widget_file_name}"   # ✅ makes Create tab treat it like a "loaded file"
-    st.session_state["bt_created_by_user"] = (bundle.get("created_by","") or "").strip().lower()
-    st.session_state["bt_created_by_user_select_create"] = st.session_state["bt_created_by_user"] or "Select a user..."
-
-    csv_text = (bundle.get("csv") or "")
-    if csv_text.strip():
-        df = pd.read_csv(io.StringIO(csv_text))
-        st.session_state["bt_df_uploaded"] = df
-        st.session_state["bt_df_source"] = df.copy(deep=True)
-        st.session_state["bt_df_confirmed"] = df.copy(deep=True)
-
-    # restore core editor fields
-    st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
-    st.session_state["bt_widget_title"] = bundle.get("widget_title", "")
-    st.session_state["bt_widget_subtitle"] = bundle.get("widget_subtitle", "")
-
-    # restore toggles/rules
-    st.session_state["bt_col_format_rules"] = bundle.get("col_format_rules", {}) or {}
-    st.session_state["bt_hidden_cols"] = bundle.get("hidden_cols", []) or []
-    st.session_state["bt_bar_columns"] = bundle.get("bar_columns", []) or []
-    st.session_state["bt_bar_max_overrides"] = bundle.get("bar_max_overrides", {}) or {}
-    st.session_state["bt_heat_columns"] = bundle.get("heat_columns", []) or []
-    st.session_state["bt_heat_overrides"] = bundle.get("heat_overrides", {}) or {}
-
-    # restore config (mapped to editor session keys)
-    cfg = bundle.get("config") or {}
-    
-    CFG_TO_STATE = {
-        "brand": "brand_table",
-        "title": "bt_widget_title",
-        "subtitle": "bt_widget_subtitle",
-        "striped": "bt_striped_rows",
-        "show_header": "bt_show_header",
-        "center_titles": "bt_center_titles",
-        "branded_title_color": "bt_branded_title_color",
-        "show_footer": "bt_show_footer",
-        "footer_logo_align": "bt_footer_logo_align",
-        "footer_logo_h": "bt_footer_logo_h",
-        "show_footer_notes": "bt_show_footer_notes",
-        "footer_notes": "bt_footer_notes",
-        "show_heat_scale": "bt_show_heat_scale",
-        "cell_align": "bt_cell_align",
-        "show_search": "bt_show_search",
-        "show_pager": "bt_show_pager",
-        "show_embed": "bt_show_embed",
-        "show_page_numbers": "bt_show_page_numbers",
-        "bar_columns": "bt_bar_columns",
-        "bar_max_overrides": "bt_bar_max_overrides",
-        "bar_fixed_w": "bt_bar_fixed_w",
-        "heat_columns": "bt_heat_columns",
-        "heat_overrides": "bt_heat_overrides",
-        "heat_strength": "bt_heat_strength",
-        "heatmap_style": "bt_heatmap_style",
-        "header_style": "bt_header_style",
-    }
-    
-    for cfg_key, state_key in CFG_TO_STATE.items():
-        if cfg_key in cfg:
-            st.session_state[state_key] = cfg[cfg_key]
-
-    # force user back to editor UX
-    st.session_state["bt_embed_tabs_visible"] = True
-    st.session_state["bt_publish_in_progress"] = False
-    st.session_state["bt_live_confirmed"] = True
-
-    st.session_state["bt_confirm_flash"] = True  # optional: show “loaded” message
-    st.rerun()
-
-def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
-    try:
-        r = requests.get(url, timeout=5)
-        if r.status_code != 200:
-            return False
-        return f"BT_PUBLISH_HASH:{expected_hash}" in r.text
-    except Exception:
-        return False
 
 def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     url = (url or "").strip()
@@ -2818,16 +2654,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
-    st.session_state.setdefault("bt_last_published_repo", "")
-    st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
-    st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
-    st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
-    st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
-    st.session_state.setdefault("bt_publish_in_progress", False)
-    st.session_state.setdefault("bt_publish_started_at", None)
-    st.session_state.setdefault("bt_expected_live_hash", "")
-    st.session_state.setdefault("bt_live_confirmed", False)
 
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
     if iframe_val and ("data:text/html" in iframe_val or "about:srcdoc" in iframe_val):
@@ -2932,10 +2759,6 @@ def do_confirm_snapshot():
     st.session_state["bt_html_stale"] = False
 
     st.session_state["bt_confirm_flash"] = True
-    # ✅ If user already generated embed scripts once, a new Confirm makes them out-of-date
-    if st.session_state.get("bt_embed_generated", False):
-        st.session_state["bt_embed_stale"] = True
-
 def reset_table_edits():
     # ✅ Restore original upload (true undo)
     src = st.session_state.get("bt_df_source")
@@ -2993,33 +2816,14 @@ st.markdown(
 )
 
 st.title("Branded Table Generator")
-st.session_state.setdefault("main_tab", "Create New Table")
-main_tab = st.radio("", ["Create New Table", "Published Tables"], horizontal=True, key="main_tab", label_visibility="collapsed")
+main_tab_create, main_tab_published = st.tabs(["Create New Table", "Published Tables"])
 
 # =========================================================
 # ✅ TAB 2: Published Tables  (ONLY THIS VIEW)
 # =========================================================
-if main_tab == "Published Tables":
+with main_tab_published:
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
-        # ✅ Who are you? (needed so "Edit" permissions work in this tab)
-    allowed_users = list(PUBLISH_USERS)
-    created_by_options = ["Select a user..."] + allowed_users
-
-    st.session_state.setdefault("bt_created_by_user_select", "Select a user...")
-
-    created_by_input_pub = st.selectbox(
-        "Created by (so Edit works)",
-        options=created_by_options,
-        key="bt_created_by_user_select",
-    )
-
-    created_by_user_pub = ""
-    if created_by_input_pub and created_by_input_pub != "Select a user...":
-        created_by_user_pub = created_by_input_pub.strip().lower()
-
-    # ✅ store globally (used by can_edit logic)
-    st.session_state["bt_created_by_user"] = created_by_user_pub
 
     # ✅ Ensure filter keys exist (prevents weird state issues)
     st.session_state.setdefault("pub_brand_filter", "All")
@@ -3049,7 +2853,7 @@ if main_tab == "Published Tables":
         st.warning("No publishing token found. Add GITHUB_PAT in secrets to view published tables.")
     else:
         # ✅ Only refetch when needed
-        if refresh_clicked or "df_pub_cache" not in st.session_state or "Has CSV" not in st.session_state["df_pub_cache"].columns:
+        if refresh_clicked or "df_pub_cache" not in st.session_state:
             if refresh_clicked:
                 st.cache_data.clear()
             st.session_state["df_pub_cache"] = get_all_published_widgets(publish_owner, token_to_use)
@@ -3107,21 +2911,13 @@ if main_tab == "Published Tables":
                     format_func=lambda k: "All" if k == "All" else month_label_map.get(k, k),
                 )
             
-            def reset_pub_filters():
-                st.session_state["pub_brand_filter"] = "All"
-                st.session_state["pub_people_filter"] = "All"
-                st.session_state["pub_month_filter"] = "All"
-                st.session_state["pub_last_preview_url"] = ""
-                st.rerun()  # <- strongly recommended so the rest of this run doesn't use stale local vars
-        
             with col4:
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                st.button(
-                    "Reset Filters",
-                    key="pub_reset_filters",
-                    use_container_width=True,
-                    on_click=reset_pub_filters,
-                )
+                if st.button("Reset Filters", key="pub_reset_filters", use_container_width=True):
+                    st.session_state["pub_brand_filter"] = "All"
+                    st.session_state["pub_people_filter"] = "All"
+                    st.session_state["pub_month_filter"] = "All"
+                    st.rerun()
             
             # ✅ Apply filters
             df_view = df_pub.copy()
@@ -3136,246 +2932,72 @@ if main_tab == "Published Tables":
                 df_view = df_view[df_view["MonthKey"] == month_filter]
             
             # ✅ Optional: hide helper columns from display
-            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")     
+            df_view = df_view.drop(columns=["Created DT", "MonthKey", "MonthLabel"], errors="ignore")
+            
 
             # ✅ If no matches
             if df_view.empty:
                 st.warning("No results match your filters.")
             else:
-                # ✅ Clean up any helper cols safely (no-ops if they don't exist)
-                df_view = df_view.drop(columns=["Created DT", "Month", "MonthKey", "MonthLabel"], errors="ignore")
-            
-                # ✅ Reset index once so selection rows map correctly everywhere
+                # ✅ Drop helper cols before showing table
+                df_view = df_view.drop(columns=["Created DT", "Month"], errors="ignore")
+
+                # ✅ Published tables list (CLICK ROW → POPUP PREVIEW)
+                st.markdown("#### Click a row to preview")
+
+                # ✅ Reset index so selected row maps correctly
                 df_view = df_view.reset_index(drop=True)
-            
-                # =========================================================
-                # ✅ DELETE TABLES (ADMIN)
-                # =========================================================
-                st.markdown("#### Delete tables (admin)")
-            
-                delete_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Repo", "File", "Created By", "Created UTC"]
-                df_delete = df_view.copy()
-            
-                # Make sure all required columns exist (prevents KeyError)
-                for c in delete_cols:
-                    if c not in df_delete.columns:
-                        df_delete[c] = ""
-            
-                df_delete = df_delete[delete_cols].reset_index(drop=True)
-            
-                # Add checkbox column (multi-select)
-                df_delete.insert(0, "Delete?", False)
-            
-                edited = st.data_editor(
-                    df_delete,
+
+                # ✅ Make URL column NON-clickable (so users don’t accidentally open new tab)
+                df_display = df_view.copy()
+                df_display["Pages URL"] = df_display["Pages URL"].astype(str)
+
+                event = st.dataframe(
+                    df_display[["Brand", "Table Name", "Pages URL", "Created By", "Created UTC"]],
                     use_container_width=True,
                     hide_index=True,
-                    num_rows="fixed",
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    key="pub_table_click_df",
                     column_config={
-                        "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick rows you want to delete"),
                         "Pages URL": st.column_config.TextColumn("Pages URL"),
                     },
-                    disabled=[c for c in df_delete.columns if c != "Delete?"],
-                    key="pub_delete_editor",
                 )
-            
-                to_delete = edited[edited["Delete?"] == True].copy()
-                st.session_state["pub_to_delete"] = to_delete.to_dict("records")  # ✅ snapshot for dialog
-                delete_disabled = to_delete.empty
-            
-                c1, c2 = st.columns([1, 1])
-                with c1:
-                    st.caption(f"Selected: **{len(to_delete)}**")
-            
-                with c2:
-                    delete_clicked = st.button(
-                        "🗑️ Delete selected",
-                        disabled=delete_disabled,
-                        use_container_width=True,
-                        type="secondary",
-                        key="pub_delete_btn",
-                    )
-            
-                if delete_clicked:
-                    if not hasattr(st, "dialog"):
-                        st.error("Your Streamlit version doesn’t support dialogs. Update Streamlit or use an inline confirmation block.")
-                    else:
-                        @st.dialog("Confirm delete", width="large")
-                        def confirm_delete_dialog():
-                            rows = st.session_state.get("pub_to_delete", []) or []
-                            df_del = pd.DataFrame(rows)
-            
-                            st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
-                            st.markdown("**You are deleting:**")
-            
-                            if df_del.empty:
-                                st.info("No rows selected.")
-                                return
-            
-                            st.dataframe(
-                                df_del[["Brand", "Table Name", "Repo", "File", "Created By", "Created UTC"]],
-                                use_container_width=True,
-                                hide_index=True,
-                            )
-            
-                            passkey = st.text_input("Enter admin passkey", type="password", key="pub_delete_passkey")
-                            i_understand = st.checkbox("I understand this cannot be undone", key="pub_delete_ack")
-            
-                            do_it = st.button(
-                                "✅ Confirm delete",
-                                disabled=not (passkey and i_understand),
-                                type="primary",
-                                key="pub_confirm_delete_btn",
-                            )
-            
-                            if do_it:
-                                expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
-                                if not expected or not hmac.compare_digest(passkey, expected):
-                                    st.error("Wrong passkey.")
-                                    return
-            
-                                errors = []
-                                for _, r in df_del.iterrows():
-                                    repo = (r.get("Repo") or "").strip()
-                                    file = (r.get("File") or "").strip()
-            
-                                    if not repo or not file:
-                                        errors.append(f"Missing Repo/File for row: {r.get('Pages URL')}")
-                                        continue
-            
-                                    try:
-                                        # delete main HTML
-                                        delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
-            
-                                        # delete bundle written as bundles/{widget_file_name}.json (widget_file_name already ends with .html)
-                                        bundle_path = f"bundles/{file}.json"
-                                        delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
-            
-                                        # remove from widget_registry.json (recommended)
-                                        remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
-            
-                                    except Exception as e:
-                                        errors.append(f"{repo}/{file}: {e}")
-            
-                                if errors:
-                                    st.error("Some deletes failed:")
-                                    st.write(errors)
-                                else:
-                                    st.success("Deleted successfully.")
-            
-                                # Refresh list after deletes
-                                try:
-                                    st.cache_data.clear()
-                                except Exception:
-                                    pass
-                                st.session_state.pop("df_pub_cache", None)
-                                st.session_state.pop("pub_to_delete", None)
-                                st.rerun()
-            
-                        confirm_delete_dialog()
-            
-                st.divider()
 
-    # =========================================================
-    # ✅ PREVIEW TABLES (CLICK ROW → POPUP PREVIEW)
-    # =========================================================
-    st.markdown("#### Click a row to preview")
+                # ✅ Extract selected row → auto-preview popup
+                selected_rows = []
+                try:
+                    selected_rows = event.selection.rows or []
+                except Exception:
+                    selected_rows = []
 
-    df_display = df_view.copy()
-    if "Pages URL" in df_display.columns:
-        df_display["Pages URL"] = df_display["Pages URL"].astype(str)
-    else:
-        df_display["Pages URL"] = ""
+                if selected_rows:
+                    selected_idx = selected_rows[0]
+                    selected_url = (df_view.loc[selected_idx, "Pages URL"] or "").strip()
 
-    preview_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Created By", "Created UTC"]
-    for c in preview_cols:
-        if c not in df_display.columns:
-            df_display[c] = ""
+                    if selected_url:
+                        # ✅ Prevent re-opening popup every rerun if same row clicked again
+                        last = st.session_state.get("pub_last_preview_url", "")
+                        if selected_url != last:
+                            st.session_state["pub_last_preview_url"] = selected_url
 
-    event = st.dataframe(
-        df_display[preview_cols],
-        use_container_width=True,
-        hide_index=True,
-        selection_mode="single-row",
-        on_select="rerun",
-        key="pub_table_click_df",
-        column_config={
-            "Pages URL": st.column_config.TextColumn("Pages URL"),
-        },
-    )
+                        # ✅ Popup modal preview (if supported)
+                        if hasattr(st, "dialog"):
 
-    # ✅ Extract selected row → auto-preview popup
-    selected_rows = []
-    try:
-        selected_rows = event.selection.rows or []
-    except Exception:
-        selected_rows = []
+                            @st.dialog("Table Preview", width="large")
+                            def preview_dialog(url):
+                                st.markdown(f"**Previewing:** {url}")
+                                components.iframe(url, height=650, scrolling=True)
 
-    if selected_rows:
-        selected_idx = selected_rows[0]
-        selected_url = (df_display.loc[selected_idx, "Pages URL"] or "").strip()
+                            preview_dialog(selected_url)
 
-        # ✅ row comes from df_display to ensure index alignment
-        row = df_display.loc[selected_idx]
-
-        selected_repo = (row.get("Repo") or "").strip()
-        selected_file = (row.get("File") or "").strip()
-
-        row_created_by = (row.get("Created By") or "").strip().lower()
-        current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-
-        # ✅ must pick a user in Published tab for editing
-        can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
-
-        if selected_url:
-            # ✅ Prevent re-opening popup every rerun if same row clicked again
-            last = st.session_state.get("pub_last_preview_url", "")
-            if selected_url != last:
-                st.session_state["pub_last_preview_url"] = selected_url
-
-            # ✅ Popup modal preview (if supported)
-            if hasattr(st, "dialog"):
-
-                @st.dialog("Table Preview", width="large")
-                def preview_dialog(url):
-                    st.markdown(f"**Previewing:** {url}")
-
-                    c1, c2 = st.columns([1, 1])
-                    with c1:
-                        st.link_button("🔗 Open live page", url, use_container_width=True)
-
-                    with c2:
-                        if not can_edit:
-                            owner_name = row_created_by or "someone else"
-                            st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                            st.caption(f"Only {owner_name} can edit this table.")
                         else:
-                            has_csv = (row.get("Has CSV") == "✅")
-
-                            if not has_csv:
-                                st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                st.caption("This table was published before editable CSV support.")
-                            else:
-                                if st.button(
-                                    "✏️ Edit this table",
-                                    key=f"pub_edit_{selected_repo}_{selected_file}",
-                                    use_container_width=True,
-                                ):
-                                    # ✅ close popup next rerun + jump workflow to Create view with bundle loaded
-                                    st.session_state["pub_last_preview_url"] = ""
-                                    load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-
-                    components.iframe(url, height=650, scrolling=True)
-
-                preview_dialog(selected_url)
-
-            else:
-                st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-                components.iframe(selected_url, height=820, scrolling=True)
+                            st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+                            components.iframe(selected_url, height=820, scrolling=True)
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
-if main_tab == "Create New Table":
+with main_tab_create:
 
     # =========================================================
     # ✅ Global "Created by" (mandatory before upload)
@@ -3383,12 +3005,12 @@ if main_tab == "Create New Table":
     allowed_users = list(PUBLISH_USERS)
     created_by_options = ["Select a user..."] + allowed_users
 
-    st.session_state.setdefault("bt_created_by_user_select_create", "Select a user...")
+    st.session_state.setdefault("bt_created_by_user_select", "Select a user...")
 
     created_by_input_global = st.selectbox(
-    "Created by (tracking only)",
-    options=created_by_options,
-    key="bt_created_by_user_select_create",
+        "Created by (tracking only)",
+        options=created_by_options,
+        key="bt_created_by_user_select",
     )
 
     created_by_user_global = ""
@@ -3431,46 +3053,34 @@ if main_tab == "Create New Table":
             key="brand_table",
         )
 
-        # ✅ Allow Create tab to work for BOTH:
-        # 1) normal uploaded CSV
-        # 2) bundle-loaded df in session_state (Edit flow)
-        
-        df_loaded = st.session_state.get("bt_df_uploaded")
-        has_loaded_df = isinstance(df_loaded, pd.DataFrame) and not df_loaded.empty
-        
-        if uploaded_file is None and not has_loaded_df:
+        if uploaded_file is None:
             st.info("Upload A CSV To Start.")
         elif brand_selected_global == "Choose a brand...":
             st.info("Choose a **Brand** to load the table preview.")
         else:
-            # ✅ Source of data: upload wins, otherwise use loaded bundle df
-            if uploaded_file is not None:
-                try:
-                    df_uploaded_now = pd.read_csv(uploaded_file)
-                except Exception as e:
-                    st.error(f"Error Reading CSV: {e}")
-                    df_uploaded_now = pd.DataFrame()
-        
-                uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
-        
-            else:
-                # bundle-loaded case
-                df_uploaded_now = df_loaded.copy()
-                uploaded_name = st.session_state.get("bt_uploaded_name", "loaded_bundle.csv")
-        
+            # =========================================================
+            # ✅ Read CSV
+            # =========================================================
+            try:
+                df_uploaded_now = pd.read_csv(uploaded_file)
+            except Exception as e:
+                st.error(f"Error Reading CSV: {e}")
+                df_uploaded_now = pd.DataFrame()
+
             if df_uploaded_now.empty:
                 st.error("Uploaded CSV Has No Rows.")
             else:
+                uploaded_name = getattr(uploaded_file, "name", "uploaded.csv")
                 prev_name = st.session_state.get("bt_uploaded_name")
-        
-                # ✅ Only reset/init when the "source" changes
+
                 if prev_name != uploaded_name:
                     reset_widget_state_for_new_upload()
                     st.session_state["bt_uploaded_name"] = uploaded_name
-                    st.session_state["bt_df_source"] = df_uploaded_now.copy(deep=True)     # original backup
-                    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy(deep=True)   # live editable version
-                    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy(deep=True)  # confirmed snapshot seed
-        
+                    st.session_state["bt_df_source"] = df_uploaded_now.copy()   # ✅ NEW: original backup
+                    st.session_state["bt_df_uploaded"] = df_uploaded_now.copy() # ✅ NEW: live editable version
+                    st.session_state["bt_df_confirmed"] = df_uploaded_now.copy()
+
+
                 ensure_confirm_state_exists()
 
                 left_col, right_col = st.columns([1, 3], gap="large")
@@ -4009,21 +3619,6 @@ if main_tab == "Create New Table":
 
                     # ---------- EMBED TAB ----------
                     with tab_embed:
-                        # Live publish status UI
-                        if st.session_state.get("bt_publish_in_progress", False):
-                            st.info("🚀 Publishing updates… This can take up to a minute.")
-                        
-                            pages_url = st.session_state.get("bt_last_published_url")
-                            expected_hash = st.session_state.get("bt_expected_live_hash")
-                        
-                            if pages_url and expected_hash:
-                                if st.button("Check if page is live"):
-                                    if is_page_live_with_hash(pages_url, expected_hash):
-                                        st.session_state["bt_publish_in_progress"] = False
-                                        st.session_state["bt_live_confirmed"] = True
-                                        st.success("✅ Page is live with the latest updates.")
-                                    else:
-                                        st.warning("⏳ Still updating. Please try again in a few seconds.")
                         st.markdown("#### Get Embed Script")
 
                         st.session_state.setdefault("bt_embed_started", False)
@@ -4035,14 +3630,6 @@ if main_tab == "Create New Table":
                         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
 
                         st.session_state["bt_embed_started"] = True
-                        embed_generated = bool(st.session_state.get("bt_embed_generated", False))
-                        embed_stale = bool(st.session_state.get("bt_embed_stale", False))
-                    
-                        if embed_generated and embed_stale:
-                            st.warning("Your embed scripts are out of date. Click **Update embed scripts** to publish the latest confirmed version.")
-                    
-                        btn_label = "Update embed scripts" if (embed_generated and embed_stale) else "Get embed script"
-
 
                         if not html_generated:
                             st.warning("Click **Confirm & Save** first so the latest HTML is generated.")
@@ -4104,21 +3691,10 @@ if main_tab == "Create New Table":
                                     existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
                                 except Exception:
                                     existing_meta = {}
-                                # ✅ overwrite is only allowed for the original creator
-                                existing_created_by = (existing_meta.get("created_by", "") or "").strip().lower()
-                                can_overwrite_owner = (not existing_created_by) or (existing_created_by == created_by_user)
 
                         embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
-                        
-                        # ✅ If the user already published this exact repo+file in this session,
-                        # allow updates WITHOUT needing the overwrite checkbox.
-                        same_target_as_last_publish = bool(
-                            st.session_state.get("bt_embed_generated", False)
-                            and st.session_state.get("bt_last_published_file") == widget_file_name
-                            and st.session_state.get("bt_last_published_repo") == repo_name
-                        )
-                        
-                        if file_exists and not embed_done and not same_target_as_last_publish:
+
+                        if file_exists and not embed_done:
                             st.info("ℹ️ A page with this table name already exists.")
                             if existing_pages_url:
                                 st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
@@ -4128,34 +3704,16 @@ if main_tab == "Create New Table":
                                     f"Created by: {existing_meta.get('created_by','?')} | "
                                     f"UTC: {existing_meta.get('created_at_utc','?')}"
                                 )
-                        
-                            if can_overwrite_owner:
-                                st.checkbox(
-                                    "Overwrite existing page",
-                                    value=bool(st.session_state.get("bt_allow_swap", False)),
-                                    key="bt_allow_swap",
-                                )
-                            else:
-                                # ✅ ensure swap cannot be enabled for non-owners
-                                st.session_state["bt_allow_swap"] = False
-                            
-                                st.checkbox(
-                                    "Overwrite existing page",
-                                    value=False,
-                                    key="bt_allow_swap_disabled",
-                                    disabled=True,
-                                    help=f"Only the original creator ({existing_created_by or 'unknown'}) can overwrite this page.",
-                                )
-                                owner_label = f"{existing_created_by}'s" if existing_created_by else "another user's"
-                                st.warning(
-                                    f"⛔ This is **{owner_label} page**, so you can’t overwrite it."
-                                )
-                        
-                        # ✅ Read AFTER the checkbox renders
+
+                            st.checkbox(
+                                "Overwrite existing page",
+                                value=bool(st.session_state.get("bt_allow_swap", False)),
+                                key="bt_allow_swap",
+                            )
+
                         allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-                        
-                        swap_confirmed = (not file_exists) or (allow_swap and can_overwrite_owner) or same_target_as_last_publish
-                        
+
+                        swap_confirmed = (not file_exists) or allow_swap
                         can_publish = bool(
                             html_generated
                             and publish_owner
@@ -4165,9 +3723,9 @@ if main_tab == "Create New Table":
                             and created_by_user
                             and swap_confirmed
                         )
-                        
+
                         publish_clicked = st.button(
-                            btn_label,
+                            "Get embed script",
                             use_container_width=True,
                             disabled=not can_publish,
                         )
@@ -4181,27 +3739,15 @@ if main_tab == "Create New Table":
                             if publish_owner and not installation_token:
                                 missing.append("publishing token")
                             if file_exists and not swap_confirmed:
-                                if not can_overwrite_owner:
-                                    missing.append("you can’t overwrite (different creator)")
-                                else:
-                                    missing.append("confirm override (checkbox)")
+                                missing.append("confirm override (checkbox + SWAP)")
                             if missing:
                                 st.caption("To enable publishing: " + ", ".join(missing) + ".")
 
                         if publish_clicked:
                             st.session_state["bt_embed_tabs_visible"] = True
-                            # mark publish as in-progress
-                            st.session_state["bt_publish_in_progress"] = True
-                            st.session_state["bt_publish_started_at"] = time.time()
-                            st.session_state["bt_expected_live_hash"] = st.session_state.get("bt_html_hash", "")
-                            st.session_state["bt_live_confirmed"] = False
-                        
 
                             try:
-                                html_final = (
-                                    f"<!-- BT_PUBLISH_HASH:{st.session_state.get('bt_html_hash','')} -->\n"
-                                    + st.session_state.get("bt_html_code", "")
-                                )
+                                html_final = st.session_state.get("bt_html_code", "")
                                 if not html_final:
                                     raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
 
@@ -4223,31 +3769,10 @@ if main_tab == "Create New Table":
                                     f"Add/Update {widget_file_name} from Branded Table App",
                                     branch="main",
                                 )
-                                
-                                # ✅ NEW: also publish the editable bundle (CSV + config + rules)
-                                bundle = build_publish_bundle(widget_file_name)
-                                bundle_path = f"bundles/{widget_file_name}.json"
-                                
-                                upload_file_to_github(
-                                    publish_owner,
-                                    repo_name,
-                                    installation_token,
-                                    bundle_path,
-                                    json.dumps(bundle, indent=2),
-                                    f"Add/Update bundle for {widget_file_name}",
-                                    branch="main",
-                                )
-                                
+
                                 pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
-                                
                                 st.session_state["bt_last_published_url"] = pages_url
-                                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
-                                st.session_state["bt_last_published_repo"] = repo_name
-                                st.session_state["bt_last_published_file"] = widget_file_name        
                                 created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-                                # ✅ mark embed scripts as generated + fresh
-                                st.session_state["bt_embed_generated"] = True
-                                st.session_state["bt_embed_stale"] = False
 
                                 github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
                                 table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
@@ -4260,8 +3785,6 @@ if main_tab == "Create New Table":
                                     "github_repo_url": github_repo_url,
                                     "created_by": created_by_user,
                                     "created_at_utc": created_utc,
-                                    "bundle_path": f"bundles/{widget_file_name}.json",
-                                    "has_bundle": True,
                                 }
 
                                 try:
@@ -4284,25 +3807,20 @@ if main_tab == "Create New Table":
                                         pages_url,
                                         height=int(st.session_state.get("bt_iframe_height", 800)),
                                     )
-                                
-                                    # ✅ IMPORTANT: mark the page live + stop "in progress" state
-                                    st.session_state["bt_publish_in_progress"] = False
-                                    st.session_state["bt_live_confirmed"] = True
-                                
                                     st.success("✅ Page is live. IFrame is ready.")
                                 else:
                                     st.session_state["bt_iframe_code"] = ""
-                                
-                                    # ✅ still deploying
-                                    st.session_state["bt_live_confirmed"] = False
-                                
                                     st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
 
                             except Exception as e:
                                 st.error(f"Publish / IFrame generation failed: {e}")
 
-                        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-                        show_tabs = bool(published_url_val and st.session_state.get("bt_live_confirmed", False))
+                        show_tabs = bool(
+                            st.session_state.get("bt_embed_tabs_visible", False)
+                            or (st.session_state.get("bt_html_code") or "").strip()
+                            or (st.session_state.get("bt_iframe_code") or "").strip()
+                            or (st.session_state.get("bt_last_published_url") or "").strip()
+                        )
 
                         if show_tabs:
                             published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
@@ -4311,25 +3829,6 @@ if main_tab == "Create New Table":
                                 st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
 
                             html_tab, iframe_tab = st.tabs(["HTML Code", "IFrame"])
-                                                    
-                            # ✅ ADD THIS BLOCK RIGHT HERE
-                            pages_url = published_url_val
-                            current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-                            row_created_by = (existing_meta.get("created_by", "") or "").strip().lower()  # or selected_row.get(...)
-                            can_edit = (not row_created_by) or (row_created_by == current_user)
-                        
-                            c1, c2 = st.columns([1, 1])
-                            with c1:
-                                st.link_button("🔗 Open live page", pages_url, use_container_width=True)
-                        
-                            with c2:
-                                if not can_edit:
-                                    owner_name = row_created_by or "someone else"
-                                    st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                                    st.caption(f"Only {owner_name} can edit this table.")
-                                else:
-                                    if st.button("✏️ Edit this table", use_container_width=True):
-                                        load_bundle_into_editor(publish_owner, repo_name, installation_token, widget_file_name)
 
                             with html_tab:
                                 html_code_val = (st.session_state.get("bt_html_code") or "").strip()
