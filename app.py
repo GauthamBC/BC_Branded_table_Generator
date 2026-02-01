@@ -3340,31 +3340,6 @@ if main_tab == "Published Tables":
                 def preview_dialog(url):
                     st.markdown(f"**Previewing:** {url}")
 
-                    c1, c2 = st.columns([1, 1])
-                    with c1:
-                        st.link_button("🔗 Open live page", url, use_container_width=True)
-
-                    with c2:
-                        if not can_edit:
-                            owner_name = row_created_by or "someone else"
-                            st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                            st.caption(f"Only {owner_name} can edit this table.")
-                        else:
-                            has_csv = (row.get("Has CSV") == "✅")
-
-                            if not has_csv:
-                                st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                st.caption("This table was published before editable CSV support.")
-                            else:
-                                if st.button(
-                                    "✏️ Edit this table",
-                                    key=f"pub_edit_{selected_repo}_{selected_file}",
-                                    use_container_width=True,
-                                ):
-                                    # ✅ close popup next rerun + jump workflow to Create view with bundle loaded
-                                    st.session_state["pub_last_preview_url"] = ""
-                                    load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-
                     components.iframe(url, height=650, scrolling=True)
 
                 preview_dialog(selected_url)
