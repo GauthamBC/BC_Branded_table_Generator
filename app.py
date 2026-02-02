@@ -3337,73 +3337,81 @@ with tab_preview_tables:
         # ✅ must pick a user in Published tab for editing
         can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
 
-        if selected_url:
-            # ✅ Prevent re-opening popup every rerun if same row clicked again
-            last = st.session_state.get("pub_last_preview_url", "")
-            if selected_url != last:
-                st.session_state["pub_last_preview_url"] = selected_url
+        # ✅ If we're about to open the delete-confirm dialog, do NOT open the preview dialog too
+if st.session_state.get("pub_open_single_delete_dialog"):
+    pass
+else:
+    if selected_url:
+        # ✅ Prevent re-opening popup every rerun if same row clicked again
+        last = st.session_state.get("pub_last_preview_url", "")
+        if selected_url != last:
+            st.session_state["pub_last_preview_url"] = selected_url
 
-            # ✅ Popup modal preview (if supported)
-            if hasattr(st, "dialog"):
+        # ✅ Popup modal preview (if supported)
+        if hasattr(st, "dialog"):
 
-                @st.dialog("Table Preview", width="large")
-                def preview_dialog(url):
-                    st.markdown(f"**Previewing:** {url}")
+            @st.dialog("Table Preview", width="large")
+            def preview_dialog(url):
+                st.markdown(f"**Previewing:** {url}")
 
-                    c1, c2, c3 = st.columns(3)
+                c1, c2, c3 = st.columns(3)
 
-                    with c1:
-                        st.link_button("🔗 Open live page", url, use_container_width=True)
-                    
-                    with c2:
-                        if not can_edit:
-                            owner_name = row_created_by or "someone else"
-                            st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                            st.caption(f"Only {owner_name} can edit this table.")
+                with c1:
+                    st.link_button("🔗 Open live page", url, use_container_width=True)
+
+                with c2:
+                    if not can_edit:
+                        owner_name = row_created_by or "someone else"
+                        st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
+                        st.caption(f"Only {owner_name} can edit this table.")
+                    else:
+                        has_csv = (row.get("Has CSV") == "✅")
+
+                        if not has_csv:
+                            st.button("✏️ Edit this table", disabled=True, use_container_width=True)
+                            st.caption("This table was published before editable CSV support.")
                         else:
-                            has_csv = (row.get("Has CSV") == "✅")
-                    
-                            if not has_csv:
-                                st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                st.caption("This table was published before editable CSV support.")
-                            else:
-                                if st.button(
-                                    "✏️ Edit this table",
-                                    key=f"pub_edit_{selected_repo}_{selected_file}",
-                                    use_container_width=True,
-                                ):
-                                    st.session_state["pub_last_preview_url"] = ""
-                                    load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-                    
-                    with c3:
-                        # Always show the button, but deletion requires admin passkey in the next dialog
-                        if st.button(
-                            "🗑️ Delete this table",
-                            key=f"pub_delete_single_btn_{selected_repo}_{selected_file}",
-                            use_container_width=True,
-                            type="secondary",
-                        ):
-                            # Store what to delete + open confirm dialog on rerun
-                            st.session_state["pub_single_delete_target"] = {
-                                "Repo": selected_repo,
-                                "File": selected_file,
-                                "Brand": row.get("Brand", ""),
-                                "Table Name": row.get("Table Name", ""),
-                                "Pages URL": url,
-                                "Created By": row_created_by,
-                                "Created UTC": row.get("Created UTC", ""),
-                            }
-                            st.session_state["pub_open_single_delete_dialog"] = True
-                            st.session_state["pub_last_preview_url"] = ""  # optional: closes preview next rerun
-                            st.rerun()
+                            if st.button(
+                                "✏️ Edit this table",
+                                key=f"pub_edit_{selected_repo}_{selected_file}",
+                                use_container_width=True,
+                            ):
+                                st.session_state["pub_last_preview_url"] = ""
+                                load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
 
-                    components.iframe(url, height=650, scrolling=True)
+                with c3:
+                    if st.button(
+                        "🗑️ Delete this table",
+                        key=f"pub_delete_single_btn_{selected_repo}_{selected_file}",
+                        use_container_width=True,
+                        type="secondary",
+                    ):
+                        st.session_state["pub_single_delete_target"] = {
+                            "Repo": selected_repo,
+                            "File": selected_file,
+                            "Brand": row.get("Brand", ""),
+                            "Table Name": row.get("Table Name", ""),
+                            "Pages URL": url,
+                            "Created By": row_created_by,
+                            "Created UTC": row.get("Created UTC", ""),
+                        }
+                        st.session_state["pub_open_single_delete_dialog"] = True
 
-                preview_dialog(selected_url)
+                        # ✅ prevent the preview dialog from being re-triggered on rerun
+                        st.session_state["pub_last_preview_url"] = ""
 
-            else:
-                st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-                components.iframe(selected_url, height=820, scrolling=True)
+                        # ✅ also clear the row selection so it doesn't auto-open preview again
+                        st.session_state.pop("pub_table_click_df", None)
+
+                        st.rerun()
+
+                components.iframe(url, height=650, scrolling=True)
+
+            preview_dialog(selected_url)
+
+        else:
+            st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+            components.iframe(selected_url, height=820, scrolling=True)
                 
 if hasattr(st, "dialog") and st.session_state.get("pub_open_single_delete_dialog"):
 
