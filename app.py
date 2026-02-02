@@ -3147,9 +3147,6 @@ if main_tab == "Published Tables":
             
                 # ✅ Reset index once so selection rows map correctly everywhere
                 df_view = df_view.reset_index(drop=True)
-            
-# ✅ Reset index once so selection rows map correctly everywhere
-df_view = df_view.reset_index(drop=True)
 
 # =========================================================
 # ✅ PREVIEW + DELETE in TABS (side-by-side)
@@ -3163,7 +3160,7 @@ st.markdown(
         display: flex !important;
         gap: 0 !important;
         background: #dff5ea !important;          /* pale green bar */
-        border-radius: 14px !important;
+        border-radius: 0 !important;
         overflow: hidden !important;
         border: 1px solid rgba(0,0,0,0.08) !important;
       }
