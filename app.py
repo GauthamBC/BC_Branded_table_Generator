@@ -4336,6 +4336,12 @@ if main_tab == "Create New Table":
                     hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
                     if hidden_cols:
                         df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
+                        
+                    # ✅ NEW: limit preview rows
+                    PREVIEW_LIMIT = 100
+                    if len(df_preview) > PREVIEW_LIMIT:
+                        st.info(f"Preview limited to first {PREVIEW_LIMIT} rows for performance. Full table appears in the published page.")
+                        df_preview = df_preview.head(PREVIEW_LIMIT)
                 
                     live_preview_html = html_from_config(
                         df_preview,
