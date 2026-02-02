@@ -3404,6 +3404,72 @@ with tab_preview_tables:
             else:
                 st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                 components.iframe(selected_url, height=820, scrolling=True)
+                
+ if hasattr(st, "dialog") and st.session_state.get("pub_open_single_delete_dialog"):
+
+    @st.dialog("Confirm delete", width="large")
+    def confirm_single_delete_dialog():
+        target = st.session_state.get("pub_single_delete_target") or {}
+        repo = (target.get("Repo") or "").strip()
+        file = (target.get("File") or "").strip()
+
+        st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
+        st.markdown("**You are deleting:**")
+        st.write(
+            {
+                "Brand": target.get("Brand", ""),
+                "Table Name": target.get("Table Name", ""),
+                "Repo": repo,
+                "File": file,
+                "Pages URL": target.get("Pages URL", ""),
+                "Created By": target.get("Created By", ""),
+                "Created UTC": target.get("Created UTC", ""),
+            }
+        )
+
+        passkey = st.text_input("Enter admin passkey", type="password", key="pub_single_delete_passkey")
+        i_understand = st.checkbox("I understand this cannot be undone", key="pub_single_delete_ack")
+
+        do_it = st.button("✅ Confirm delete", disabled=not (passkey and i_understand), type="primary")
+
+        if do_it:
+            expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
+            if not expected or not hmac.compare_digest(passkey, expected):
+                st.error("Wrong passkey.")
+                return
+
+            try:
+                # delete main HTML
+                delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
+
+                # delete bundle at bundles/{file}.json
+                bundle_path = f"bundles/{file}.json"
+                delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
+
+                # remove from registry (recommended)
+                remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
+
+                st.success("Deleted successfully.")
+
+            except Exception as e:
+                st.error(f"Delete failed: {e}")
+                return
+
+            # Clean up + refresh
+            st.session_state["pub_open_single_delete_dialog"] = False
+            st.session_state.pop("pub_single_delete_target", None)
+
+            try:
+                st.cache_data.clear()
+            except Exception:
+                pass
+
+            st.session_state.pop("df_pub_cache", None)
+            st.rerun()
+
+    # reset the flag immediately so it doesn't reopen repeatedly unless set again
+    st.session_state["pub_open_single_delete_dialog"] = False
+    confirm_single_delete_dialog()           
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
