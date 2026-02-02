@@ -3157,17 +3157,47 @@ df_view = df_view.reset_index(drop=True)
 st.markdown(
     """
     <style>
-      /* Make the tab row full width */
+      /* Full-width tab row */
       div[data-baseweb="tab-list"] {
         width: 100% !important;
         display: flex !important;
+        gap: 0 !important;
+        background: #dff5ea !important;          /* pale green bar */
+        border-radius: 14px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(0,0,0,0.08) !important;
       }
 
-      /* Make each tab take equal width (50/50 for two tabs) */
+      /* Each tab is 50/50 */
       button[data-baseweb="tab"] {
         flex: 1 1 0 !important;
         justify-content: center !important;
+        padding: 14px 12px !important;
+        font-weight: 700 !important;
+        border: none !important;
+        margin: 0 !important;
+        background: transparent !important;
       }
+
+      /* ACTIVE tab */
+      button[data-baseweb="tab"][aria-selected="true"] {
+        background: #00c853 !important;          /* strong green */
+        color: #ffffff !important;
+      }
+      button[data-baseweb="tab"][aria-selected="true"] * {
+        color: #ffffff !important;
+      }
+
+      /* INACTIVE tab */
+      button[data-baseweb="tab"][aria-selected="false"] {
+        color: #0b1f16 !important;
+      }
+      button[data-baseweb="tab"][aria-selected="false"]:hover {
+        background: rgba(0, 200, 83, 0.12) !important;
+      }
+
+      /* Remove Streamlit's default underline/highlight if present */
+      div[data-baseweb="tab-highlight"] { display: none !important; }
     </style>
     """,
     unsafe_allow_html=True,
