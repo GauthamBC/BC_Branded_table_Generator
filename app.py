@@ -3405,7 +3405,7 @@ with tab_preview_tables:
                 st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                 components.iframe(selected_url, height=820, scrolling=True)
                 
- if hasattr(st, "dialog") and st.session_state.get("pub_open_single_delete_dialog"):
+  if hasattr(st, "dialog") and st.session_state.get("pub_open_single_delete_dialog"):
 
     @st.dialog("Confirm delete", width="large")
     def confirm_single_delete_dialog():
