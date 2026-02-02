@@ -3148,381 +3148,381 @@ if main_tab == "Published Tables":
                 # ✅ Reset index once so selection rows map correctly everywhere
                 df_view = df_view.reset_index(drop=True)
 
-# =========================================================
-# ✅ PREVIEW + DELETE in TABS (side-by-side)
-# =========================================================
-st.markdown(
-    """
-    <style>
-      /* Full-width tab row */
-      div[data-baseweb="tab-list"] {
-        width: 100% !important;
-        display: flex !important;
-        gap: 0 !important;
-        background: #dff5ea !important;          /* pale green bar */
-        border-radius: 0 !important;
-        overflow: hidden !important;
-        border: 1px solid rgba(0,0,0,0.08) !important;
-      }
-
-      /* Each tab is 50/50 */
-      button[data-baseweb="tab"] {
-        flex: 1 1 0 !important;
-        justify-content: center !important;
-        padding: 14px 12px !important;
-        font-weight: 700 !important;
-        border: none !important;
-        margin: 0 !important;
-        background: transparent !important;
-      }
-
-      /* ACTIVE tab */
-      button[data-baseweb="tab"][aria-selected="true"] {
-        background: #00c853 !important;          /* strong green */
-        color: #ffffff !important;
-      }
-      button[data-baseweb="tab"][aria-selected="true"] * {
-        color: #ffffff !important;
-      }
-
-      /* INACTIVE tab */
-      button[data-baseweb="tab"][aria-selected="false"] {
-        color: #0b1f16 !important;
-      }
-      button[data-baseweb="tab"][aria-selected="false"]:hover {
-        background: rgba(0, 200, 83, 0.12) !important;
-      }
-
-      /* Remove Streamlit's default underline/highlight if present */
-      div[data-baseweb="tab-highlight"] { display: none !important; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-tab_preview_tables, tab_delete_tables = st.tabs(
-    ["Preview tables", "Delete tables (admin)"]
-)
-
-# -----------------------------
-# TAB: DELETE TABLES (ADMIN)
-# -----------------------------
-with tab_delete_tables:
-    st.markdown("#### Delete tables (admin)")
-
-    delete_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Repo", "File", "Created By", "Created UTC"]
-    df_delete = df_view.copy()
-
-    # Make sure all required columns exist (prevents KeyError)
-    for c in delete_cols:
-        if c not in df_delete.columns:
-            df_delete[c] = ""
-
-    df_delete = df_delete[delete_cols].reset_index(drop=True)
-
-    # Add checkbox column (multi-select)
-    df_delete.insert(0, "Delete?", False)
-
-    edited = st.data_editor(
-        df_delete,
-        use_container_width=True,
-        hide_index=True,
-        num_rows="fixed",
-        column_config={
-            "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick rows you want to delete"),
-            "Pages URL": st.column_config.TextColumn("Pages URL"),
-        },
-        disabled=[c for c in df_delete.columns if c != "Delete?"],
-        key="pub_delete_editor",
+    # =========================================================
+    # ✅ PREVIEW + DELETE in TABS (side-by-side)
+    # =========================================================
+    st.markdown(
+        """
+        <style>
+          /* Full-width tab row */
+          div[data-baseweb="tab-list"] {
+            width: 100% !important;
+            display: flex !important;
+            gap: 0 !important;
+            background: #dff5ea !important;          /* pale green bar */
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            border: 1px solid rgba(0,0,0,0.08) !important;
+          }
+    
+          /* Each tab is 50/50 */
+          button[data-baseweb="tab"] {
+            flex: 1 1 0 !important;
+            justify-content: center !important;
+            padding: 14px 12px !important;
+            font-weight: 700 !important;
+            border: none !important;
+            margin: 0 !important;
+            background: transparent !important;
+          }
+    
+          /* ACTIVE tab */
+          button[data-baseweb="tab"][aria-selected="true"] {
+            background: #00c853 !important;          /* strong green */
+            color: #ffffff !important;
+          }
+          button[data-baseweb="tab"][aria-selected="true"] * {
+            color: #ffffff !important;
+          }
+    
+          /* INACTIVE tab */
+          button[data-baseweb="tab"][aria-selected="false"] {
+            color: #0b1f16 !important;
+          }
+          button[data-baseweb="tab"][aria-selected="false"]:hover {
+            background: rgba(0, 200, 83, 0.12) !important;
+          }
+    
+          /* Remove Streamlit's default underline/highlight if present */
+          div[data-baseweb="tab-highlight"] { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-
-    to_delete = edited[edited["Delete?"] == True].copy()
-    st.session_state["pub_to_delete"] = to_delete.to_dict("records")  # ✅ snapshot for dialog
-    delete_disabled = to_delete.empty
-
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        st.caption(f"Selected: **{len(to_delete)}**")
-
-    with c2:
-        delete_clicked = st.button(
-            "🗑️ Delete selected",
-            disabled=delete_disabled,
+    tab_preview_tables, tab_delete_tables = st.tabs(
+        ["Preview tables", "Delete tables (admin)"]
+    )
+    
+    # -----------------------------
+    # TAB: DELETE TABLES (ADMIN)
+    # -----------------------------
+    with tab_delete_tables:
+        st.markdown("#### Delete tables (admin)")
+    
+        delete_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Repo", "File", "Created By", "Created UTC"]
+        df_delete = df_view.copy()
+    
+        # Make sure all required columns exist (prevents KeyError)
+        for c in delete_cols:
+            if c not in df_delete.columns:
+                df_delete[c] = ""
+    
+        df_delete = df_delete[delete_cols].reset_index(drop=True)
+    
+        # Add checkbox column (multi-select)
+        df_delete.insert(0, "Delete?", False)
+    
+        edited = st.data_editor(
+            df_delete,
             use_container_width=True,
-            type="secondary",
-            key="pub_delete_btn",
+            hide_index=True,
+            num_rows="fixed",
+            column_config={
+                "Delete?": st.column_config.CheckboxColumn("Delete?", help="Tick rows you want to delete"),
+                "Pages URL": st.column_config.TextColumn("Pages URL"),
+            },
+            disabled=[c for c in df_delete.columns if c != "Delete?"],
+            key="pub_delete_editor",
         )
-
-    if delete_clicked:
-        if not hasattr(st, "dialog"):
-            st.error("Your Streamlit version doesn’t support dialogs. Update Streamlit or use an inline confirmation block.")
-        else:
-            @st.dialog("Confirm delete", width="large")
-            def confirm_delete_dialog():
-                rows = st.session_state.get("pub_to_delete", []) or []
-                df_del = pd.DataFrame(rows)
-
-                st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
-                st.markdown("**You are deleting:**")
-
-                if df_del.empty:
-                    st.info("No rows selected.")
-                    return
-
-                st.dataframe(
-                    df_del[["Brand", "Table Name", "Repo", "File", "Created By", "Created UTC"]],
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-                passkey = st.text_input("Enter admin passkey", type="password", key="pub_delete_passkey")
-                i_understand = st.checkbox("I understand this cannot be undone", key="pub_delete_ack")
-
-                do_it = st.button(
-                    "✅ Confirm delete",
-                    disabled=not (passkey and i_understand),
-                    type="primary",
-                    key="pub_confirm_delete_btn",
-                )
-
-                if do_it:
-                    expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
-                    if not expected or not hmac.compare_digest(passkey, expected):
-                        st.error("Wrong passkey.")
+    
+        to_delete = edited[edited["Delete?"] == True].copy()
+        st.session_state["pub_to_delete"] = to_delete.to_dict("records")  # ✅ snapshot for dialog
+        delete_disabled = to_delete.empty
+    
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.caption(f"Selected: **{len(to_delete)}**")
+    
+        with c2:
+            delete_clicked = st.button(
+                "🗑️ Delete selected",
+                disabled=delete_disabled,
+                use_container_width=True,
+                type="secondary",
+                key="pub_delete_btn",
+            )
+    
+        if delete_clicked:
+            if not hasattr(st, "dialog"):
+                st.error("Your Streamlit version doesn’t support dialogs. Update Streamlit or use an inline confirmation block.")
+            else:
+                @st.dialog("Confirm delete", width="large")
+                def confirm_delete_dialog():
+                    rows = st.session_state.get("pub_to_delete", []) or []
+                    df_del = pd.DataFrame(rows)
+    
+                    st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
+                    st.markdown("**You are deleting:**")
+    
+                    if df_del.empty:
+                        st.info("No rows selected.")
                         return
-
-                    errors = []
-                    for _, r in df_del.iterrows():
-                        repo = (r.get("Repo") or "").strip()
-                        file = (r.get("File") or "").strip()
-
-                        if not repo or not file:
-                            errors.append(f"Missing Repo/File for row: {r.get('Pages URL')}")
-                            continue
-
+    
+                    st.dataframe(
+                        df_del[["Brand", "Table Name", "Repo", "File", "Created By", "Created UTC"]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+    
+                    passkey = st.text_input("Enter admin passkey", type="password", key="pub_delete_passkey")
+                    i_understand = st.checkbox("I understand this cannot be undone", key="pub_delete_ack")
+    
+                    do_it = st.button(
+                        "✅ Confirm delete",
+                        disabled=not (passkey and i_understand),
+                        type="primary",
+                        key="pub_confirm_delete_btn",
+                    )
+    
+                    if do_it:
+                        expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
+                        if not expected or not hmac.compare_digest(passkey, expected):
+                            st.error("Wrong passkey.")
+                            return
+    
+                        errors = []
+                        for _, r in df_del.iterrows():
+                            repo = (r.get("Repo") or "").strip()
+                            file = (r.get("File") or "").strip()
+    
+                            if not repo or not file:
+                                errors.append(f"Missing Repo/File for row: {r.get('Pages URL')}")
+                                continue
+    
+                            try:
+                                # delete main HTML
+                                delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
+    
+                                # delete bundle written as bundles/{widget_file_name}.json (widget_file_name already ends with .html)
+                                bundle_path = f"bundles/{file}.json"
+                                delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
+    
+                                # remove from widget_registry.json (recommended)
+                                remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
+    
+                            except Exception as e:
+                                errors.append(f"{repo}/{file}: {e}")
+    
+                        if errors:
+                            st.error("Some deletes failed:")
+                            st.write(errors)
+                        else:
+                            st.success("Deleted successfully.")
+    
+                        # Refresh list after deletes
                         try:
-                            # delete main HTML
-                            delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
-
-                            # delete bundle written as bundles/{widget_file_name}.json (widget_file_name already ends with .html)
-                            bundle_path = f"bundles/{file}.json"
-                            delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
-
-                            # remove from widget_registry.json (recommended)
-                            remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
-
-                        except Exception as e:
-                            errors.append(f"{repo}/{file}: {e}")
-
-                    if errors:
-                        st.error("Some deletes failed:")
-                        st.write(errors)
-                    else:
-                        st.success("Deleted successfully.")
-
-                    # Refresh list after deletes
-                    try:
-                        st.cache_data.clear()
-                    except Exception:
-                        pass
-                    st.session_state.pop("df_pub_cache", None)
-                    st.session_state.pop("pub_to_delete", None)
-                    st.rerun()
-
-            confirm_delete_dialog()
-
-# -----------------------------
-# TAB: PREVIEW TABLES
-# -----------------------------
-with tab_preview_tables:
-    st.markdown("#### Click a row to preview")
-
-    df_display = df_view.copy()
-    if "Pages URL" in df_display.columns:
-        df_display["Pages URL"] = df_display["Pages URL"].astype(str)
-    else:
-        df_display["Pages URL"] = ""
-
-    preview_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Created By", "Created UTC"]
-    for c in preview_cols:
-        if c not in df_display.columns:
-            df_display[c] = ""
-
-    event = st.dataframe(
-        df_display[preview_cols],
-        use_container_width=True,
-        hide_index=True,
-        selection_mode="single-row",
-        on_select="rerun",
-        key="pub_table_click_df",
-        column_config={
-            "Pages URL": st.column_config.TextColumn("Pages URL"),
-        },
-    )
-
-    # ✅ Extract selected row → auto-preview popup
-    selected_rows = []
-    try:
-        selected_rows = event.selection.rows or []
-    except Exception:
-        selected_rows = []
-
-    if selected_rows:
-        selected_idx = selected_rows[0]
-        selected_url = (df_display.loc[selected_idx, "Pages URL"] or "").strip()
-
-        # ✅ row comes from df_display to ensure index alignment
-        row = df_display.loc[selected_idx]
-
-        selected_repo = (row.get("Repo") or "").strip()
-        selected_file = (row.get("File") or "").strip()
-
-        row_created_by = (row.get("Created By") or "").strip().lower()
-        current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-
-        # ✅ must pick a user in Published tab for editing
-        can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
-
-        # ✅ If we're about to open the delete-confirm dialog, do NOT open the preview dialog too
-        if st.session_state.get("pub_open_single_delete_dialog"):
-            pass
+                            st.cache_data.clear()
+                        except Exception:
+                            pass
+                        st.session_state.pop("df_pub_cache", None)
+                        st.session_state.pop("pub_to_delete", None)
+                        st.rerun()
+    
+                confirm_delete_dialog()
+    
+    # -----------------------------
+    # TAB: PREVIEW TABLES
+    # -----------------------------
+    with tab_preview_tables:
+        st.markdown("#### Click a row to preview")
+    
+        df_display = df_view.copy()
+        if "Pages URL" in df_display.columns:
+            df_display["Pages URL"] = df_display["Pages URL"].astype(str)
         else:
-            if selected_url:
-                # ✅ Prevent re-opening popup every rerun if same row clicked again
-                last = st.session_state.get("pub_last_preview_url", "")
-                if selected_url != last:
-                    st.session_state["pub_last_preview_url"] = selected_url
-        
-                # ✅ Popup modal preview (if supported)
-                if hasattr(st, "dialog"):
-        
-                    @st.dialog("Table Preview", width="large")
-                    def preview_dialog(url):
-                        st.markdown(f"**Previewing:** {url}")
-        
-                        c1, c2, c3 = st.columns(3)
-        
-                        with c1:
-                            st.link_button("🔗 Open live page", url, use_container_width=True)
-        
-                        with c2:
-                            if not can_edit:
-                                owner_name = row_created_by or "someone else"
-                                st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                                st.caption(f"Only {owner_name} can edit this table.")
-                            else:
-                                has_csv = (row.get("Has CSV") == "✅")
-        
-                                if not has_csv:
-                                    st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                    st.caption("This table was published before editable CSV support.")
-                                else:
-                                    if st.button(
-                                        "✏️ Edit this table",
-                                        key=f"pub_edit_{selected_repo}_{selected_file}",
-                                        use_container_width=True,
-                                    ):
-                                        st.session_state["pub_last_preview_url"] = ""
-                                        load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-        
-                        with c3:
-                            if st.button(
-                                "🗑️ Delete this table",
-                                key=f"pub_delete_single_btn_{selected_repo}_{selected_file}",
-                                use_container_width=True,
-                                type="secondary",
-                            ):
-                                st.session_state["pub_single_delete_target"] = {
-                                    "Repo": selected_repo,
-                                    "File": selected_file,
-                                    "Brand": row.get("Brand", ""),
-                                    "Table Name": row.get("Table Name", ""),
-                                    "Pages URL": url,
-                                    "Created By": row_created_by,
-                                    "Created UTC": row.get("Created UTC", ""),
-                                }
-                                st.session_state["pub_open_single_delete_dialog"] = True
-        
-                                # ✅ prevent the preview dialog from being re-triggered on rerun
-                                st.session_state["pub_last_preview_url"] = ""
-        
-                                # ✅ also clear the row selection so it doesn't auto-open preview again
-                                st.session_state.pop("pub_table_click_df", None)
-        
-                                st.rerun()
-        
-                        components.iframe(url, height=650, scrolling=True)
-        
-                    preview_dialog(selected_url)
-        
-                else:
-                    st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
-                    components.iframe(selected_url, height=820, scrolling=True)
-                        
-if hasattr(st, "dialog") and st.session_state.get("pub_open_single_delete_dialog"):
-
-    @st.dialog("Confirm delete", width="large")
-    def confirm_single_delete_dialog():
-        target = st.session_state.get("pub_single_delete_target") or {}
-        repo = (target.get("Repo") or "").strip()
-        file = (target.get("File") or "").strip()
-
-        st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
-        st.markdown("**You are deleting:**")
-        st.write(
-            {
-                "Brand": target.get("Brand", ""),
-                "Table Name": target.get("Table Name", ""),
-                "Repo": repo,
-                "File": file,
-                "Pages URL": target.get("Pages URL", ""),
-                "Created By": target.get("Created By", ""),
-                "Created UTC": target.get("Created UTC", ""),
-            }
+            df_display["Pages URL"] = ""
+    
+        preview_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Created By", "Created UTC"]
+        for c in preview_cols:
+            if c not in df_display.columns:
+                df_display[c] = ""
+    
+        event = st.dataframe(
+            df_display[preview_cols],
+            use_container_width=True,
+            hide_index=True,
+            selection_mode="single-row",
+            on_select="rerun",
+            key="pub_table_click_df",
+            column_config={
+                "Pages URL": st.column_config.TextColumn("Pages URL"),
+            },
         )
-
-        passkey = st.text_input("Enter admin passkey", type="password", key="pub_single_delete_passkey")
-        i_understand = st.checkbox("I understand this cannot be undone", key="pub_single_delete_ack")
-
-        do_it = st.button("✅ Confirm delete", disabled=not (passkey and i_understand), type="primary")
-
-        if do_it:
-            expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
-            if not expected or not hmac.compare_digest(passkey, expected):
-                st.error("Wrong passkey.")
-                return
-
-            try:
-                # delete main HTML
-                delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
-
-                # delete bundle at bundles/{file}.json
-                bundle_path = f"bundles/{file}.json"
-                delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
-
-                # remove from registry (recommended)
-                remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
-
-                st.success("Deleted successfully.")
-
-            except Exception as e:
-                st.error(f"Delete failed: {e}")
-                return
-
-            # Clean up + refresh
-            st.session_state["pub_open_single_delete_dialog"] = False
-            st.session_state.pop("pub_single_delete_target", None)
-
-            try:
-                st.cache_data.clear()
-            except Exception:
+    
+        # ✅ Extract selected row → auto-preview popup
+        selected_rows = []
+        try:
+            selected_rows = event.selection.rows or []
+        except Exception:
+            selected_rows = []
+    
+        if selected_rows:
+            selected_idx = selected_rows[0]
+            selected_url = (df_display.loc[selected_idx, "Pages URL"] or "").strip()
+    
+            # ✅ row comes from df_display to ensure index alignment
+            row = df_display.loc[selected_idx]
+    
+            selected_repo = (row.get("Repo") or "").strip()
+            selected_file = (row.get("File") or "").strip()
+    
+            row_created_by = (row.get("Created By") or "").strip().lower()
+            current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+    
+            # ✅ must pick a user in Published tab for editing
+            can_edit = bool(current_user) and ((not row_created_by) or (row_created_by == current_user))
+    
+            # ✅ If we're about to open the delete-confirm dialog, do NOT open the preview dialog too
+            if st.session_state.get("pub_open_single_delete_dialog"):
                 pass
-
-            st.session_state.pop("df_pub_cache", None)
-            st.rerun()
-
-    # reset the flag immediately so it doesn't reopen repeatedly unless set again
-    st.session_state["pub_open_single_delete_dialog"] = False
-    confirm_single_delete_dialog()           
+            else:
+                if selected_url:
+                    # ✅ Prevent re-opening popup every rerun if same row clicked again
+                    last = st.session_state.get("pub_last_preview_url", "")
+                    if selected_url != last:
+                        st.session_state["pub_last_preview_url"] = selected_url
+            
+                    # ✅ Popup modal preview (if supported)
+                    if hasattr(st, "dialog"):
+            
+                        @st.dialog("Table Preview", width="large")
+                        def preview_dialog(url):
+                            st.markdown(f"**Previewing:** {url}")
+            
+                            c1, c2, c3 = st.columns(3)
+            
+                            with c1:
+                                st.link_button("🔗 Open live page", url, use_container_width=True)
+            
+                            with c2:
+                                if not can_edit:
+                                    owner_name = row_created_by or "someone else"
+                                    st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
+                                    st.caption(f"Only {owner_name} can edit this table.")
+                                else:
+                                    has_csv = (row.get("Has CSV") == "✅")
+            
+                                    if not has_csv:
+                                        st.button("✏️ Edit this table", disabled=True, use_container_width=True)
+                                        st.caption("This table was published before editable CSV support.")
+                                    else:
+                                        if st.button(
+                                            "✏️ Edit this table",
+                                            key=f"pub_edit_{selected_repo}_{selected_file}",
+                                            use_container_width=True,
+                                        ):
+                                            st.session_state["pub_last_preview_url"] = ""
+                                            load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+            
+                            with c3:
+                                if st.button(
+                                    "🗑️ Delete this table",
+                                    key=f"pub_delete_single_btn_{selected_repo}_{selected_file}",
+                                    use_container_width=True,
+                                    type="secondary",
+                                ):
+                                    st.session_state["pub_single_delete_target"] = {
+                                        "Repo": selected_repo,
+                                        "File": selected_file,
+                                        "Brand": row.get("Brand", ""),
+                                        "Table Name": row.get("Table Name", ""),
+                                        "Pages URL": url,
+                                        "Created By": row_created_by,
+                                        "Created UTC": row.get("Created UTC", ""),
+                                    }
+                                    st.session_state["pub_open_single_delete_dialog"] = True
+            
+                                    # ✅ prevent the preview dialog from being re-triggered on rerun
+                                    st.session_state["pub_last_preview_url"] = ""
+            
+                                    # ✅ also clear the row selection so it doesn't auto-open preview again
+                                    st.session_state.pop("pub_table_click_df", None)
+            
+                                    st.rerun()
+            
+                            components.iframe(url, height=650, scrolling=True)
+            
+                        preview_dialog(selected_url)
+            
+                    else:
+                        st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
+                        components.iframe(selected_url, height=820, scrolling=True)
+                            
+    if hasattr(st, "dialog") and st.session_state.get("pub_open_single_delete_dialog"):
+    
+        @st.dialog("Confirm delete", width="large")
+        def confirm_single_delete_dialog():
+            target = st.session_state.get("pub_single_delete_target") or {}
+            repo = (target.get("Repo") or "").strip()
+            file = (target.get("File") or "").strip()
+    
+            st.warning("This will permanently delete the selected HTML + bundle files from GitHub.")
+            st.markdown("**You are deleting:**")
+            st.write(
+                {
+                    "Brand": target.get("Brand", ""),
+                    "Table Name": target.get("Table Name", ""),
+                    "Repo": repo,
+                    "File": file,
+                    "Pages URL": target.get("Pages URL", ""),
+                    "Created By": target.get("Created By", ""),
+                    "Created UTC": target.get("Created UTC", ""),
+                }
+            )
+    
+            passkey = st.text_input("Enter admin passkey", type="password", key="pub_single_delete_passkey")
+            i_understand = st.checkbox("I understand this cannot be undone", key="pub_single_delete_ack")
+    
+            do_it = st.button("✅ Confirm delete", disabled=not (passkey and i_understand), type="primary")
+    
+            if do_it:
+                expected = str(st.secrets.get("ADMIN_DELETE_CODE", "") or "")
+                if not expected or not hmac.compare_digest(passkey, expected):
+                    st.error("Wrong passkey.")
+                    return
+    
+                try:
+                    # delete main HTML
+                    delete_github_file(publish_owner, repo, token_to_use, file, branch="main")
+    
+                    # delete bundle at bundles/{file}.json
+                    bundle_path = f"bundles/{file}.json"
+                    delete_github_file(publish_owner, repo, token_to_use, bundle_path, branch="main")
+    
+                    # remove from registry (recommended)
+                    remove_from_widget_registry(publish_owner, repo, token_to_use, file, branch="main")
+    
+                    st.success("Deleted successfully.")
+    
+                except Exception as e:
+                    st.error(f"Delete failed: {e}")
+                    return
+    
+                # Clean up + refresh
+                st.session_state["pub_open_single_delete_dialog"] = False
+                st.session_state.pop("pub_single_delete_target", None)
+    
+                try:
+                    st.cache_data.clear()
+                except Exception:
+                    pass
+    
+                st.session_state.pop("df_pub_cache", None)
+                st.rerun()
+    
+        # reset the flag immediately so it doesn't reopen repeatedly unless set again
+        st.session_state["pub_open_single_delete_dialog"] = False
+        confirm_single_delete_dialog()           
 # =========================================================
 # ✅ TAB 1: Create New Table  (ALL CREATE UI HERE)
 # =========================================================
