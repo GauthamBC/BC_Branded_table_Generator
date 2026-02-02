@@ -3154,6 +3154,24 @@ df_view = df_view.reset_index(drop=True)
 # =========================================================
 # ✅ PREVIEW + DELETE in TABS (side-by-side)
 # =========================================================
+st.markdown(
+    """
+    <style>
+      /* Make the tab row full width */
+      div[data-baseweb="tab-list"] {
+        width: 100% !important;
+        display: flex !important;
+      }
+
+      /* Make each tab take equal width (50/50 for two tabs) */
+      button[data-baseweb="tab"] {
+        flex: 1 1 0 !important;
+        justify-content: center !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 tab_preview_tables, tab_delete_tables = st.tabs(
     ["Preview tables", "Delete tables (admin)"]
 )
