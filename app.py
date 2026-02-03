@@ -3421,9 +3421,16 @@ if main_tab == "Published Tables":
                                             key=f"pub_edit_{selected_repo}_{selected_file}",
                                             use_container_width=True,
                                         ):
+                                            # ✅ jump to editor tab first, otherwise rerun stays on Published Tables
+                                            st.session_state["main_tab"] = "Create New Table"
+                                        
+                                            # ✅ prevent the preview from re-opening on rerun
                                             st.session_state["pub_last_preview_url"] = ""
+                                            st.session_state.pop("pub_table_click_df", None)
+                                        
+                                            # ✅ load the bundle (this already calls st.rerun())
                                             load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-            
+                                                    
                             with c3:
                                 if st.button(
                                     "🗑️ Delete this table",
