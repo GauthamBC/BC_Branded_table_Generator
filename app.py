@@ -3734,44 +3734,65 @@ if main_tab == "Create New Table":
 st.markdown(
     """
     <style>
-           /* ✅ FULL WIDTH segmented control + 50/50 buttons */
+      /* ✅ FORCE segmented_control to truly span full width (Streamlit + BaseWeb layers) */
       div[data-testid="stSegmentedControl"]{
         width: 100% !important;
       }
       div[data-testid="stSegmentedControl"] > div{
         width: 100% !important;
+        max-width: none !important;
       }
+
+      /* BaseWeb segmented control wrapper */
+      div[data-testid="stSegmentedControl"] div[data-baseweb="segmented-control"]{
+        width: 100% !important;
+        max-width: none !important;
+        display: flex !important;
+      }
+      div[data-testid="stSegmentedControl"] div[data-baseweb="segmented-control"] > div{
+        width: 100% !important;
+        max-width: none !important;
+        display: flex !important;
+      }
+
+      /* The actual button row */
       div[data-testid="stSegmentedControl"] div[role="radiogroup"],
       div[data-testid="stSegmentedControl"] div[role="group"]{
         width: 100% !important;
+        max-width: none !important;
         display: flex !important;
       }
+
+      /* Buttons: 50/50, fill row */
       div[data-testid="stSegmentedControl"] button{
         flex: 1 1 0% !important;
+        min-width: 0 !important;
         width: 50% !important;
         justify-content: center !important;
         text-align: center !important;
       }
 
       /* Fallback radio (if segmented_control isn't available) – keep it 50/50 */
-      div[data-testid="stRadio"] > div {
-        width: 100%;
+      div[data-testid="stRadio"]{
+        width: 100% !important;
       }
-      div[data-testid="stRadio"] div[role="radiogroup"] {
-        display: flex;
-        width: 100%;
+      div[data-testid="stRadio"] > div{
+        width: 100% !important;
       }
-      div[data-testid="stRadio"] label {
-        flex: 1 1 0%;
-        justify-content: center;
-        text-align: center;
+      div[data-testid="stRadio"] div[role="radiogroup"]{
+        display: flex !important;
+        width: 100% !important;
+      }
+      div[data-testid="stRadio"] label{
+        flex: 1 1 0% !important;
+        justify-content: center !important;
+        text-align: center !important;
         margin-right: 0 !important;
       }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 left_view = tab_switch(
     "Left view",
     ["Edit table contents", "Get Embed Script"],
