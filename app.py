@@ -4637,8 +4637,11 @@ with right_col:
                 # - Right view is "Preview"
                 if _left_view == "Edit table contents" and _right_view == "Preview":
                     with preview_slot:
-                        st.session_state.setdefault("bt_show_preview", False)
+                        # ✅ Default preview ON the first time user enters Preview
+                        if "bt_show_preview" not in st.session_state:
+                            st.session_state["bt_show_preview"] = True
                         st.checkbox("Show live preview", key="bt_show_preview")
+
                 
                         if not st.session_state["bt_show_preview"]:
                             st.info("Preview hidden for performance.")
