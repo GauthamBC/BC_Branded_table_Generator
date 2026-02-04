@@ -3086,18 +3086,6 @@ st.markdown(
       div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
         align-self: flex-start;
       }
-          /* ✅ Make segmented controls full-width and split options 50/50 */
-      div[data-baseweb="segmented-control"]{
-        width: 100% !important;
-      }
-      div[data-baseweb="segmented-control"] > div{
-        width: 100% !important;
-        display: flex !important;
-      }
-      div[data-baseweb="segmented-control"] button{
-        flex: 1 1 0 !important;
-        justify-content: center !important;
-      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -3746,18 +3734,23 @@ if main_tab == "Create New Table":
 st.markdown(
     """
     <style>
-      /* Make the segmented control options split 50/50 and stretch full width */
-      div[data-testid="stSegmentedControl"] {
-        width: 100%;
+           /* ✅ FULL WIDTH segmented control + 50/50 buttons */
+      div[data-testid="stSegmentedControl"]{
+        width: 100% !important;
       }
-      div[data-testid="stSegmentedControl"] > div {
-        width: 100%;
-        display: flex;
+      div[data-testid="stSegmentedControl"] > div{
+        width: 100% !important;
       }
-      div[data-testid="stSegmentedControl"] label {
-        flex: 1 1 0%;
-        justify-content: center;
-        text-align: center;
+      div[data-testid="stSegmentedControl"] div[role="radiogroup"],
+      div[data-testid="stSegmentedControl"] div[role="group"]{
+        width: 100% !important;
+        display: flex !important;
+      }
+      div[data-testid="stSegmentedControl"] button{
+        flex: 1 1 0% !important;
+        width: 50% !important;
+        justify-content: center !important;
+        text-align: center !important;
       }
 
       /* Fallback radio (if segmented_control isn't available) – keep it 50/50 */
