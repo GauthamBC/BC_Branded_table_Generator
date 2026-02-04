@@ -3740,6 +3740,476 @@ with left_col:
         key="bt_left_view",
         default="Edit table contents",
     )
+    # ---------- EDIT TAB ----------     
+    if left_view == "Edit table contents":
+        st.markdown("#### Edit table contents")
+
+        # ✅ Confirm & Save at the top
+        st.button(
+            "Confirm & Save",
+            key="bt_confirm_btn",
+            use_container_width=True,
+            type="primary",
+            on_click=do_confirm_snapshot,
+        )
+
+        if st.session_state.get("bt_confirm_flash", False):
+            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+            st.session_state["bt_confirm_flash"] = False
+
+        SETTINGS_PANEL_HEIGHT = 590  # px
+
+        sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(["Header", "Footer", "Body", "Bars", "Heat"])
+
+        with sub_head:
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                show_header = st.checkbox(
+                    "Show Header Box",
+                    value=st.session_state.get("bt_show_header", True),
+                    key="bt_show_header",
+                )
+
+                st.text_input(
+                    "Table Title",
+                    value=st.session_state.get("bt_widget_title", "Table 1"),
+                    key="bt_widget_title",
+                    disabled=not show_header,
+                )
+                st.text_input(
+                    "Table Subtitle",
+                    value=st.session_state.get("bt_widget_subtitle", "Subheading"),
+                    key="bt_widget_subtitle",
+                    disabled=not show_header,
+                )
+
+                st.checkbox(
+                    "Center Title And Subtitle",
+                    value=st.session_state.get("bt_center_titles", False),
+                    key="bt_center_titles",
+                    disabled=not show_header,
+                )
+                st.checkbox(
+                    "Branded Title Colour",
+                    value=st.session_state.get("bt_branded_title_color", True),
+                    key="bt_branded_title_color",
+                    disabled=not show_header,
+                )
+
+        with sub_footer:
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                show_footer = st.checkbox(
+                    "Show Footer (Logo)",
+                    value=st.session_state.get("bt_show_footer", True),
+                    key="bt_show_footer",
+                )
+
+                st.selectbox(
+                    "Footer Logo Alignment",
+                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]),
+                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]).index(
+                        st.session_state.get("bt_footer_logo_align", "Center")
+                        if not st.session_state.get("bt_show_footer_notes", False)
+                        else (st.session_state.get("bt_footer_logo_align", "Right") if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"] else "Right")
+                    ),
+                    key="bt_footer_logo_align",
+                    disabled=not show_footer,
+                )
+
+                st.number_input(
+                    "Logo height (px)",
+                    min_value=16,
+                    max_value=90,
+                    value=int(st.session_state.get("bt_footer_logo_h", 36)),
+                    step=2,
+                    key="bt_footer_logo_h",
+                    disabled=not show_footer,
+                    help="Adjust the logo height. Footer height stays fixed.",
+                )
+
+                st.divider()
+
+                show_footer_notes = st.checkbox(
+                    "Show Footer Notes",
+                    value=st.session_state.get("bt_show_footer_notes", False),
+                    key="bt_show_footer_notes",
+                    disabled=(not show_footer),
+                    on_change=on_footer_notes_toggle,
+                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically.",
+                )
+
+                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
+
+                st.text_area(
+                    "Footer notes",
+                    value=st.session_state.get("bt_footer_notes", ""),
+                    key="bt_footer_notes",
+                    height=140,
+                    disabled=not (show_footer and show_footer_notes),
+                    help="Bold: **text**  •  Italic: *text*",
+                )
+
+                components.html(
+                    """
+                    <script>
+                    (function(){
+                      const doc = window.parent && window.parent.document;
+                      if(!doc) return;
+
+                      function findTextarea(){
+                        return doc.querySelector('textarea[aria-label="Footer notes"]');
+                      }
+
+                      function dispatchStreamlitInput(el){
+                        el.dispatchEvent(new Event('input', { bubbles:true }));
+                      }
+
+                      function applyEdit(ta, start, end, replacement, selectMode){
+                        ta.focus();
+                        if (typeof ta.setRangeText === 'function'){
+                          ta.setRangeText(replacement, start, end, selectMode || 'preserve');
+                          dispatchStreamlitInput(ta);
+                          return;
+                        }
+                        const v = ta.value ?? '';
+                        ta.value = v.slice(0, start) + replacement + v.slice(end);
+                        dispatchStreamlitInput(ta);
+                      }
+
+                      function getValue(el){ return el?.value ?? ''; }
+
+                      function hasWrapper(text, left, right){
+                        return text.startsWith(left) && text.endsWith(right);
+                      }
+
+                      function toggleWrapSelection(ta, left, right){
+                        const start = ta.selectionStart ?? 0;
+                        const end = ta.selectionEnd ?? 0;
+                        const v = getValue(ta);
+
+                        if (start === end){
+                          applyEdit(ta, start, end, left + right, 'end');
+                          const pos = start + left.length;
+                          try{ ta.setSelectionRange(pos, pos); }catch(e){}
+                          return;
+                        }
+
+                        const sel = v.slice(start, end);
+
+                        if (hasWrapper(sel, left, right)){
+                          const unwrapped = sel.slice(left.length, sel.length - right.length);
+                          applyEdit(ta, start, end, unwrapped, 'select');
+                          return;
+                        }
+
+                        applyEdit(ta, start, end, left + sel + right, 'select');
+                      }
+
+                      function stripFormatting(text){
+                        let t = text ?? "";
+                        t = t.replace(/\\*\\*/g, "");
+                        t = t.replace(/\\*/g, "");
+                        return t;
+                      }
+
+                      function stripAllFormatting(ta){
+                        const v = getValue(ta);
+                        const cleaned = stripFormatting(v);
+                        if (cleaned !== v){
+                          applyEdit(ta, 0, v.length, cleaned, 'preserve');
+                        }
+                      }
+
+                      function mount(ta){
+                        if(!ta || ta.dataset.btMounted === '1') return;
+                        ta.dataset.btMounted = '1';
+
+                        const isMac = navigator.platform.toUpperCase().includes('MAC');
+
+                        ta.addEventListener('keydown', (e)=>{
+                          const mod = isMac ? e.metaKey : e.ctrlKey;
+                          if(!mod) return;
+
+                          const k = (e.key || '').toLowerCase();
+
+                          if (k === 'b'){
+                            e.preventDefault();
+                            toggleWrapSelection(ta, '**', '**');
+                          }
+
+                          if (k === 'i'){
+                            e.preventDefault();
+                            toggleWrapSelection(ta, '*', '*');
+                          }
+
+                          if (k === 'x' && e.shiftKey){
+                            e.preventDefault();
+                            stripAllFormatting(ta);
+                          }
+                        }, true);
+                      }
+
+                      const obs = new MutationObserver(()=>{
+                        const ta = findTextarea();
+                        if(ta) mount(ta);
+                      });
+
+                      obs.observe(doc.body, { childList:true, subtree:true });
+
+                      const ta0 = findTextarea();
+                      if(ta0) mount(ta0);
+
+                      setTimeout(()=>{ try{ obs.disconnect(); }catch(e){} }, 120000);
+                    })();
+                    </script>
+                    """,
+                    height=1,
+                )
+
+        with sub_body:
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                st.checkbox(
+                    "Striped Rows",
+                    value=st.session_state.get("bt_striped_rows", True),
+                    key="bt_striped_rows",
+                )
+        
+                st.selectbox(
+                    "Table Content Alignment",
+                    options=["Center", "Left", "Right"],
+                    index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
+                    key="bt_cell_align",
+                )
+        
+                st.selectbox(
+                    "Column header style",
+                    options=["Keep original", "Sentence case", "Title Case", "ALL CAPS"],
+                    index=["Keep original", "Sentence case", "Title Case", "ALL CAPS"].index(st.session_state.get("bt_header_style", "Keep original")),
+                    key="bt_header_style",
+                    help="Controls how column headers are displayed. This does not change your CSV data.",
+                )
+        
+                st.divider()
+                st.markdown("#### Table Controls")
+        
+                st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
+                st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
+        
+                st.checkbox(
+                    "Show Page Numbers",
+                    value=st.session_state.get("bt_show_page_numbers", True),
+                    key="bt_show_page_numbers",
+                    disabled=not st.session_state.get("bt_show_pager", True),
+                    help="Only works when Pager is enabled.",
+                )
+        
+                st.checkbox(
+                    "Show Embed / Download Button",
+                    value=st.session_state.get("bt_show_embed", True),
+                    key="bt_show_embed",
+                )
+        
+                st.divider()
+                st.markdown("#### Column Formatting (Live Preview Only)")
+        
+                st.session_state.setdefault("bt_col_format_rules", {})
+        
+                df_for_cols = st.session_state.get("bt_df_uploaded")
+                all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
+        
+                if not all_cols:
+                    st.info("Upload a CSV to enable column formatting.")
+                else:
+                    st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
+                    st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
+        
+                    mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+                    if mode in ("prefix", "suffix"):
+                        st.text_input("Value", key="bt_fmt_value", placeholder="$")
+                    else:
+                        st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
+        
+                    def add_update_fmt():
+                        col = st.session_state.get("bt_fmt_selected_col")
+                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+        
+                        if mode in ("prefix", "suffix"):
+                            v = (st.session_state.get("bt_fmt_value", "") or "").strip()
+                            if not v:
+                                st.session_state["bt_col_format_rules"].pop(col, None)
+                                return
+                            rule = {"mode": mode, "value": v}
+                        else:
+                            rule = {"mode": mode}
+        
+                        st.session_state["bt_col_format_rules"][col] = rule
+        
+                    st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
+        
+                    if st.session_state["bt_col_format_rules"]:
+                        st.caption("Current formatting rules:")
+                        st.json(st.session_state["bt_col_format_rules"])
+
+        with sub_bars:
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                st.markdown("#### Bar Columns")
+
+                df_for_cols = st.session_state.get("bt_df_uploaded")
+                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
+                    st.info("Upload a CSV to enable bars.")
+                else:
+                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
+
+                    if not numeric_cols:
+                        st.warning("No numeric columns found for bars.")
+                    else:
+                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
+                        st.session_state["bt_bar_columns"] = [
+                            c for c in (st.session_state.get("bt_bar_columns") or [])
+                            if c in numeric_cols
+                        ]
+
+                        st.multiselect(
+                            "Choose columns to display as bars",
+                            options=numeric_cols,
+                            default=st.session_state.get("bt_bar_columns", []),
+                            key="bt_bar_columns",
+                            on_change=prune_bar_overrides,
+                            help="Only numeric columns can be converted into bar columns.",
+                        )
+
+                        st.number_input(
+                            "Bar width (px)",
+                            min_value=120,
+                            max_value=360,
+                            value=int(st.session_state.get("bt_bar_fixed_w", 200)),
+                            step=10,
+                            key="bt_bar_fixed_w",
+                            help="This controls the fixed bar track width for all bar columns.",
+                        )
+
+                        st.divider()
+                        st.markdown("#### Max Value Overrides (Optional)")
+
+                        st.session_state.setdefault("bt_bar_max_overrides", {})
+
+                        selected = st.session_state.get("bt_bar_columns", [])
+                        if not selected:
+                            st.caption("Select at least one bar column to set overrides.")
+                        else:
+                            for col in selected:
+                                current = st.session_state["bt_bar_max_overrides"].get(col, "")
+                                new_val = st.text_input(
+                                    f"Max override for: {col}",
+                                    value=str(current),
+                                    help="Leave blank to auto-scale based on max value in the column.",
+                                    key=f"bt_bar_override_{col}",
+                                ).strip()
+
+                                if new_val == "":
+                                    st.session_state["bt_bar_max_overrides"].pop(col, None)
+                                else:
+                                    try:
+                                        st.session_state["bt_bar_max_overrides"][col] = float(new_val)
+                                    except Exception:
+                                        st.warning(f"'{new_val}' is not a valid number for {col}.")
+        with sub_heat:
+            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                st.markdown("#### Heatmap Columns")
+
+                df_for_cols = st.session_state.get("bt_df_uploaded")
+                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
+                    st.info("Upload a CSV to enable heatmap.")
+                else:
+                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
+
+                    if not numeric_cols:
+                        st.warning("No numeric columns found for heatmap.")
+                    else:
+                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
+                        st.session_state["bt_heat_columns"] = [
+                            c for c in (st.session_state.get("bt_heat_columns") or [])
+                            if c in numeric_cols
+                        ]
+
+                        st.multiselect(
+                            "Choose numeric columns to shade as a heatmap",
+                            options=numeric_cols,
+                            default=st.session_state.get("bt_heat_columns", []),
+                            key="bt_heat_columns",
+                            help="Applies background intensity based on value within each column.",
+                        )
+
+                        st.selectbox(
+                            "Heatmap style",
+                            options=["Branded heatmap", "Standard heatmap (5 colors)"],
+                            index=["Branded heatmap", "Standard heatmap (5 colors)"].index(
+                                st.session_state.get("bt_heatmap_style", "Branded heatmap")
+                            ),
+                            key="bt_heatmap_style",
+                            help="Branded = current brand color intensity. Standard = 5-color scale (Green → Blue → Yellow → Orange → Red).",
+                        )
+
+                        st.slider(
+                            "Heat strength",
+                            min_value=0.10,
+                            max_value=0.85,
+                            value=float(st.session_state.get("bt_heat_strength", 0.55)),
+                            step=0.05,
+                            key="bt_heat_strength",
+                            help="Controls max opacity of the heat shading.",
+                        )
+                        st.checkbox(
+                            "Show heatmap scale in footer",
+                            value=bool(st.session_state.get("bt_show_heat_scale", False)),
+                            key="bt_show_heat_scale",
+                            disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
+                            on_change=on_heat_scale_toggle,   # ✅ ADD THIS
+                            help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
+                        )
+
+                        st.divider()
+                        st.markdown("#### Range Overrides (Optional)")
+                        st.session_state.setdefault("bt_heat_overrides", {})
+
+                        selected = st.session_state.get("bt_heat_columns", [])
+                        if not selected:
+                            st.caption("Select at least one heat column to set overrides.")
+                        else:
+                            for col in selected:
+                                cur = st.session_state["bt_heat_overrides"].get(col, {}) or {}
+                                c1, c2 = st.columns(2)
+
+                                vmin = c1.text_input(
+                                    f"Min override: {col}",
+                                    value="" if cur.get("min") is None else str(cur.get("min")),
+                                    key=f"bt_heat_min_{col}",
+                                    help="Leave blank to auto-use column min.",
+                                ).strip()
+
+                                vmax = c2.text_input(
+                                    f"Max override: {col}",
+                                    value="" if cur.get("max") is None else str(cur.get("max")),
+                                    key=f"bt_heat_max_{col}",
+                                    help="Leave blank to auto-use column max.",
+                                ).strip()
+
+                                st.session_state["bt_heat_overrides"].setdefault(col, {})
+
+                                if vmin == "":
+                                    st.session_state["bt_heat_overrides"][col].pop("min", None)
+                                else:
+                                    try:
+                                        st.session_state["bt_heat_overrides"][col]["min"] = float(vmin)
+                                    except Exception:
+                                        st.warning(f"'{vmin}' is not a valid min for {col}.")
+
+                                if vmax == "":
+                                    st.session_state["bt_heat_overrides"][col].pop("max", None)
+                                else:
+                                    try:
+                                        st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
+                                    except Exception:
+                                        st.warning(f"'{vmax}' is not a valid max for {col}.")                                   
 
 # ✅ Right side: ONLY run preview/editor when left_view is "Edit table contents"
 with right_col:
@@ -3826,478 +4296,7 @@ with right_col:
                 if st.session_state.get("bt_body_apply_flash", False):
                     st.success("Preview updated ✅")
                     st.session_state["bt_body_apply_flash"] = False
-
-                    # ---------- EDIT TAB ----------
-                    if left_view == "Edit table contents":
-                        st.markdown("#### Edit table contents")
-
-                        # ✅ Confirm & Save at the top
-                        st.button(
-                            "Confirm & Save",
-                            key="bt_confirm_btn",
-                            use_container_width=True,
-                            type="primary",
-                            on_click=do_confirm_snapshot,
-                        )
-
-                        if st.session_state.get("bt_confirm_flash", False):
-                            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-                            st.session_state["bt_confirm_flash"] = False
-
-                        SETTINGS_PANEL_HEIGHT = 590  # px
-
-                        sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(["Header", "Footer", "Body", "Bars", "Heat"])
-
-                        with sub_head:
-                            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                                show_header = st.checkbox(
-                                    "Show Header Box",
-                                    value=st.session_state.get("bt_show_header", True),
-                                    key="bt_show_header",
-                                )
-
-                                st.text_input(
-                                    "Table Title",
-                                    value=st.session_state.get("bt_widget_title", "Table 1"),
-                                    key="bt_widget_title",
-                                    disabled=not show_header,
-                                )
-                                st.text_input(
-                                    "Table Subtitle",
-                                    value=st.session_state.get("bt_widget_subtitle", "Subheading"),
-                                    key="bt_widget_subtitle",
-                                    disabled=not show_header,
-                                )
-
-                                st.checkbox(
-                                    "Center Title And Subtitle",
-                                    value=st.session_state.get("bt_center_titles", False),
-                                    key="bt_center_titles",
-                                    disabled=not show_header,
-                                )
-                                st.checkbox(
-                                    "Branded Title Colour",
-                                    value=st.session_state.get("bt_branded_title_color", True),
-                                    key="bt_branded_title_color",
-                                    disabled=not show_header,
-                                )
-
-                        with sub_footer:
-                            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                                show_footer = st.checkbox(
-                                    "Show Footer (Logo)",
-                                    value=st.session_state.get("bt_show_footer", True),
-                                    key="bt_show_footer",
-                                )
-
-                                st.selectbox(
-                                    "Footer Logo Alignment",
-                                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]),
-                                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]).index(
-                                        st.session_state.get("bt_footer_logo_align", "Center")
-                                        if not st.session_state.get("bt_show_footer_notes", False)
-                                        else (st.session_state.get("bt_footer_logo_align", "Right") if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"] else "Right")
-                                    ),
-                                    key="bt_footer_logo_align",
-                                    disabled=not show_footer,
-                                )
-
-                                st.number_input(
-                                    "Logo height (px)",
-                                    min_value=16,
-                                    max_value=90,
-                                    value=int(st.session_state.get("bt_footer_logo_h", 36)),
-                                    step=2,
-                                    key="bt_footer_logo_h",
-                                    disabled=not show_footer,
-                                    help="Adjust the logo height. Footer height stays fixed.",
-                                )
-
-                                st.divider()
-
-                                show_footer_notes = st.checkbox(
-                                    "Show Footer Notes",
-                                    value=st.session_state.get("bt_show_footer_notes", False),
-                                    key="bt_show_footer_notes",
-                                    disabled=(not show_footer),
-                                    on_change=on_footer_notes_toggle,
-                                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically.",
-                                )
-
-                                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
-
-                                st.text_area(
-                                    "Footer notes",
-                                    value=st.session_state.get("bt_footer_notes", ""),
-                                    key="bt_footer_notes",
-                                    height=140,
-                                    disabled=not (show_footer and show_footer_notes),
-                                    help="Bold: **text**  •  Italic: *text*",
-                                )
-
-                                components.html(
-                                    """
-                                    <script>
-                                    (function(){
-                                      const doc = window.parent && window.parent.document;
-                                      if(!doc) return;
-
-                                      function findTextarea(){
-                                        return doc.querySelector('textarea[aria-label="Footer notes"]');
-                                      }
-
-                                      function dispatchStreamlitInput(el){
-                                        el.dispatchEvent(new Event('input', { bubbles:true }));
-                                      }
-
-                                      function applyEdit(ta, start, end, replacement, selectMode){
-                                        ta.focus();
-                                        if (typeof ta.setRangeText === 'function'){
-                                          ta.setRangeText(replacement, start, end, selectMode || 'preserve');
-                                          dispatchStreamlitInput(ta);
-                                          return;
-                                        }
-                                        const v = ta.value ?? '';
-                                        ta.value = v.slice(0, start) + replacement + v.slice(end);
-                                        dispatchStreamlitInput(ta);
-                                      }
-
-                                      function getValue(el){ return el?.value ?? ''; }
-
-                                      function hasWrapper(text, left, right){
-                                        return text.startsWith(left) && text.endsWith(right);
-                                      }
-
-                                      function toggleWrapSelection(ta, left, right){
-                                        const start = ta.selectionStart ?? 0;
-                                        const end = ta.selectionEnd ?? 0;
-                                        const v = getValue(ta);
-
-                                        if (start === end){
-                                          applyEdit(ta, start, end, left + right, 'end');
-                                          const pos = start + left.length;
-                                          try{ ta.setSelectionRange(pos, pos); }catch(e){}
-                                          return;
-                                        }
-
-                                        const sel = v.slice(start, end);
-
-                                        if (hasWrapper(sel, left, right)){
-                                          const unwrapped = sel.slice(left.length, sel.length - right.length);
-                                          applyEdit(ta, start, end, unwrapped, 'select');
-                                          return;
-                                        }
-
-                                        applyEdit(ta, start, end, left + sel + right, 'select');
-                                      }
-
-                                      function stripFormatting(text){
-                                        let t = text ?? "";
-                                        t = t.replace(/\\*\\*/g, "");
-                                        t = t.replace(/\\*/g, "");
-                                        return t;
-                                      }
-
-                                      function stripAllFormatting(ta){
-                                        const v = getValue(ta);
-                                        const cleaned = stripFormatting(v);
-                                        if (cleaned !== v){
-                                          applyEdit(ta, 0, v.length, cleaned, 'preserve');
-                                        }
-                                      }
-
-                                      function mount(ta){
-                                        if(!ta || ta.dataset.btMounted === '1') return;
-                                        ta.dataset.btMounted = '1';
-
-                                        const isMac = navigator.platform.toUpperCase().includes('MAC');
-
-                                        ta.addEventListener('keydown', (e)=>{
-                                          const mod = isMac ? e.metaKey : e.ctrlKey;
-                                          if(!mod) return;
-
-                                          const k = (e.key || '').toLowerCase();
-
-                                          if (k === 'b'){
-                                            e.preventDefault();
-                                            toggleWrapSelection(ta, '**', '**');
-                                          }
-
-                                          if (k === 'i'){
-                                            e.preventDefault();
-                                            toggleWrapSelection(ta, '*', '*');
-                                          }
-
-                                          if (k === 'x' && e.shiftKey){
-                                            e.preventDefault();
-                                            stripAllFormatting(ta);
-                                          }
-                                        }, true);
-                                      }
-
-                                      const obs = new MutationObserver(()=>{
-                                        const ta = findTextarea();
-                                        if(ta) mount(ta);
-                                      });
-
-                                      obs.observe(doc.body, { childList:true, subtree:true });
-
-                                      const ta0 = findTextarea();
-                                      if(ta0) mount(ta0);
-
-                                      setTimeout(()=>{ try{ obs.disconnect(); }catch(e){} }, 120000);
-                                    })();
-                                    </script>
-                                    """,
-                                    height=1,
-                                )
-
-                        with sub_body:
-                            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                                st.checkbox(
-                                    "Striped Rows",
-                                    value=st.session_state.get("bt_striped_rows", True),
-                                    key="bt_striped_rows",
-                                )
-                        
-                                st.selectbox(
-                                    "Table Content Alignment",
-                                    options=["Center", "Left", "Right"],
-                                    index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
-                                    key="bt_cell_align",
-                                )
-                        
-                                st.selectbox(
-                                    "Column header style",
-                                    options=["Keep original", "Sentence case", "Title Case", "ALL CAPS"],
-                                    index=["Keep original", "Sentence case", "Title Case", "ALL CAPS"].index(st.session_state.get("bt_header_style", "Keep original")),
-                                    key="bt_header_style",
-                                    help="Controls how column headers are displayed. This does not change your CSV data.",
-                                )
-                        
-                                st.divider()
-                                st.markdown("#### Table Controls")
-                        
-                                st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
-                                st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
-                        
-                                st.checkbox(
-                                    "Show Page Numbers",
-                                    value=st.session_state.get("bt_show_page_numbers", True),
-                                    key="bt_show_page_numbers",
-                                    disabled=not st.session_state.get("bt_show_pager", True),
-                                    help="Only works when Pager is enabled.",
-                                )
-                        
-                                st.checkbox(
-                                    "Show Embed / Download Button",
-                                    value=st.session_state.get("bt_show_embed", True),
-                                    key="bt_show_embed",
-                                )
-                        
-                                st.divider()
-                                st.markdown("#### Column Formatting (Live Preview Only)")
-                        
-                                st.session_state.setdefault("bt_col_format_rules", {})
-                        
-                                df_for_cols = st.session_state.get("bt_df_uploaded")
-                                all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
-                        
-                                if not all_cols:
-                                    st.info("Upload a CSV to enable column formatting.")
-                                else:
-                                    st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
-                                    st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
-                        
-                                    mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                                    if mode in ("prefix", "suffix"):
-                                        st.text_input("Value", key="bt_fmt_value", placeholder="$")
-                                    else:
-                                        st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
-                        
-                                    def add_update_fmt():
-                                        col = st.session_state.get("bt_fmt_selected_col")
-                                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                        
-                                        if mode in ("prefix", "suffix"):
-                                            v = (st.session_state.get("bt_fmt_value", "") or "").strip()
-                                            if not v:
-                                                st.session_state["bt_col_format_rules"].pop(col, None)
-                                                return
-                                            rule = {"mode": mode, "value": v}
-                                        else:
-                                            rule = {"mode": mode}
-                        
-                                        st.session_state["bt_col_format_rules"][col] = rule
-                        
-                                    st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-                        
-                                    if st.session_state["bt_col_format_rules"]:
-                                        st.caption("Current formatting rules:")
-                                        st.json(st.session_state["bt_col_format_rules"])
-
-                        with sub_bars:
-                            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                                st.markdown("#### Bar Columns")
-
-                                df_for_cols = st.session_state.get("bt_df_uploaded")
-                                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
-                                    st.info("Upload a CSV to enable bars.")
-                                else:
-                                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
-
-                                    if not numeric_cols:
-                                        st.warning("No numeric columns found for bars.")
-                                    else:
-                                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
-                                        st.session_state["bt_bar_columns"] = [
-                                            c for c in (st.session_state.get("bt_bar_columns") or [])
-                                            if c in numeric_cols
-                                        ]
-
-                                        st.multiselect(
-                                            "Choose columns to display as bars",
-                                            options=numeric_cols,
-                                            default=st.session_state.get("bt_bar_columns", []),
-                                            key="bt_bar_columns",
-                                            on_change=prune_bar_overrides,
-                                            help="Only numeric columns can be converted into bar columns.",
-                                        )
-
-                                        st.number_input(
-                                            "Bar width (px)",
-                                            min_value=120,
-                                            max_value=360,
-                                            value=int(st.session_state.get("bt_bar_fixed_w", 200)),
-                                            step=10,
-                                            key="bt_bar_fixed_w",
-                                            help="This controls the fixed bar track width for all bar columns.",
-                                        )
-
-                                        st.divider()
-                                        st.markdown("#### Max Value Overrides (Optional)")
-
-                                        st.session_state.setdefault("bt_bar_max_overrides", {})
-
-                                        selected = st.session_state.get("bt_bar_columns", [])
-                                        if not selected:
-                                            st.caption("Select at least one bar column to set overrides.")
-                                        else:
-                                            for col in selected:
-                                                current = st.session_state["bt_bar_max_overrides"].get(col, "")
-                                                new_val = st.text_input(
-                                                    f"Max override for: {col}",
-                                                    value=str(current),
-                                                    help="Leave blank to auto-scale based on max value in the column.",
-                                                    key=f"bt_bar_override_{col}",
-                                                ).strip()
-
-                                                if new_val == "":
-                                                    st.session_state["bt_bar_max_overrides"].pop(col, None)
-                                                else:
-                                                    try:
-                                                        st.session_state["bt_bar_max_overrides"][col] = float(new_val)
-                                                    except Exception:
-                                                        st.warning(f"'{new_val}' is not a valid number for {col}.")
-                        with sub_heat:
-                            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                                st.markdown("#### Heatmap Columns")
-    
-                                df_for_cols = st.session_state.get("bt_df_uploaded")
-                                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
-                                    st.info("Upload a CSV to enable heatmap.")
-                                else:
-                                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
-    
-                                    if not numeric_cols:
-                                        st.warning("No numeric columns found for heatmap.")
-                                    else:
-                                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
-                                        st.session_state["bt_heat_columns"] = [
-                                            c for c in (st.session_state.get("bt_heat_columns") or [])
-                                            if c in numeric_cols
-                                        ]
-
-                                        st.multiselect(
-                                            "Choose numeric columns to shade as a heatmap",
-                                            options=numeric_cols,
-                                            default=st.session_state.get("bt_heat_columns", []),
-                                            key="bt_heat_columns",
-                                            help="Applies background intensity based on value within each column.",
-                                        )
-
-                                        st.selectbox(
-                                            "Heatmap style",
-                                            options=["Branded heatmap", "Standard heatmap (5 colors)"],
-                                            index=["Branded heatmap", "Standard heatmap (5 colors)"].index(
-                                                st.session_state.get("bt_heatmap_style", "Branded heatmap")
-                                            ),
-                                            key="bt_heatmap_style",
-                                            help="Branded = current brand color intensity. Standard = 5-color scale (Green → Blue → Yellow → Orange → Red).",
-                                        )
-    
-                                        st.slider(
-                                            "Heat strength",
-                                            min_value=0.10,
-                                            max_value=0.85,
-                                            value=float(st.session_state.get("bt_heat_strength", 0.55)),
-                                            step=0.05,
-                                            key="bt_heat_strength",
-                                            help="Controls max opacity of the heat shading.",
-                                        )
-                                        st.checkbox(
-                                            "Show heatmap scale in footer",
-                                            value=bool(st.session_state.get("bt_show_heat_scale", False)),
-                                            key="bt_show_heat_scale",
-                                            disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
-                                            on_change=on_heat_scale_toggle,   # ✅ ADD THIS
-                                            help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
-                                        )
-    
-                                        st.divider()
-                                        st.markdown("#### Range Overrides (Optional)")
-                                        st.session_state.setdefault("bt_heat_overrides", {})
-    
-                                        selected = st.session_state.get("bt_heat_columns", [])
-                                        if not selected:
-                                            st.caption("Select at least one heat column to set overrides.")
-                                        else:
-                                            for col in selected:
-                                                cur = st.session_state["bt_heat_overrides"].get(col, {}) or {}
-                                                c1, c2 = st.columns(2)
-    
-                                                vmin = c1.text_input(
-                                                    f"Min override: {col}",
-                                                    value="" if cur.get("min") is None else str(cur.get("min")),
-                                                    key=f"bt_heat_min_{col}",
-                                                    help="Leave blank to auto-use column min.",
-                                                ).strip()
-    
-                                                vmax = c2.text_input(
-                                                    f"Max override: {col}",
-                                                    value="" if cur.get("max") is None else str(cur.get("max")),
-                                                    key=f"bt_heat_max_{col}",
-                                                    help="Leave blank to auto-use column max.",
-                                                ).strip()
-    
-                                                st.session_state["bt_heat_overrides"].setdefault(col, {})
-    
-                                                if vmin == "":
-                                                    st.session_state["bt_heat_overrides"][col].pop("min", None)
-                                                else:
-                                                    try:
-                                                        st.session_state["bt_heat_overrides"][col]["min"] = float(vmin)
-                                                    except Exception:
-                                                        st.warning(f"'{vmin}' is not a valid min for {col}.")
-    
-                                                if vmax == "":
-                                                    st.session_state["bt_heat_overrides"][col].pop("max", None)
-                                                else:
-                                                    try:
-                                                        st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
-                                                    except Exception:
-                                                        st.warning(f"'{vmax}' is not a valid max for {col}.")                                   
-
+                    
                     # ---------- EMBED TAB ----------
                     else:
                         # Live publish status UI
