@@ -3734,7 +3734,7 @@ left_col, right_col = st.columns([1, 3], gap="large")
 
 # ===================== Left: Tabs =====================
 with left_col:
-        left_view = tab_switch(
+    left_view = tab_switch(
         "Left view",
         ["Edit table contents", "Get Embed Script"],
         key="bt_left_view",
