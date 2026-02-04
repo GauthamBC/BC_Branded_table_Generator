@@ -3740,7 +3740,8 @@ with left_col:
         key="bt_left_view",
         default="Edit table contents",
     )
-    # ---------- EDIT TAB ----------     
+
+    # ---------- EDIT TAB ----------
     if left_view == "Edit table contents":
         st.markdown("#### Edit table contents")
 
@@ -3758,8 +3759,9 @@ with left_col:
             st.session_state["bt_confirm_flash"] = False
 
         SETTINGS_PANEL_HEIGHT = 590  # px
-
-        sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(["Header", "Footer", "Body", "Bars", "Heat"])
+        sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(
+            ["Header", "Footer", "Body", "Bars", "Heat"]
+        )
 
         with sub_head:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
@@ -3805,11 +3807,15 @@ with left_col:
 
                 st.selectbox(
                     "Footer Logo Alignment",
-                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]),
-                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]).index(
+                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False)
+                             else ["Right", "Center", "Left"]),
+                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False)
+                           else ["Right", "Center", "Left"]).index(
                         st.session_state.get("bt_footer_logo_align", "Center")
                         if not st.session_state.get("bt_show_footer_notes", False)
-                        else (st.session_state.get("bt_footer_logo_align", "Right") if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"] else "Right")
+                        else (st.session_state.get("bt_footer_logo_align", "Right")
+                              if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"]
+                              else "Right")
                     ),
                     key="bt_footer_logo_align",
                     disabled=not show_footer,
@@ -3858,11 +3864,9 @@ with left_col:
                       function findTextarea(){
                         return doc.querySelector('textarea[aria-label="Footer notes"]');
                       }
-
                       function dispatchStreamlitInput(el){
                         el.dispatchEvent(new Event('input', { bubbles:true }));
                       }
-
                       function applyEdit(ta, start, end, replacement, selectMode){
                         ta.focus();
                         if (typeof ta.setRangeText === 'function'){
@@ -3874,13 +3878,10 @@ with left_col:
                         ta.value = v.slice(0, start) + replacement + v.slice(end);
                         dispatchStreamlitInput(ta);
                       }
-
                       function getValue(el){ return el?.value ?? ''; }
-
                       function hasWrapper(text, left, right){
                         return text.startsWith(left) && text.endsWith(right);
                       }
-
                       function toggleWrapSelection(ta, left, right){
                         const start = ta.selectionStart ?? 0;
                         const end = ta.selectionEnd ?? 0;
@@ -3892,25 +3893,20 @@ with left_col:
                           try{ ta.setSelectionRange(pos, pos); }catch(e){}
                           return;
                         }
-
                         const sel = v.slice(start, end);
-
                         if (hasWrapper(sel, left, right)){
                           const unwrapped = sel.slice(left.length, sel.length - right.length);
                           applyEdit(ta, start, end, unwrapped, 'select');
                           return;
                         }
-
                         applyEdit(ta, start, end, left + sel + right, 'select');
                       }
-
                       function stripFormatting(text){
                         let t = text ?? "";
                         t = t.replace(/\\*\\*/g, "");
                         t = t.replace(/\\*/g, "");
                         return t;
                       }
-
                       function stripAllFormatting(ta){
                         const v = getValue(ta);
                         const cleaned = stripFormatting(v);
@@ -3918,7 +3914,6 @@ with left_col:
                           applyEdit(ta, 0, v.length, cleaned, 'preserve');
                         }
                       }
-
                       function mount(ta){
                         if(!ta || ta.dataset.btMounted === '1') return;
                         ta.dataset.btMounted = '1';
@@ -3930,17 +3925,14 @@ with left_col:
                           if(!mod) return;
 
                           const k = (e.key || '').toLowerCase();
-
                           if (k === 'b'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '**', '**');
                           }
-
                           if (k === 'i'){
                             e.preventDefault();
                             toggleWrapSelection(ta, '*', '*');
                           }
-
                           if (k === 'x' && e.shiftKey){
                             e.preventDefault();
                             stripAllFormatting(ta);
@@ -3972,28 +3964,30 @@ with left_col:
                     value=st.session_state.get("bt_striped_rows", True),
                     key="bt_striped_rows",
                 )
-        
+
                 st.selectbox(
                     "Table Content Alignment",
                     options=["Center", "Left", "Right"],
                     index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
                     key="bt_cell_align",
                 )
-        
+
                 st.selectbox(
                     "Column header style",
                     options=["Keep original", "Sentence case", "Title Case", "ALL CAPS"],
-                    index=["Keep original", "Sentence case", "Title Case", "ALL CAPS"].index(st.session_state.get("bt_header_style", "Keep original")),
+                    index=["Keep original", "Sentence case", "Title Case", "ALL CAPS"].index(
+                        st.session_state.get("bt_header_style", "Keep original")
+                    ),
                     key="bt_header_style",
                     help="Controls how column headers are displayed. This does not change your CSV data.",
                 )
-        
+
                 st.divider()
                 st.markdown("#### Table Controls")
-        
+
                 st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
                 st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
-        
+
                 st.checkbox(
                     "Show Page Numbers",
                     value=st.session_state.get("bt_show_page_numbers", True),
@@ -4001,50 +3995,50 @@ with left_col:
                     disabled=not st.session_state.get("bt_show_pager", True),
                     help="Only works when Pager is enabled.",
                 )
-        
+
                 st.checkbox(
                     "Show Embed / Download Button",
                     value=st.session_state.get("bt_show_embed", True),
                     key="bt_show_embed",
                 )
-        
+
                 st.divider()
                 st.markdown("#### Column Formatting (Live Preview Only)")
-        
+
                 st.session_state.setdefault("bt_col_format_rules", {})
-        
+
                 df_for_cols = st.session_state.get("bt_df_uploaded")
                 all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
-        
+
                 if not all_cols:
                     st.info("Upload a CSV to enable column formatting.")
                 else:
                     st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
                     st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
-        
+
                     mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
                     if mode in ("prefix", "suffix"):
                         st.text_input("Value", key="bt_fmt_value", placeholder="$")
                     else:
                         st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
-        
+
                     def add_update_fmt():
                         col = st.session_state.get("bt_fmt_selected_col")
-                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-        
-                        if mode in ("prefix", "suffix"):
+                        mode2 = st.session_state.get("bt_fmt_selected_mode", "prefix")
+
+                        if mode2 in ("prefix", "suffix"):
                             v = (st.session_state.get("bt_fmt_value", "") or "").strip()
                             if not v:
                                 st.session_state["bt_col_format_rules"].pop(col, None)
                                 return
-                            rule = {"mode": mode, "value": v}
+                            rule = {"mode": mode2, "value": v}
                         else:
-                            rule = {"mode": mode}
-        
+                            rule = {"mode": mode2}
+
                         st.session_state["bt_col_format_rules"][col] = rule
-        
+
                     st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-        
+
                     if st.session_state["bt_col_format_rules"]:
                         st.caption("Current formatting rules:")
                         st.json(st.session_state["bt_col_format_rules"])
@@ -4062,7 +4056,6 @@ with left_col:
                     if not numeric_cols:
                         st.warning("No numeric columns found for bars.")
                     else:
-                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
                         st.session_state["bt_bar_columns"] = [
                             c for c in (st.session_state.get("bt_bar_columns") or [])
                             if c in numeric_cols
@@ -4112,6 +4105,7 @@ with left_col:
                                         st.session_state["bt_bar_max_overrides"][col] = float(new_val)
                                     except Exception:
                                         st.warning(f"'{new_val}' is not a valid number for {col}.")
+
         with sub_heat:
             with st.container(height=SETTINGS_PANEL_HEIGHT):
                 st.markdown("#### Heatmap Columns")
@@ -4125,7 +4119,6 @@ with left_col:
                     if not numeric_cols:
                         st.warning("No numeric columns found for heatmap.")
                     else:
-                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
                         st.session_state["bt_heat_columns"] = [
                             c for c in (st.session_state.get("bt_heat_columns") or [])
                             if c in numeric_cols
@@ -4158,12 +4151,13 @@ with left_col:
                             key="bt_heat_strength",
                             help="Controls max opacity of the heat shading.",
                         )
+
                         st.checkbox(
                             "Show heatmap scale in footer",
                             value=bool(st.session_state.get("bt_show_heat_scale", False)),
                             key="bt_show_heat_scale",
                             disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
-                            on_change=on_heat_scale_toggle,   # ✅ ADD THIS
+                            on_change=on_heat_scale_toggle,
                             help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
                         )
 
@@ -4209,21 +4203,24 @@ with left_col:
                                     try:
                                         st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
                                     except Exception:
-                                        st.warning(f"'{vmax}' is not a valid max for {col}.")                                   
+                                        st.warning(f"'{vmax}' is not a valid max for {col}.")
+
+    # ---------- EMBED TAB ----------
+    else:
+        st.markdown("#### Get Embed Script")
+        # ✅ KEEP your entire existing embed code here (unchanged)
+        # (Paste your embed block exactly as-is under this else)
+        # IMPORTANT: this is the ONLY place the embed UI should live.
+
 
 # ✅ Right side: ONLY run preview/editor when left_view is "Edit table contents"
 with right_col:
-    # Always create this so the renderer at the bottom can use it
     preview_slot = st.container()
 
     if left_view != "Edit table contents":
-        # Hard gate: do NOT build preview/editor UI at all in embed mode
         st.markdown("### Preview")
         st.info("Preview is disabled while you’re in **Get Embed Script** for faster switching.")
-        # Also clear anything that may have been mounted previously
         preview_slot.empty()
-
-        # Optional: force-hide preview checkbox if it was enabled
         st.session_state["bt_show_preview"] = False
 
     else:
@@ -4232,7 +4229,7 @@ with right_col:
             ["Preview", "Edit table content (Optional)"],
             key="bt_right_view",
             default="Preview",
-        )   
+        )
 
         if right_view == "Preview":
             st.markdown("### Preview")
@@ -4293,388 +4290,7 @@ with right_col:
                     st.session_state["bt_body_apply_flash"] = True
                     st.rerun()
 
+                # ✅ IMPORTANT: flash message only (no embed code under it)
                 if st.session_state.get("bt_body_apply_flash", False):
                     st.success("Preview updated ✅")
                     st.session_state["bt_body_apply_flash"] = False
-                    
-                    # ---------- EMBED TAB ----------
-                    else:
-                        # Live publish status UI
-                        if st.session_state.get("bt_publish_in_progress", False):
-                            st.info("🚀 Publishing updates… This can take up to a minute.")
-                        
-                            pages_url = st.session_state.get("bt_last_published_url")
-                            expected_hash = st.session_state.get("bt_expected_live_hash")
-                        
-                            if pages_url and expected_hash:
-                                if st.button("Check if page is live"):
-                                    if is_page_live_with_hash(pages_url, expected_hash):
-                                        st.session_state["bt_publish_in_progress"] = False
-                                        st.session_state["bt_live_confirmed"] = True
-                                        st.success("✅ Page is live with the latest updates.")
-                                    else:
-                                        st.warning("⏳ Still updating. Please try again in a few seconds.")
-                        st.markdown("#### Get Embed Script")
-
-                        st.session_state.setdefault("bt_embed_started", False)
-                        st.session_state.setdefault("bt_embed_show_html", False)
-
-                        html_generated = bool(st.session_state.get("bt_html_generated", False))
-                        created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-
-                        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
-
-                        st.session_state["bt_embed_started"] = True
-                        embed_generated = bool(st.session_state.get("bt_embed_generated", False))
-                        embed_stale = bool(st.session_state.get("bt_embed_stale", False))
-                    
-                        if embed_generated and embed_stale:
-                            st.warning("Your embed scripts are out of date. Click **Update embed scripts** to publish the latest confirmed version.")
-                    
-                        btn_label = "Update embed scripts" if (embed_generated and embed_stale) else "Get embed script"
-
-
-                        if not html_generated:
-                            st.warning("Click **Confirm & Save** first so the latest HTML is generated.")
-
-                        st.caption("Give a table name in a few words (this creates your hosted page for the iframe).")
-                        table_name_words = st.text_input(
-                            "Give a table name in few words",
-                            value=st.session_state.get("bt_table_name_words", ""),
-                            key="bt_table_name_words",
-                            placeholder="Example: Best Super Bowl Cities",
-                        ).strip()
-
-                        widget_file_name = ""
-                        if table_name_words:
-                            safe = re.sub(r"[^A-Za-z0-9\-\_\s]", "", table_name_words).strip()
-                            safe = re.sub(r"\s+", "-", safe).strip("-")
-                            safe = safe.lower() or "table"
-                            widget_file_name = safe + ".html"
-
-                        st.session_state["bt_widget_file_name"] = widget_file_name
-
-                        publish_owner = (PUBLISH_OWNER or "").strip().lower()
-
-                        token_to_use = ""
-                        if GITHUB_PAT:
-                            token_to_use = GITHUB_PAT
-                        else:
-                            try:
-                                token_to_use = get_installation_token_for_user(publish_owner)
-                            except Exception:
-                                token_to_use = ""
-
-                        installation_token = token_to_use
-                        if not installation_token:
-                            st.caption("❌ No publishing token found (PAT or GitHub App).")
-                            if GITHUB_APP_SLUG:
-                                st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
-
-                        current_brand = st.session_state.get("brand_table", "")
-                        repo_name = suggested_repo_name(current_brand)
-                        st.session_state["bt_gh_repo"] = repo_name
-
-                        file_exists = False
-                        existing_pages_url = ""
-                        existing_meta = {}
-                        can_overwrite_owner = False
-                        
-                        can_check = bool(publish_owner and installation_token and repo_name and widget_file_name)
-                        
-                        check_now = st.button(
-                            "Check name availability",
-                            disabled=not can_check,
-                            use_container_width=True,
-                        )
-                        
-                        if check_now and can_check:
-                            file_exists = github_file_exists_cached(
-                                publish_owner,
-                                repo_name,
-                                installation_token,
-                                widget_file_name,
-                                branch="main",
-                            )
-                        
-                            if file_exists:
-                                existing_pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
-                                try:
-                                    registry = read_github_json_cached(
-                                        publish_owner,
-                                        repo_name,
-                                        installation_token,
-                                        "widget_registry.json",
-                                        branch="main",
-                                    )
-                                    existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
-                                except Exception:
-                                    existing_meta = {}
-                        
-                                existing_created_by = (existing_meta.get("created_by", "") or "").strip().lower()
-                                can_overwrite_owner = (not existing_created_by) or (existing_created_by == created_by_user)
-                        
-                        # ✅ store results so the rest of the UI logic below can use them on reruns
-                        st.session_state["bt_file_exists"] = file_exists
-                        st.session_state["bt_existing_pages_url"] = existing_pages_url
-                        st.session_state["bt_existing_meta"] = existing_meta
-                        st.session_state["bt_can_overwrite_owner"] = can_overwrite_owner
-
-                        file_exists = st.session_state.get("bt_file_exists", False)
-                        existing_pages_url = st.session_state.get("bt_existing_pages_url", "")
-                        existing_meta = st.session_state.get("bt_existing_meta", {})
-                        can_overwrite_owner = st.session_state.get("bt_can_overwrite_owner", False)
-
-                        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
-                        
-                        # ✅ If the user already published this exact repo+file in this session,
-                        # allow updates WITHOUT needing the overwrite checkbox.
-                        same_target_as_last_publish = bool(
-                            st.session_state.get("bt_embed_generated", False)
-                            and st.session_state.get("bt_last_published_file") == widget_file_name
-                            and st.session_state.get("bt_last_published_repo") == repo_name
-                        )
-                        
-                        if file_exists and not embed_done and not same_target_as_last_publish:
-                            st.info("ℹ️ A page with this table name already exists.")
-                            if existing_pages_url:
-                                st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
-                            if existing_meta:
-                                st.caption(
-                                    f"Existing info → Brand: {existing_meta.get('brand','?')} | "
-                                    f"Created by: {existing_meta.get('created_by','?')} | "
-                                    f"UTC: {existing_meta.get('created_at_utc','?')}"
-                                )
-                        
-                            if can_overwrite_owner:
-                                st.checkbox(
-                                    "Overwrite existing page",
-                                    value=bool(st.session_state.get("bt_allow_swap", False)),
-                                    key="bt_allow_swap",
-                                )
-                            else:
-                                # ✅ ensure swap cannot be enabled for non-owners
-                                st.session_state["bt_allow_swap"] = False
-                            
-                                st.checkbox(
-                                    "Overwrite existing page",
-                                    value=False,
-                                    key="bt_allow_swap_disabled",
-                                    disabled=True,
-                                    help=f"Only the original creator ({existing_created_by or 'unknown'}) can overwrite this page.",
-                                )
-                                owner_label = f"{existing_created_by}'s" if existing_created_by else "another user's"
-                                st.warning(
-                                    f"⛔ This is **{owner_label} page**, so you can’t overwrite it."
-                                )
-                        
-                        # ✅ Read AFTER the checkbox renders
-                        allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-                        
-                        swap_confirmed = (not file_exists) or (allow_swap and can_overwrite_owner) or same_target_as_last_publish
-                        
-                        can_publish = bool(
-                            html_generated
-                            and publish_owner
-                            and repo_name
-                            and widget_file_name
-                            and installation_token
-                            and created_by_user
-                            and swap_confirmed
-                        )
-                        
-                        publish_clicked = st.button(
-                            btn_label,
-                            use_container_width=True,
-                            disabled=not can_publish,
-                        )
-
-                        if not can_publish:
-                            missing = []
-                            if not html_generated:
-                                missing.append("Confirm & Save")
-                            if not table_name_words:
-                                missing.append("table name")
-                            if publish_owner and not installation_token:
-                                missing.append("publishing token")
-                            if file_exists and not swap_confirmed:
-                                if not can_overwrite_owner:
-                                    missing.append("you can’t overwrite (different creator)")
-                                else:
-                                    missing.append("confirm override (checkbox)")
-                            if missing:
-                                st.caption("To enable publishing: " + ", ".join(missing) + ".")
-
-                        if publish_clicked:
-                            st.session_state["bt_embed_tabs_visible"] = True
-                            # mark publish as in-progress
-                            st.session_state["bt_publish_in_progress"] = True
-                            st.session_state["bt_publish_started_at"] = time.time()
-                            st.session_state["bt_expected_live_hash"] = st.session_state.get("bt_html_hash", "")
-                            st.session_state["bt_live_confirmed"] = False
-                        
-
-                            try:
-                                html_final = (
-                                    f"<!-- BT_PUBLISH_HASH:{st.session_state.get('bt_html_hash','')} -->\n"
-                                    + st.session_state.get("bt_html_code", "")
-                                )
-                                if not html_final:
-                                    raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
-
-                                simulate_progress("Publishing to GitHub…", total_sleep=0.35)
-
-                                ensure_repo_exists(publish_owner, repo_name, installation_token)
-
-                                try:
-                                    ensure_pages_enabled(publish_owner, repo_name, installation_token, branch="main")
-                                except Exception:
-                                    pass
-
-                                upload_file_to_github(
-                                    publish_owner,
-                                    repo_name,
-                                    installation_token,
-                                    widget_file_name,
-                                    html_final,
-                                    f"Add/Update {widget_file_name} from Branded Table App",
-                                    branch="main",
-                                )
-                                
-                                # ✅ NEW: also publish the editable bundle (CSV + config + rules)
-                                bundle = build_publish_bundle(widget_file_name)
-                                bundle_path = f"bundles/{widget_file_name}.json"
-                                
-                                upload_file_to_github(
-                                    publish_owner,
-                                    repo_name,
-                                    installation_token,
-                                    bundle_path,
-                                    json.dumps(bundle, indent=2),
-                                    f"Add/Update bundle for {widget_file_name}",
-                                    branch="main",
-                                )
-                                
-                                pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
-                                
-                                st.session_state["bt_last_published_url"] = pages_url
-                                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
-                                st.session_state["bt_last_published_repo"] = repo_name
-                                st.session_state["bt_last_published_file"] = widget_file_name        
-                                created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-                                # ✅ mark embed scripts as generated + fresh
-                                st.session_state["bt_embed_generated"] = True
-                                st.session_state["bt_embed_stale"] = False
-
-                                github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
-                                table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
-
-                                meta = {
-                                    "brand": current_brand,
-                                    "table_title": table_title,
-                                    "file": widget_file_name,
-                                    "pages_url": pages_url,
-                                    "github_repo_url": github_repo_url,
-                                    "created_by": created_by_user,
-                                    "created_at_utc": created_utc,
-                                    "bundle_path": f"bundles/{widget_file_name}.json",
-                                    "has_bundle": True,
-                                }
-
-                                try:
-                                    update_widget_registry(
-                                        owner=publish_owner,
-                                        repo=repo_name,
-                                        token=installation_token,
-                                        widget_file_name=widget_file_name,
-                                        meta=meta,
-                                        branch="main",
-                                    )
-                                except Exception:
-                                    pass
-
-                                with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
-                                    live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
-
-                                if live:
-                                    st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                                        pages_url,
-                                        height=int(st.session_state.get("bt_iframe_height", 800)),
-                                    )
-                                
-                                    # ✅ IMPORTANT: mark the page live + stop "in progress" state
-                                    st.session_state["bt_publish_in_progress"] = False
-                                    st.session_state["bt_live_confirmed"] = True
-                                
-                                    st.success("✅ Page is live. IFrame is ready.")
-                                else:
-                                    st.session_state["bt_iframe_code"] = ""
-                                
-                                    # ✅ still deploying
-                                    st.session_state["bt_live_confirmed"] = False
-                                
-                                    st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
-
-                            except Exception as e:
-                                st.error(f"Publish / IFrame generation failed: {e}")
-
-                        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-                        show_tabs = bool(published_url_val and st.session_state.get("bt_live_confirmed", False))
-
-                        if show_tabs:
-                            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-                            if published_url_val:
-                                st.caption("Published Page")
-                                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-
-                            # ✅ Faster than st.tabs(): only renders ONE view per rerun
-                            embed_view = tab_switch(
-                                "Embed view",
-                                ["HTML Code", "IFrame"],
-                                key="bt_embed_view",
-                                default="HTML Code",
-                            )
-                            
-                            if embed_view == "HTML Code":
-                                html_code_val = (st.session_state.get("bt_html_code") or "").strip()
-                                if not html_code_val:
-                                    st.info("Click **Confirm & Save** to generate HTML.")
-                                else:
-                                    st.caption("HTML Code")
-                            
-                                    # ✅ Rendering huge st.code blocks is slow — use text_area (faster) + optional code view
-                                    st.text_area(
-                                        "HTML Code",
-                                        value=html_code_val,
-                                        height=340,
-                                        label_visibility="collapsed",
-                                        key="bt_html_code_view",
-                                    )
-                            
-                                    st.download_button(
-                                        "Download HTML file",
-                                        data=html_code_val,
-                                        file_name="table.html",
-                                        mime="text/html",
-                                        use_container_width=True,
-                                    )
-                            
-                            else:
-                                iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-                                st.caption("IFrame Code")
-                            
-                                st.text_area(
-                                    "IFrame Code",
-                                    value=iframe_val or "",
-                                    height=160,
-                                    label_visibility="collapsed",
-                                    key="bt_iframe_code_view",
-                                )
-                            
-                                st.download_button(
-                                    "Download iframe snippet",
-                                    data=iframe_val or "",
-                                    file_name="iframe-snippet.html",
-                                    mime="text/html",
-                                    use_container_width=True,
-                                )
