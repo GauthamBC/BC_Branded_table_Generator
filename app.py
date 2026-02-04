@@ -3730,16 +3730,58 @@ if main_tab == "Create New Table":
         
                 ensure_confirm_state_exists()
 
+# ===================== Top: Primary Tabs (tab look, radio behavior) =====================
+st.markdown(
+    """
+    <style>
+      /* Make the segmented control options split 50/50 and stretch full width */
+      div[data-testid="stSegmentedControl"] {
+        width: 100%;
+      }
+      div[data-testid="stSegmentedControl"] > div {
+        width: 100%;
+        display: flex;
+      }
+      div[data-testid="stSegmentedControl"] label {
+        flex: 1 1 0%;
+        justify-content: center;
+        text-align: center;
+      }
+
+      /* Fallback radio (if segmented_control isn't available) – keep it 50/50 */
+      div[data-testid="stRadio"] > div {
+        width: 100%;
+      }
+      div[data-testid="stRadio"] div[role="radiogroup"] {
+        display: flex;
+        width: 100%;
+      }
+      div[data-testid="stRadio"] label {
+        flex: 1 1 0%;
+        justify-content: center;
+        text-align: center;
+        margin-right: 0 !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+left_view = tab_switch(
+    "Left view",
+    ["Edit table contents", "Get Embed Script"],
+    key="bt_left_view",
+    default="Edit table contents",
+)
+
+st.divider()
+
+# Now build your 2-column layout below the full-width switch
 left_col, right_col = st.columns([1, 3], gap="large")
 
-# ===================== Left: Tabs =====================
+# ===================== Left column =====================
 with left_col:
-    left_view = tab_switch(
-        "Left view",
-        ["Edit table contents", "Get Embed Script"],
-        key="bt_left_view",
-        default="Edit table contents",
-    )
+    pass  # keep your left-side controls below (your existing code continues)
 
     # ---------- EDIT TAB ----------
     if left_view == "Edit table contents":
