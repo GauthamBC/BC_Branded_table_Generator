@@ -4207,10 +4207,370 @@ with left_col:
 
     # ---------- EMBED TAB ----------
     else:
+        # Live publish status UI
+        if st.session_state.get("bt_publish_in_progress", False):
+            st.info("🚀 Publishing updates… This can take up to a minute.")
+
+            pages_url = st.session_state.get("bt_last_published_url")
+            expected_hash = st.session_state.get("bt_expected_live_hash")
+
+            if pages_url and expected_hash:
+                if st.button("Check if page is live"):
+                    if is_page_live_with_hash(pages_url, expected_hash):
+                        st.session_state["bt_publish_in_progress"] = False
+                        st.session_state["bt_live_confirmed"] = True
+                        st.success("✅ Page is live with the latest updates.")
+                    else:
+                        st.warning("⏳ Still updating. Please try again in a few seconds.")
+
         st.markdown("#### Get Embed Script")
-        # ✅ KEEP your entire existing embed code here (unchanged)
-        # (Paste your embed block exactly as-is under this else)
-        # IMPORTANT: this is the ONLY place the embed UI should live.
+
+        st.session_state.setdefault("bt_embed_started", False)
+        st.session_state.setdefault("bt_embed_show_html", False)
+
+        html_generated = bool(st.session_state.get("bt_html_generated", False))
+        created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+
+        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
+
+        st.session_state["bt_embed_started"] = True
+        embed_generated = bool(st.session_state.get("bt_embed_generated", False))
+        embed_stale = bool(st.session_state.get("bt_embed_stale", False))
+
+        if embed_generated and embed_stale:
+            st.warning("Your embed scripts are out of date. Click **Update embed scripts** to publish the latest confirmed version.")
+
+        btn_label = "Update embed scripts" if (embed_generated and embed_stale) else "Get embed script"
+
+        if not html_generated:
+            st.warning("Click **Confirm & Save** first so the latest HTML is generated.")
+
+        st.caption("Give a table name in a few words (this creates your hosted page for the iframe).")
+        table_name_words = st.text_input(
+            "Give a table name in few words",
+            value=st.session_state.get("bt_table_name_words", ""),
+            key="bt_table_name_words",
+            placeholder="Example: Best Super Bowl Cities",
+        ).strip()
+
+        widget_file_name = ""
+        if table_name_words:
+            safe = re.sub(r"[^A-Za-z0-9\-\_\s]", "", table_name_words).strip()
+            safe = re.sub(r"\s+", "-", safe).strip("-")
+            safe = safe.lower() or "table"
+            widget_file_name = safe + ".html"
+
+        st.session_state["bt_widget_file_name"] = widget_file_name
+
+        publish_owner = (PUBLISH_OWNER or "").strip().lower()
+
+        token_to_use = ""
+        if GITHUB_PAT:
+            token_to_use = GITHUB_PAT
+        else:
+            try:
+                token_to_use = get_installation_token_for_user(publish_owner)
+            except Exception:
+                token_to_use = ""
+
+        installation_token = token_to_use
+        if not installation_token:
+            st.caption("❌ No publishing token found (PAT or GitHub App).")
+            if GITHUB_APP_SLUG:
+                st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
+
+        current_brand = st.session_state.get("brand_table", "")
+        repo_name = suggested_repo_name(current_brand)
+        st.session_state["bt_gh_repo"] = repo_name
+
+        file_exists = False
+        existing_pages_url = ""
+        existing_meta = {}
+        can_overwrite_owner = False
+
+        can_check = bool(publish_owner and installation_token and repo_name and widget_file_name)
+
+        check_now = st.button(
+            "Check name availability",
+            disabled=not can_check,
+            use_container_width=True,
+        )
+
+        if check_now and can_check:
+            file_exists = github_file_exists_cached(
+                publish_owner,
+                repo_name,
+                installation_token,
+                widget_file_name,
+                branch="main",
+            )
+
+            if file_exists:
+                existing_pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
+                try:
+                    registry = read_github_json_cached(
+                        publish_owner,
+                        repo_name,
+                        installation_token,
+                        "widget_registry.json",
+                        branch="main",
+                    )
+                    existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
+                except Exception:
+                    existing_meta = {}
+
+                existing_created_by = (existing_meta.get("created_by", "") or "").strip().lower()
+                can_overwrite_owner = (not existing_created_by) or (existing_created_by == created_by_user)
+
+        # ✅ store results so the rest of the UI logic below can use them on reruns
+        st.session_state["bt_file_exists"] = file_exists
+        st.session_state["bt_existing_pages_url"] = existing_pages_url
+        st.session_state["bt_existing_meta"] = existing_meta
+        st.session_state["bt_can_overwrite_owner"] = can_overwrite_owner
+
+        file_exists = st.session_state.get("bt_file_exists", False)
+        existing_pages_url = st.session_state.get("bt_existing_pages_url", "")
+        existing_meta = st.session_state.get("bt_existing_meta", {})
+        can_overwrite_owner = st.session_state.get("bt_can_overwrite_owner", False)
+
+        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
+
+        same_target_as_last_publish = bool(
+            st.session_state.get("bt_embed_generated", False)
+            and st.session_state.get("bt_last_published_file") == widget_file_name
+            and st.session_state.get("bt_last_published_repo") == repo_name
+        )
+
+        if file_exists and not embed_done and not same_target_as_last_publish:
+            st.info("ℹ️ A page with this table name already exists.")
+            if existing_pages_url:
+                st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
+            if existing_meta:
+                st.caption(
+                    f"Existing info → Brand: {existing_meta.get('brand','?')} | "
+                    f"Created by: {existing_meta.get('created_by','?')} | "
+                    f"UTC: {existing_meta.get('created_at_utc','?')}"
+                )
+
+            if can_overwrite_owner:
+                st.checkbox(
+                    "Overwrite existing page",
+                    value=bool(st.session_state.get("bt_allow_swap", False)),
+                    key="bt_allow_swap",
+                )
+            else:
+                st.session_state["bt_allow_swap"] = False
+
+                st.checkbox(
+                    "Overwrite existing page",
+                    value=False,
+                    key="bt_allow_swap_disabled",
+                    disabled=True,
+                    help=f"Only the original creator ({existing_created_by or 'unknown'}) can overwrite this page.",
+                )
+                owner_label = f"{existing_created_by}'s" if existing_created_by else "another user's"
+                st.warning(f"⛔ This is **{owner_label} page**, so you can’t overwrite it.")
+
+        allow_swap = bool(st.session_state.get("bt_allow_swap", False))
+
+        swap_confirmed = (not file_exists) or (allow_swap and can_overwrite_owner) or same_target_as_last_publish
+
+        can_publish = bool(
+            html_generated
+            and publish_owner
+            and repo_name
+            and widget_file_name
+            and installation_token
+            and created_by_user
+            and swap_confirmed
+        )
+
+        publish_clicked = st.button(
+            btn_label,
+            use_container_width=True,
+            disabled=not can_publish,
+        )
+
+        if not can_publish:
+            missing = []
+            if not html_generated:
+                missing.append("Confirm & Save")
+            if not table_name_words:
+                missing.append("table name")
+            if publish_owner and not installation_token:
+                missing.append("publishing token")
+            if file_exists and not swap_confirmed:
+                if not can_overwrite_owner:
+                    missing.append("you can’t overwrite (different creator)")
+                else:
+                    missing.append("confirm override (checkbox)")
+            if missing:
+                st.caption("To enable publishing: " + ", ".join(missing) + ".")
+
+        if publish_clicked:
+            st.session_state["bt_embed_tabs_visible"] = True
+            st.session_state["bt_publish_in_progress"] = True
+            st.session_state["bt_publish_started_at"] = time.time()
+            st.session_state["bt_expected_live_hash"] = st.session_state.get("bt_html_hash", "")
+            st.session_state["bt_live_confirmed"] = False
+
+            try:
+                html_final = (
+                    f"<!-- BT_PUBLISH_HASH:{st.session_state.get('bt_html_hash','')} -->\n"
+                    + st.session_state.get("bt_html_code", "")
+                )
+                if not html_final:
+                    raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
+
+                simulate_progress("Publishing to GitHub…", total_sleep=0.35)
+
+                ensure_repo_exists(publish_owner, repo_name, installation_token)
+
+                try:
+                    ensure_pages_enabled(publish_owner, repo_name, installation_token, branch="main")
+                except Exception:
+                    pass
+
+                upload_file_to_github(
+                    publish_owner,
+                    repo_name,
+                    installation_token,
+                    widget_file_name,
+                    html_final,
+                    f"Add/Update {widget_file_name} from Branded Table App",
+                    branch="main",
+                )
+
+                bundle = build_publish_bundle(widget_file_name)
+                bundle_path = f"bundles/{widget_file_name}.json"
+
+                upload_file_to_github(
+                    publish_owner,
+                    repo_name,
+                    installation_token,
+                    bundle_path,
+                    json.dumps(bundle, indent=2),
+                    f"Add/Update bundle for {widget_file_name}",
+                    branch="main",
+                )
+
+                pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
+
+                st.session_state["bt_last_published_url"] = pages_url
+                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
+                st.session_state["bt_last_published_repo"] = repo_name
+                st.session_state["bt_last_published_file"] = widget_file_name
+
+                created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                st.session_state["bt_embed_generated"] = True
+                st.session_state["bt_embed_stale"] = False
+
+                github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
+                table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
+
+                meta = {
+                    "brand": current_brand,
+                    "table_title": table_title,
+                    "file": widget_file_name,
+                    "pages_url": pages_url,
+                    "github_repo_url": github_repo_url,
+                    "created_by": created_by_user,
+                    "created_at_utc": created_utc,
+                    "bundle_path": f"bundles/{widget_file_name}.json",
+                    "has_bundle": True,
+                }
+
+                try:
+                    update_widget_registry(
+                        owner=publish_owner,
+                        repo=repo_name,
+                        token=installation_token,
+                        widget_file_name=widget_file_name,
+                        meta=meta,
+                        branch="main",
+                    )
+                except Exception:
+                    pass
+
+                with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
+                    live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
+
+                if live:
+                    st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                        pages_url,
+                        height=int(st.session_state.get("bt_iframe_height", 800)),
+                    )
+
+                    st.session_state["bt_publish_in_progress"] = False
+                    st.session_state["bt_live_confirmed"] = True
+
+                    st.success("✅ Page is live. IFrame is ready.")
+                else:
+                    st.session_state["bt_iframe_code"] = ""
+                    st.session_state["bt_live_confirmed"] = False
+                    st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
+
+            except Exception as e:
+                st.error(f"Publish / IFrame generation failed: {e}")
+
+        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+        show_tabs = bool(published_url_val and st.session_state.get("bt_live_confirmed", False))
+
+        if show_tabs:
+            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+            if published_url_val:
+                st.caption("Published Page")
+                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+
+            embed_view = tab_switch(
+                "Embed view",
+                ["HTML Code", "IFrame"],
+                key="bt_embed_view",
+                default="HTML Code",
+            )
+
+            if embed_view == "HTML Code":
+                html_code_val = (st.session_state.get("bt_html_code") or "").strip()
+                if not html_code_val:
+                    st.info("Click **Confirm & Save** to generate HTML.")
+                else:
+                    st.caption("HTML Code")
+
+                    st.text_area(
+                        "HTML Code",
+                        value=html_code_val,
+                        height=340,
+                        label_visibility="collapsed",
+                        key="bt_html_code_view",
+                    )
+
+                    st.download_button(
+                        "Download HTML file",
+                        data=html_code_val,
+                        file_name="table.html",
+                        mime="text/html",
+                        use_container_width=True,
+                    )
+
+            else:
+                iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+                st.caption("IFrame Code")
+
+                st.text_area(
+                    "IFrame Code",
+                    value=iframe_val or "",
+                    height=160,
+                    label_visibility="collapsed",
+                    key="bt_iframe_code_view",
+                )
+
+                st.download_button(
+                    "Download iframe snippet",
+                    data=iframe_val or "",
+                    file_name="iframe-snippet.html",
+                    mime="text/html",
+                    use_container_width=True,
+                )
 
 
 # ✅ Right side: ONLY run preview/editor when left_view is "Edit table contents"
