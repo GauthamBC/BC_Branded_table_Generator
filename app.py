@@ -3086,6 +3086,18 @@ st.markdown(
       div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
         align-self: flex-start;
       }
+          /* ✅ Make segmented controls full-width and split options 50/50 */
+      div[data-baseweb="segmented-control"]{
+        width: 100% !important;
+      }
+      div[data-baseweb="segmented-control"] > div{
+        width: 100% !important;
+        display: flex !important;
+      }
+      div[data-baseweb="segmented-control"] button{
+        flex: 1 1 0 !important;
+        justify-content: center !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
