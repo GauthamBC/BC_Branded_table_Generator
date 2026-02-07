@@ -2576,7 +2576,12 @@ def render_preview(preview_slot):
         live_cfg = draft_config_from_state()
         live_rules = st.session_state.get("bt_col_format_rules", {})
 
-        df_preview = st.session_state["bt_df_uploaded"].copy()
+        df_live = st.session_state.get("bt_df_uploaded")
+        if not isinstance(df_live, pd.DataFrame) or df_live.empty:
+            st.info("Upload a CSV to show preview.")
+            return
+        
+        df_preview = df_live.copy()
         hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
         if hidden_cols:
             df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
@@ -4632,7 +4637,11 @@ with right_col:
 
         if right_view == "Preview":
             st.markdown("### Preview")
-            render_preview(preview_slot)
+            df_live = st.session_state.get("bt_df_uploaded")
+            if not isinstance(df_live, pd.DataFrame) or df_live.empty:
+                st.info("Upload a CSV to show preview.")
+            else:
+                render_preview(preview_slot)
 
         else:
             st.markdown("### Edit table content (Optional)")
