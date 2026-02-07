@@ -3146,6 +3146,37 @@ st.markdown(
         width: 100% !important;
         justify-content: center !important;
       }
+      /* FORCE segmented control to fill parent container */
+div[data-testid="stSegmentedControl"]{
+  width: 100% !important;
+}
+
+/* outer wrappers */
+div[data-testid="stSegmentedControl"] > div,
+div[data-testid="stSegmentedControl"] > div > div{
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* actual radio group */
+div[data-testid="stSegmentedControl"] div[role="radiogroup"]{
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* each tab = equal width */
+div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label{
+  flex: 1 1 0 !important;
+  width: 0 !important;
+  max-width: none !important;
+}
+
+/* clickable inner tab content */
+div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
+  width: 100% !important;
+  justify-content: center !important;
+}
     </style>
     """,
     unsafe_allow_html=True,
