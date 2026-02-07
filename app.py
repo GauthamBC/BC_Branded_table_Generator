@@ -3086,6 +3086,30 @@ st.markdown(
       div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
         align-self: flex-start;
       }
+            /* ✅ Segmented controls: FULL WIDTH + 50/50 buttons */
+      div[data-testid="stSegmentedControl"],
+      div[data-baseweb="segmented-control"]{
+        width: 100% !important;
+      }
+      div[data-testid="stSegmentedControl"] > div,
+      div[data-baseweb="segmented-control"] > div{
+        width: 100% !important;
+      }
+      div[data-testid="stSegmentedControl"] div[role="radiogroup"],
+      div[data-baseweb="segmented-control"] div[role="radiogroup"]{
+        width: 100% !important;
+        display: flex !important;
+      }
+      div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label,
+      div[data-baseweb="segmented-control"] div[role="radiogroup"] > label{
+        flex: 1 1 0 !important;        /* each option becomes 50% */
+        max-width: none !important;
+      }
+      div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div,
+      div[data-baseweb="segmented-control"] div[role="radiogroup"] > label > div{
+        width: 100% !important;
+        justify-content: center !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
