@@ -5,9 +5,78 @@ import html as html_mod
 import json
 import re
 import time
+import requests
 import io
 import json
 from collections.abc import Mapping
+
+def style_radio_as_big_tabs(
+    radio_key: str,
+    height_px: int = 58,
+    radius_px: int = 0,
+    font_px: int = 20,
+    active_bg: str = "#00C853",
+    active_fg: str = "white",
+    inactive_bg: str = "#E7F6EE",
+    inactive_fg: str = "#0b1f16",
+    border: str = "1px solid rgba(0,0,0,0.10)",
+):
+    """Style a Streamlit st.radio (by key) to render like full-width segmented tabs.
+    Keeps the underlying st.radio functionality unchanged.
+    """
+    st.markdown(
+        f"""
+        <style>
+        /* Hide actual radio circles */
+        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
+            display: none !important;
+        }}
+
+        /* Make the group a full-width segmented bar */
+        div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
+            display: flex !important;
+            width: 100% !important;
+            gap: 0 !important;
+        }}
+
+        /* Each option is equal width */
+        div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"] {{
+            flex: 1 1 0 !important;
+            margin-right: 0 !important;
+        }}
+
+        /* The clickable “tab button” */
+        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
+            width: 100% !important;
+            height: {height_px}px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 0 18px !important;
+
+            border: {border} !important;
+            background: {inactive_bg} !important;
+            color: {inactive_fg} !important;
+            font-weight: 700 !important;
+            font-size: {font_px}px !important;
+            border-radius: {radius_px}px !important;
+        }}
+
+        /* Active tab */
+        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div {{
+            background: {active_bg} !important;
+            color: {active_fg} !important;
+        }}
+
+        /* Remove double border between segments */
+        div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:not(:first-child) input[name="{radio_key}"] + div {{
+            border-left: 0 !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 import jwt  # ✅ PyJWT
 import pandas as pd
@@ -30,31 +99,110 @@ def http_session() -> requests.Session:
     s.mount("https://", adapter)
     s.mount("http://", adapter)
     return s
-def tab_switch(label: str, options: list[str], key: str, default: str | None = None):
-    """
-    Tab-looking switch with radio-like execution.
-    Uses st.segmented_control if available; falls back to horizontal radio.
-    """
-    if default is None:
-        default = options[0]
 
-    if hasattr(st, "segmented_control"):
-        return st.segmented_control(
-            label,
-            options=options,
-            default=default,
-            key=key,
-            label_visibility="collapsed",
-        )
 
-    # Fallback (older Streamlit): behaves the same, just not segmented UI
-    return st.radio(
-        label,
-        options,
-        horizontal=True,
-        key=key,
-        label_visibility="collapsed",
+
+def style_radio_as_tabs(
+    radio_key: str,
+    active_bg: str = "rgba(0, 200, 83, 0.18)",
+    active_border: str = "rgba(0, 200, 83, 0.55)",
+):
+    """Style a specific st.radio (by key) to visually render like segmented tabs.
+    Keeps the underlying st.radio functionality unchanged.
+    """
+    st.markdown(
+        f"""
+        <style>
+          /* Turn radio group into segmented tabs */
+          label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
+            display: none !important;
+          }}
+
+          label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px 18px !important;
+            border: 1px solid rgba(0,0,0,0.10) !important;
+            background: rgba(0,0,0,0.04) !important;
+            font-weight: 650 !important;
+          }}
+
+          div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
+            display: flex !important;
+            gap: 0 !important;
+            width: 100% !important;
+          }}
+
+          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"] {{
+            flex: 1 1 0 !important;
+            margin-right: 0 !important;
+          }}
+
+          /* Active tab */
+          label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div {{
+            background: {active_bg} !important;
+            border-color: {active_border} !important;
+            color: #0b1f16 !important;
+          }}
+
+          /* Rounded ends */
+          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:first-child input[name="{radio_key}"] + div {{
+            border-top-left-radius: 12px !important;
+            border-bottom-left-radius: 12px !important;
+          }}
+          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:last-child input[name="{radio_key}"] + div {{
+            border-top-right-radius: 12px !important;
+            border-bottom-right-radius: 12px !important;
+          }}
+
+          /* Remove double borders between segments */
+          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:not(:first-child) input[name="{radio_key}"] + div {{
+            border-left: 0 !important;
+          }}
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
+
+
+# =========================================================
+# ✅ Text case helpers (Title/Sub-title/Header case)
+# =========================================================
+
+def apply_text_case(text: str, style: str) -> str:
+    """Apply a simple text casing rule.
+
+    Styles expected: Keep original | ALL CAPS | Title Case | Sentence case
+    """
+    s = "" if text is None else str(text)
+    style = (style or "").strip()
+
+    if style in ("", "Keep original"):
+        return s
+    if s == "":
+        return s
+
+    if style == "ALL CAPS":
+        return s.upper()
+
+    if style == "Sentence case":
+        s2 = s.strip()
+        if not s2:
+            return s
+        low = s2.lower()
+        # Uppercase the first alphabetical character
+        for idx, ch in enumerate(low):
+            if ch.isalpha():
+                return low[:idx] + ch.upper() + low[idx + 1 :]
+        return low
+
+    if style == "Title Case":
+        return s.title()
+
+    return s
+
 # =========================================================
 # 0) Publishing Users + Secrets (GITHUB APP)
 # =========================================================
@@ -131,6 +279,20 @@ def github_headers(token: str) -> dict:
     headers["X-GitHub-Api-Version"] = "2022-11-28"
     return headers
 
+
+def github_token(owner: str | None = None) -> str:
+    """Return a GitHub token to use for writes/reads.
+
+    Prefers GITHUB_PAT (if present), otherwise falls back to a GitHub App installation token
+    for the configured PUBLISH_OWNER (or the provided owner).
+    """
+    use_owner = (owner or PUBLISH_OWNER or "").strip().lower()
+    if GITHUB_PAT:
+        return str(GITHUB_PAT).strip()
+    try:
+        return get_installation_token_for_user(use_owner)
+    except Exception:
+        return ""
 
 def build_github_app_jwt(app_id: str, private_key_pem: str) -> str:
     """
@@ -432,6 +594,24 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
 
         return ""
 
+
+    def is_generator_repo(repo_name: str) -> bool:
+        """
+        Keep ONLY repos created/managed by this Branded Table Generator.
+        Expected naming pattern: <BrandPrefix>t<monthcode><yy>
+        Examples: ActionNetworktj26, VegasInsidertf26, RotoGrinderstj26
+        """
+        rn = (repo_name or "").strip().lower()
+        if not rn:
+            return False
+
+        # must start with one of our known brand prefixes
+        prefixes = [p.lower() for p in BRAND_REPO_PREFIX_FULL.values()]
+        if not any(rn.startswith(p) for p in prefixes):
+            return False
+
+        # must end with t + single-letter month code + 2-digit year (e.g., tj26)
+        return re.search(r"t[a-z]\d{2}$", rn) is not None
     def get_file_commit_meta(repo_name: str, file_name: str) -> tuple[str, str]:
         """
         Returns (created_by, created_utc) from latest commit touching the file.
@@ -563,7 +743,11 @@ def get_all_published_widgets(owner: str, token: str) -> pd.DataFrame:
     if not df.empty:
         df = df.drop_duplicates(subset=["Pages URL"], keep="first")
     
-    # ✅ Sort newest first (works best once commit dates exist)
+    
+    # ✅ Only show tables from Branded Table Generator repos (filter out random GitHub Pages)
+    if not df.empty and "Repo" in df.columns:
+        df = df[df["Repo"].apply(is_generator_repo)].copy()
+# ✅ Sort newest first (works best once commit dates exist)
     if not df.empty and "Created UTC" in df.columns:
         df = df.sort_values("Created UTC", ascending=False, na_position="last")
     
@@ -609,6 +793,266 @@ def update_widget_registry(
         branch=branch,
     )
     
+
+# =========================================================
+# ✅ GLOBAL "ACTIVE USERS" (shared across browsers)
+# - Writes a JSON file (active_users.json) to a canonical repo
+# - All sessions read it and display who is currently active
+# - Each login/heartbeat refreshes the user's "last_seen" + expiry
+# =========================================================
+
+ACTIVE_USERS_PATH = str(get_secret("ACTIVE_STATE_FILE_PATH", "active_users.json") or "active_users.json").strip()
+ACTIVE_USER_TTL_MINUTES = int(get_secret("ACTIVE_USER_TTL_MINUTES", 45) or 45)
+ACTIVE_USER_HEARTBEAT_SECONDS = int(get_secret("ACTIVE_USER_HEARTBEAT_SECONDS", 60) or 60)
+
+def _is_generator_repo_name(repo_name: str) -> bool:
+    """True if repo name matches our generator repo naming scheme."""
+    name = (repo_name or "").strip()
+    if not name:
+        return False
+
+    # Brand prefix + 't' + month code + 2-digit year (e.g., ActionNetworktj26)
+    prefixes = [pfx.lower() for pfx in BRAND_REPO_PREFIX_FULL.values()]
+    low = name.lower()
+
+    if not any(low.startswith(p) for p in prefixes):
+        return False
+
+    # end like: t + one month-letter + 2 digits year
+    return re.search(r"t[a-z]\d{2}$", low) is not None
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_active_state_repo(owner: str, token: str) -> str:
+    """Pick a canonical repo to store active_users.json.
+
+    Priority:
+      1) secrets.ACTIVE_STATE_REPO (if set)
+      2) lexicographically latest generator repo under the owner (fallback)
+    """
+    preferred = str(get_secret("ACTIVE_STATE_REPO", "BrandedGeneratorState") or "BrandedGeneratorState").strip()
+    if preferred:
+        return preferred
+
+    repos = list_repos_for_owner(owner, token) or []
+    names = []
+    for r in repos:
+        if isinstance(r, dict):
+            nm = (r.get("name") or "").strip()
+        else:
+            nm = str(r or "").strip()
+        if nm and _is_generator_repo_name(nm):
+            names.append(nm)
+
+    if not names:
+        return ""
+
+    # deterministic pick
+    names = sorted(set(names), key=lambda s: s.lower())
+    return names[-1]
+
+
+def active_state_repo_exists(owner: str, repo: str, token: str) -> bool:
+    """Best-effort check that the ACTIVE_STATE_REPO exists and is readable."""
+    try:
+        if not owner or not repo:
+            return False
+        r = http_session().get(
+            f"https://api.github.com/repos/{owner}/{repo}",
+            headers=github_headers(token),
+            timeout=15,
+        )
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+
+def utc_now_iso() -> str:
+    return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
+def _parse_iso_z(s: str) -> datetime.datetime | None:
+    try:
+        if not s:
+            return None
+        s = str(s).strip()
+        if s.endswith("Z"):
+            s = s[:-1]
+        return datetime.datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
+def format_relative_minutes(utc_iso_z: str) -> str:
+    dt = _parse_iso_z(utc_iso_z)
+    if not dt:
+        return ""
+    now = datetime.datetime.utcnow()
+    mins = int((now - dt).total_seconds() // 60)
+    if mins <= 0:
+        return "just now"
+    if mins == 1:
+        return "1 min ago"
+    if mins < 60:
+        return f"{mins} mins ago"
+    hrs = mins // 60
+    if hrs == 1:
+        return "1 hr ago"
+    return f"{hrs} hrs ago"
+
+
+def _prune_active_users(state: dict) -> dict:
+    """Remove expired/invalid entries."""
+    now = datetime.datetime.utcnow()
+    out = {}
+    for user, meta in (state or {}).items():
+        if not isinstance(meta, dict):
+            continue
+        exp = _parse_iso_z(meta.get("expires_utc", ""))
+        if exp and exp >= now:
+            out[str(user).strip().lower()] = meta
+    return out
+
+
+def read_active_users_state(owner: str, token: str) -> dict:
+    repo = get_active_state_repo(owner, token)
+    if not repo:
+        return {}
+    if not active_state_repo_exists(owner, repo, token):
+        return {}
+    try:
+        raw = read_github_json(owner, repo, token, ACTIVE_USERS_PATH) or {}
+        raw = raw if isinstance(raw, dict) else {}
+        return _prune_active_users(raw)
+    except Exception:
+        return {}
+
+
+def write_active_users_state(owner: str, token: str, user: str, action: str = "heartbeat") -> bool:
+    """Upsert a user into active_users.json with a fresh expiry."""
+    repo = get_active_state_repo(owner, token)
+    if not repo:
+        return False
+    if not active_state_repo_exists(owner, repo, token):
+        return False
+
+    now = datetime.datetime.utcnow().replace(microsecond=0)
+    u = (user or "").strip().lower()
+    if not u:
+        return False
+
+    # load + prune
+    try:
+        current = read_github_json(owner, repo, token, ACTIVE_USERS_PATH) or {}
+        current = current if isinstance(current, dict) else {}
+    except Exception:
+        current = {}
+
+    current = _prune_active_users(current)
+
+    current[u] = {
+        "user": u,
+        "action": action,
+        "utc": now.isoformat() + "Z",
+        "expires_utc": (now + datetime.timedelta(minutes=ACTIVE_USER_TTL_MINUTES)).isoformat() + "Z",
+        "app": "Branded Table Generator",
+    }
+
+    try:
+        write_github_json(
+            owner=owner,
+            repo=repo,
+            token=token,
+            path=ACTIVE_USERS_PATH,
+            payload=current,
+            message=f"Update active users ({action}): {u}",
+            branch="main",
+        )
+        return True
+    except Exception:
+        return False
+
+
+def remove_active_user(owner: str, token: str, user: str) -> bool:
+    """Remove a user entry (best-effort)."""
+    repo = get_active_state_repo(owner, token)
+    if not repo:
+        return False
+    if not active_state_repo_exists(owner, repo, token):
+        return False
+
+    u = (user or "").strip().lower()
+    if not u:
+        return False
+
+    try:
+        current = read_github_json(owner, repo, token, ACTIVE_USERS_PATH) or {}
+        current = current if isinstance(current, dict) else {}
+    except Exception:
+        current = {}
+
+    current = _prune_active_users(current)
+    if u in current:
+        current.pop(u, None)
+
+    try:
+        write_github_json(
+            owner=owner,
+            repo=repo,
+            token=token,
+            path=ACTIVE_USERS_PATH,
+            payload=current,
+            message=f"Remove active user: {u}",
+            branch="main",
+        )
+        return True
+    except Exception:
+        return False
+
+
+def render_active_users_banner(owner: str, token: str):
+    """Collapsible 'Active users' panel (global, shared across sessions).
+
+    This is intentionally NOT always visible as a big banner — it lives in an expander
+    so only interested users open it.
+    """
+    with st.expander("🟢 Active users", expanded=False):
+        try:
+            repo = get_active_state_repo(owner, token)
+            if not repo or not active_state_repo_exists(owner, repo, token):
+                st.warning(
+                    "Active-user state repo not found or not accessible. "
+                    "Set ACTIVE_STATE_REPO in secrets (e.g., BrandedGeneratorState)."
+                )
+                return
+
+            state = read_active_users_state(owner, token)
+            if not state:
+                st.caption(f"No active users detected (last ~{ACTIVE_USER_TTL_MINUTES} mins).")
+                return
+
+            # sort by last seen (utc desc)
+            def _key(item):
+                meta = item[1] or {}
+                dt = _parse_iso_z(meta.get("utc", "")) or datetime.datetime.min
+                return dt
+
+            items = sorted(state.items(), key=_key, reverse=True)
+
+            # Friendly list
+            for u, meta in items:
+                rel = format_relative_minutes((meta or {}).get("utc", ""))
+                st.markdown(f"- **{u}** — {rel}")
+
+            st.caption(
+                f"Auto-removes users after ~{ACTIVE_USER_TTL_MINUTES} minutes without a heartbeat."
+            )
+        except Exception as e:
+            # Keep this non-fatal and non-spammy
+            st.warning("Could not load active-user state right now.")
+
+
 def get_github_file_sha(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
@@ -1080,7 +1524,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* scroll */
     #bt-block .dw-scroll{
-      max-height: min(var(--table-max-h, 680px), calc(100vh - 240px));
+      max-height: var(--table-max-h);
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
@@ -1102,14 +1546,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     #bt-block table.dw-table {
-      width: 100%;
+      width: max-content;   /* allow columns to grow so headers can fit */
+      min-width: 100%;      /* still fill container at minimum */
       border-collapse: separate;
       border-spacing: 0;
       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       color: var(--text);
       font-variant-numeric: tabular-nums;
       background: transparent;
-      min-width: 600px;
       table-layout: auto;
     }
 
@@ -1120,46 +1564,95 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       font-weight:700;
       vertical-align:middle;
       border:0;
-      padding:14px 14px;
-      white-space:nowrap;
+      padding: 10px 14px;
       transition:background-color .15s, color .15s, box-shadow .15s, transform .05s;
-      text-align: var(--cell-align, center);  /* ✅ ADD THIS */
+      text-align: var(--cell-align, center);
+    
+      /* keep table layout stable */
+      white-space: normal;
+      overflow-wrap: normal;
+      word-break: normal;
+      hyphens: none;
+      line-height: 1.15;
+    
+      /* IMPORTANT: do NOT change table-cell display */
+      overflow: visible;
+      text-overflow: clip;
     }
+    
     #bt-block thead th.sortable{cursor:pointer; user-select:none}
-    #bt-block thead th.sortable::after{content:"↕"; font-size:12px; opacity:.75; margin-left:8px; color:#ffffff}
+    #bt-block thead th.sortable::after{
+      content:"↕";
+      display:inline-block;
+      font-size:12px;
+      line-height:1;
+      opacity:.85;
+      margin-left:8px;
+      color:#ffffff;
+      vertical-align:middle;
+    }
     #bt-block thead th.sortable[data-sort="asc"]::after{content:"▲"}
     #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
-    #bt-block thead th.sortable:hover,#bt-block thead th.sortable:focus-visible{background:var(--brand-600); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
-    #bt-block .dw-scroll.scrolled thead th{box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
-    #bt-block thead th.is-sorted{background:var(--brand-700); color:#fff; box-shadow:inset 0 -3px 0 var(--brand-100)}
-
+    
+    /* 3-line clamp for sortable header labels without breaking <th> layout */
+    #bt-block thead th.sortable > .dw-th-label{
+      display:inline;
+      white-space:nowrap;
+      overflow:visible;
+      text-overflow:clip;
+      word-break:normal;
+      overflow-wrap:normal;
+      hyphens:none;
+      line-height:1.15;
+    }
+        
+    #bt-block thead th.sortable:hover,
+    #bt-block thead th.sortable:focus-visible{
+      background:var(--brand-600);
+      color:#fff;
+      box-shadow:inset 0 -3px 0 var(--brand-100);
+    }
+    
+    #bt-block .dw-scroll.scrolled thead th{
+      box-shadow:0 6px 10px -6px rgba(0,0,0,.25);
+    }
+    
+    #bt-block thead th.is-sorted{
+      background:var(--brand-700);
+      color:#fff;
+      box-shadow:inset 0 -3px 0 var(--brand-100);
+    }
+    
+    /* shared cell spacing/alignment */
     #bt-block thead th,
     #bt-block tbody td {
       padding: 16px 14px;
-      overflow: hidden;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
-
+    
     /* Heatmap cells (overlay sits on top of zebra background) */
     #bt-block td.dw-heat-td{
       background-clip: padding-box;
     }
-
+    
+    /* body cell text clamp to max 3 lines */
     #bt-block .dw-cell{
       white-space: normal;
-      overflow-wrap: normal;
-      word-break: normal;
       line-height: 1.35;
-
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-
-      overflow:hidden;
-      text-overflow:ellipsis;
+      overflow-wrap: normal;   /* no mid-word split */
+      word-break: normal;
+      hyphens: none;
+    
+      /* body only: max 3 lines */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+    
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-
     /* ======================================================
        ✅ FIXED BAR TRACK WIDTH + AUTO COLUMN EXPAND
        ====================================================== */
@@ -1398,37 +1891,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overflow-x: visible !important;
       overflow-y: visible !important;
     }
-    /* FORCE segmented control to fill parent container */
-div[data-testid="stSegmentedControl"]{
-  width: 100% !important;
-}
-
-/* outer wrappers */
-div[data-testid="stSegmentedControl"] > div,
-div[data-testid="stSegmentedControl"] > div > div{
-  width: 100% !important;
-  max-width: 100% !important;
-}
-
-/* actual radio group */
-div[data-testid="stSegmentedControl"] div[role="radiogroup"]{
-  display: flex !important;
-  width: 100% !important;
-  max-width: 100% !important;
-}
-
-/* each tab = equal width */
-div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label{
-  flex: 1 1 0 !important;
-  width: 0 !important;
-  max-width: none !important;
-}
-
-/* clickable inner tab content */
-div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
-  width: 100% !important;
-  justify-content: center !important;
-}
   </style>
 
   <!-- Header -->
@@ -1470,12 +1932,19 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
           <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
           <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-            <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-            <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-            <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-            <button type="button" class="dw-menu-btn" id="dw-dl-csv">Download CSV</button>
-            <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
-          </div>
+              <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+            
+              <!-- Full table options -->
+              <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
+              <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
+              <button type="button" class="dw-menu-btn" id="dw-dl-csv">Download CSV</button>
+              <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
+            
+              <!-- Current view options (shown only when filter is active) -->
+              <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-csv-current">Download Current View CSV</button>
+              <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-image-current">Download Current View Image</button>
+              <button type="button" class="dw-menu-btn vi-hide" id="dw-copy-html-current">Copy Current View HTML</button>
+            </div>
         </div>
       </div>
     </div>
@@ -1528,6 +1997,10 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
 
     const table = root.querySelector('table.dw-table');
     const tb = table ? table.tBodies[0] : null;
+    const ALL_ROWS = tb ? Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty')) : [];
+    const PREVIEW_LIMIT = ALL_ROWS.length;     // full table
+    const PREVIEW_ROWS = ALL_ROWS;             // full table
+    ALL_ROWS.forEach((r, i) => { r.dataset.idx = String(i); });
     const scroller = root.querySelector('.dw-scroll');
     const controls = root.querySelector('.dw-controls');
     if(!table || !tb || !scroller || !controls) return;
@@ -1550,7 +2023,14 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
     const btnBottom10 = embedWrap ? embedWrap.querySelector('#dw-dl-bottom10') : null;
     const btnCsv = embedWrap ? embedWrap.querySelector('#dw-dl-csv') : null;
     const btnEmbed = embedWrap ? embedWrap.querySelector('#dw-embed-script') : null;
+    
+    // current-view buttons
+    const btnCsvCurrent = embedWrap ? embedWrap.querySelector('#dw-dl-csv-current') : null;
+    const btnImgCurrent = embedWrap ? embedWrap.querySelector('#dw-dl-image-current') : null;
+    const btnHtmlCurrent = embedWrap ? embedWrap.querySelector('#dw-copy-html-current') : null;
+    
     const menuTitle = embedWrap ? embedWrap.querySelector('#dw-menu-title') : null;
+    window.__viMenuTitleEl = menuTitle;
 
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
@@ -1565,18 +2045,59 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
 
     const hasEmbed = !controlsHidden
       && !!embedWrap && !embedWrap.classList.contains('vi-hide')
-      && !!downloadBtn && !!menu && !!btnEmbed;
-
-    Array.from(tb.rows).forEach((r,i)=>{ if(!r.classList.contains('dw-empty')) r.dataset.idx=i; });
+      && !!downloadBtn && !!menu;
 
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
     let filter = '';
+    filter = (searchInput?.value || '').toLowerCase().trim();
+
+    function isFilterActive(){
+      const typed = (searchInput && typeof searchInput.value === 'string')
+        ? searchInput.value.trim()
+        : '';
+      const live = (filter || '').trim();
+      return typed.length > 0 || live.length > 0;
+    }
+
+    
+    function syncMenuOptions(){
+      const filtered = isFilterActive();
+    
+      // Full-table options
+      if (btnTop10)   btnTop10.classList.toggle('vi-hide', filtered);
+      if (btnBottom10) btnBottom10.classList.toggle('vi-hide', filtered);
+      if (btnCsv)     btnCsv.classList.toggle('vi-hide', filtered);
+      if (btnEmbed)   btnEmbed.classList.toggle('vi-hide', filtered);
+    
+      // Current-view options
+      if (btnCsvCurrent)  btnCsvCurrent.classList.toggle('vi-hide', !filtered);
+      if (btnImgCurrent)  btnImgCurrent.classList.toggle('vi-hide', !filtered);
+      if (btnHtmlCurrent) btnHtmlCurrent.classList.toggle('vi-hide', !filtered);
+    
+      // Optional title clarity
+      if (menuTitle){
+        menuTitle.textContent = filtered ? 'Current view actions' : 'Choose action';
+      }
+    }
+
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
     const heads = Array.from(table.tHead.rows[0].cells);
+    // Wrap header text in span for safe 3-line clamp (without breaking table layout)
+    heads.forEach((th) => {
+      if (th.querySelector('.dw-th-label')) return;
+    
+      const txt = (th.textContent || '').trim();
+      th.textContent = '';
+    
+      const span = document.createElement('span');
+      span.className = 'dw-th-label';
+      span.textContent = txt;
+      th.appendChild(span);
+    });
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
       const type = th.dataset.type || 'text';
@@ -1588,42 +2109,60 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
     function textOf(tr,i){ return (tr.children[i].innerText||'').trim(); }
 
     function sortBy(colIdx, type, th){
-      const rows = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      // ✅ sort against FULL dataset (not current page only)
+      const rows = ALL_ROWS.slice();
+    
       const current = th.dataset.sort || 'none';
-      const next = current==='none' ? 'asc' : current==='asc' ? 'desc' : 'none';
-
+      const next = current === 'none' ? 'asc' : current === 'asc' ? 'desc' : 'none';
+    
       heads.forEach(h=>{
-        h.dataset.sort='none';
+        h.dataset.sort = 'none';
         h.setAttribute('aria-sort','none');
         h.classList.remove('is-sorted');
       });
-
+    
+      // reset to original order
       if(next === 'none'){
         rows.sort((a,b)=>(+a.dataset.idx)-(+b.dataset.idx));
         rows.forEach(r=>tb.insertBefore(r, emptyRow));
+        page = 1;
         renderPage();
         return;
       }
-
+    
       th.dataset.sort = next;
-      th.setAttribute('aria-sort', next==='asc'?'ascending':'descending');
-
-      const mul = next==='asc'?1:-1;
+      th.setAttribute('aria-sort', next === 'asc' ? 'ascending' : 'descending');
+      th.classList.add('is-sorted');
+    
+      const mul = next === 'asc' ? 1 : -1;
+    
       rows.sort((a,b)=>{
-        let v1=textOf(a,colIdx), v2=textOf(b,colIdx);
-        if((type||'text')==='num'){
-          v1=parseFloat(v1.replace(/[^0-9.\-]/g,'')); if(isNaN(v1)) v1=-Infinity;
-          v2=parseFloat(v2.replace(/[^0-9.\-]/g,'')); if(isNaN(v2)) v2=-Infinity;
+        let v1 = textOf(a,colIdx);
+        let v2 = textOf(b,colIdx);
+    
+        // force numeric on rank-like columns too
+        const isNum = (type || 'text') === 'num';
+    
+        if(isNum){
+          v1 = parseFloat(String(v1).replace(/[^0-9.\-]/g,''));
+          v2 = parseFloat(String(v2).replace(/[^0-9.\-]/g,''));
+          if(Number.isNaN(v1)) v1 = -Infinity;
+          if(Number.isNaN(v2)) v2 = -Infinity;
         }else{
-          v1=(v1+'').toLowerCase();
-          v2=(v2+'').toLowerCase();
+          v1 = String(v1).toLowerCase();
+          v2 = String(v2).toLowerCase();
         }
-        if(v1>v2) return 1*mul;
-        if(v1<v2) return -1*mul;
+    
+        if(v1 > v2) return 1 * mul;
+        if(v1 < v2) return -1 * mul;
         return 0;
       });
+    
+      // write sorted order back to tbody
       rows.forEach(r=>tb.insertBefore(r, emptyRow));
-      th.classList.add('is-sorted');
+    
+      // ✅ always go to page 1 after sort
+      page = 1;
       renderPage();
     }
 
@@ -1640,48 +2179,76 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
       pageStatus.textContent = "Page " + page + " Of " + pages;
     }
 
+    function applyVisibleZebra() {
+      const rows = Array.from(tb.rows)
+        .filter(tr => !tr.classList.contains('dw-empty') && tr.style.display !== 'none');
+    
+      rows.forEach((tr, i) => {
+        tr.classList.remove('dw-zebra-even', 'dw-zebra-odd');
+        tr.classList.add(i % 2 === 0 ? 'dw-zebra-odd' : 'dw-zebra-even');
+      });
+    }
+
     function renderPage(){
-      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
+      // Always operate on CURRENT DOM order (after sortBy re-inserts rows)
+      const ordered = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
       const visible = ordered.filter(matchesFilter);
       const total = visible.length;
-
-      ordered.forEach(r=>{ r.style.display='none'; });
+    
+      // hide all real rows first
+      ALL_ROWS.forEach(r => { r.style.display = 'none'; });
+    
       let shown = [];
-
-      if(total===0){
-        if(emptyRow){
-          emptyRow.style.display='table-row';
-          emptyRow.firstElementChild.colSpan = heads.length;
+      if (total === 0){
+        if (emptyRow){
+          emptyRow.style.display = 'table-row';
+          if (emptyRow.firstElementChild) emptyRow.firstElementChild.colSpan = heads.length;
         }
-        if(hasPager){ prevBtn.disabled = nextBtn.disabled = true; }
+        if (hasPager){
+          prevBtn.disabled = true;
+          nextBtn.disabled = true;
+        }
         setPageStatus(0, 0);
-      }else{
-        if(emptyRow) emptyRow.style.display='none';
-
-        if(!hasPager || pageSize===0){
-          shown = visible;
-          if(hasPager){ prevBtn.disabled = nextBtn.disabled = true; }
-          setPageStatus(total, 1);
-        }else{
-          const pages = Math.max(1, Math.ceil(total / pageSize));
-          page = Math.min(Math.max(1, page), pages);
-          const start = (page-1)*pageSize;
-          const end = start + pageSize;
-          shown = visible.slice(start,end);
-          prevBtn.disabled = page<=1;
-          nextBtn.disabled = page>=pages;
-          setPageStatus(total, pages);
-        }
+        applyVisibleZebra();
+        syncMenuOptions();
+        return;
       }
-
-      shown.forEach(r=>{ r.style.display='table-row'; });
-
-      scroller.scrollTop = 0;
+    
+      if (emptyRow) emptyRow.style.display = 'none';
+    
+      if (!hasPager || pageSize === 0){
+        // show all filtered rows
+        shown = visible;
+        shown.forEach(r => { r.style.display = 'table-row'; });
+        if (hasPager){
+          prevBtn.disabled = true;
+          nextBtn.disabled = true;
+        }
+        setPageStatus(total, 1);
+      } else {
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        if (page > pages) page = pages;
+        if (page < 1) page = 1;
+    
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        shown = visible.slice(start, end);
+    
+        shown.forEach(r => { r.style.display = 'table-row'; });
+    
+        prevBtn.disabled = page <= 1;
+        nextBtn.disabled = page >= pages;
+        setPageStatus(total, pages);
+      }
+    
+      applyVisibleZebra();
+      syncMenuOptions();
     }
 
     if(hasSearch){
       const syncClearBtn = ()=> searchFieldWrap.classList.toggle('has-value', !!searchInput.value);
       let t=null;
+    
       searchInput.addEventListener('input', e=>{
         syncClearBtn();
         clearTimeout(t);
@@ -1689,18 +2256,20 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
           filter=(e.target.value||'').toLowerCase().trim();
           page=1;
           renderPage();
+          syncMenuOptions();
         },120);
       });
+    
       clearBtn.addEventListener('click', ()=>{
         searchInput.value='';
         syncClearBtn();
         filter='';
         page=1;
         renderPage();
+        syncMenuOptions();
         searchInput.focus();
       });
-      syncClearBtn();
-    }
+    } 
 
     if(hasPager){
       sizeSel.addEventListener('change', e=>{
@@ -1769,7 +2338,7 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
         const headsText = heads.map(th => escapeCsvCell(th.innerText || th.textContent || ""));
         const headerLine = headsText.join(",");
 
-        const ordered = Array.from(tb.rows).filter(r => !r.classList.contains("dw-empty"));
+        const ordered = PREVIEW_ROWS.slice();
         const filteredRows = ordered.filter(matchesFilter);
 
         const lines = [headerLine];
@@ -1801,31 +2370,73 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
         console.error("CSV export failed:", err);
       }
     }
+    function downloadCurrentViewCsv(){
+      hideMenu();
+    
+      const headers = heads.map(th => escapeCsvCell(th.innerText || th.textContent || ""));
+      const lines = [headers.join(",")];
+    
+      const rows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
+      const visibleRows = rows.filter(r => matchesFilter(r) && r.style.display !== 'none');
+    
+      visibleRows.forEach(tr => {
+        const cells = Array.from(tr.cells).map(td => escapeCsvCell(td.innerText || td.textContent || ""));
+        lines.push(cells.join(","));
+      });
+    
+      const csv = lines.join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+    
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "current_view.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1200);
+    }
 
     function showRowsInClone(clone, mode){
-      const cloneTb = clone.querySelector('table.dw-table')?.tBodies?.[0];
-      if(!cloneTb) return;
+      const cloneTb = clone.querySelector('#bt-block tbody');
+      if (!cloneTb) return;
 
-      const cloneRows = Array.from(cloneTb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const ordered = Array.from(tb.rows).filter(r=>!r.classList.contains('dw-empty'));
-      const visiblePositions = [];
-      for(let i=0;i<ordered.length;i++){
-        if(matchesFilter(ordered[i])) visiblePositions.push(i);
-      }
-
+      const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
       const keep = new Set();
-      if(mode === 'top10'){
-        visiblePositions.slice(0, 10).forEach(i => keep.add(i));
-      }else if(mode === 'bottom10'){
-        visiblePositions.slice(-10).forEach(i => keep.add(i));
+
+      // ✅ Use CURRENT live DOM order (respects sorting), but never filter
+      const liveRowsInOrder = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
+      const orderedIdx = liveRowsInOrder.map(r => String(r.dataset.idx));
+
+      if (mode === 'top10'){
+        orderedIdx.slice(0, 10).forEach(id => keep.add(id));
+      } else if (mode === 'bottom10'){
+        orderedIdx.slice(-10).forEach(id => keep.add(id));
+      } else if (mode === 'current'){
+        // only what is currently visible in preview (i.e., after search filter)
+        PREVIEW_ROWS.forEach(r => {
+          if (r.style.display !== 'none') keep.add(String(r.dataset.idx));
+        });
+      } else {
+        // fallback: show all preview rows
+        PREVIEW_ROWS.forEach(r => keep.add(String(r.dataset.idx)));
       }
 
-      cloneRows.forEach((r, i)=>{
-        r.style.display = keep.has(i) ? 'table-row' : 'none';
+      // Show/hide clone rows by idx
+      cloneRows.forEach(r => {
+        const on = keep.has(String(r.dataset.idx));
+        r.style.display = on ? 'table-row' : 'none';
+        r.classList.remove('dw-zebra-odd', 'dw-zebra-even');
+      });
+
+      // Re-zebra visible rows
+      const vis = cloneRows.filter(r => r.style.display !== 'none');
+      vis.forEach((r, i) => {
+        r.classList.add(i % 2 === 0 ? 'dw-zebra-odd' : 'dw-zebra-even');
       });
 
       const empty = cloneTb.querySelector('.dw-empty');
-      if(empty) empty.style.display='none';
+      if (empty) empty.style.display = vis.length ? 'none' : 'table-row';
     }
 
     async function captureCloneToPng(clone, stage, filename, targetWidth){
@@ -1840,18 +2451,10 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
         cloneScroller.classList.add('no-scroll');
       }
 
-      // ✅ export width = full table scroll width (not viewport width)
-    const w = Math.max(900, Math.ceil(targetWidth || 1200));
+      // ✅ export width = widget width (consistent, legible)
+    const w = Math.max(900, Math.min(1600, Math.ceil(targetWidth || 1200)));
     clone.style.maxWidth = "none";
     clone.style.width = w + "px";
-    
-    // ✅ ensure the table itself isn't constrained by parent width
-    const cloneTable = clone.querySelector("table.dw-table");
-    if(cloneTable){
-      cloneTable.style.width = "max-content";
-      cloneTable.style.minWidth = "100%";
-    }
-
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
       await waitForFontsAndImages(clone);
 
@@ -1866,6 +2469,10 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
       if(area > MAX_CAPTURE_AREA){
         stage.remove();
         console.warn("PNG export skipped: capture area too large.", { w, fullH, area });
+        if(window.__viMenuTitleEl){
+          window.__viMenuTitleEl.textContent = "Export too large — try Top 10 / Bottom 10";
+          setTimeout(()=>{ window.__viMenuTitleEl.textContent = "Choose action"; }, 2200);
+        }
         return;
       }
 
@@ -1924,46 +2531,108 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
         // ✅ Export-only CSS overrides (does NOT touch interactive table)
        const exportStyle = document.createElement("style");
         exportStyle.textContent = `
-          /* ✅ Let the table size itself naturally so headers never clip */
+          /* ✅ Keep export image width consistent with the on-page widget (prevents tiny-looking text)
+             and still allows header wrapping via wrapExportHeaders() */
           .vi-table-embed.export-mode #bt-block table.dw-table{
-            table-layout: auto !important;
-            width: max-content !important;
-            min-width: 100% !important;
+            table-layout: fixed !important;
+            width: 100% !important;
+            min-width: 0 !important;
           }
         
-          /* ✅ No clipping in header/cells */
-          .vi-table-embed.export-mode #bt-block thead th,
-          .vi-table-embed.export-mode #bt-block tbody td{
-            overflow: visible !important;
-            text-overflow: clip !important;
-          }
+         /* keep cell-level clamp rules in control */
+        .vi-table-embed.export-mode #bt-block thead th,
+        .vi-table-embed.export-mode #bt-block tbody td{
+          vertical-align: middle !important;
+        }
+
+          .vi-table-embed.export-mode{
+                      font-size: 16px !important;
+                    }
+                    .vi-table-embed.export-mode #bt-block thead th{
+                      font-size: 16px !important;
+                    }
+                    .vi-table-embed.export-mode #bt-block tbody td{
+                      font-size: 16px !important;
+                    }
         
           /* ✅ REMOVE SORT ARROWS IN EXPORT MODE */
           .vi-table-embed.export-mode #bt-block thead th.sortable::after{
             content: "" !important;
           }
         
-          /* ✅ Header wrapping in export */
-          .vi-table-embed.export-mode #bt-block thead th{
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
-            line-height: 1.15 !important;
-            padding-top: 10px !important;
-            padding-bottom: 10px !important;
-            overflow-wrap: anywhere !important;
-            word-break: break-word !important;
-            hyphens: auto !important;
-          }
+          \
+/* ✅ Header: keep <th> as table-cell in export (prevents stacked header bug) */
+        .vi-table-embed.export-mode #bt-block thead th{
+          white-space: normal !important;
+          line-height: 1.15 !important;
+          padding-top: 10px !important;
+          padding-bottom: 10px !important;
+
+          /* no mid-word splitting */
+          overflow-wrap: normal !important;
+          word-break: normal !important;
+          hyphens: none !important;
+
+          /* IMPORTANT: do not change display on <th> */
+          overflow: visible !important;
+          text-overflow: clip !important;
+        }
+
+        /* ✅ Clamp the header LABEL, not the <th> (3 lines max) */
+        .vi-table-embed.export-mode #bt-block thead th .dw-th-label{
+          display: -webkit-box !important;
+          -webkit-box-orient: vertical !important;
+          -webkit-line-clamp: 3 !important;
+          line-clamp: 3 !important;
+
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+
+          white-space: normal !important;
+          overflow-wrap: normal !important;
+          word-break: normal !important;
+          hyphens: none !important;
+        }
+
+
+        /* ✅ Export: force true vertical centering in header (html2canvas-safe) */
+        .vi-table-embed.export-mode #bt-block thead th{
+          padding: 0 !important;              /* move padding to label for reliable centering */
+          vertical-align: middle !important;
+        }
+        .vi-table-embed.export-mode #bt-block thead th .dw-th-label{
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: center !important;
+          align-items: center !important;
+          height: 100% !important;
+          padding: 10px 14px !important;
+          text-align: center !important;
+          line-height: 1.15 !important;
+
+          /* override clamp props (flex can't clamp reliably) */
+          -webkit-line-clamp: unset !important;
+          line-clamp: unset !important;
+          -webkit-box-orient: unset !important;
+        }
         
-          /* ✅ Remove the 2-line clamp / ellipsis in export */
-          .vi-table-embed.export-mode #bt-block .dw-cell{
-            display: block !important;
-            -webkit-line-clamp: unset !important;
-            -webkit-box-orient: unset !important;
-            overflow: visible !important;
-            white-space: normal !important;
-          }
+          /* ✅ Keep SAME 3-line clamp behavior in export (match interactive table) */
+        .vi-table-embed.export-mode #bt-block .dw-cell{
+          white-space: normal !important;
+          word-break: normal !important;      /* no mid-word split */
+          overflow-wrap: normal !important;   /* wrap only at normal word boundaries */
+          hyphens: none !important;
+        
+          line-height: 1.35 !important;
+        
+          display: -webkit-box !important;
+          -webkit-box-orient: vertical !important;
+          -webkit-line-clamp: 3 !important;
+          line-clamp: 3 !important;
+        
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+        }
         
           /* ✅ Export should never compress the bar columns */
           .vi-table-embed.export-mode #bt-block th.dw-bar-col,
@@ -1979,7 +2648,17 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
           const ths = clone.querySelectorAll('#bt-block thead th');
         
           ths.forEach(th => {
-            const raw = (th.textContent || "").trim();
+            // Ensure we have a label span so export clamping works without breaking table layout
+            let label = th.querySelector('.dw-th-label');
+            if(!label){
+              label = document.createElement('span');
+              label.className = 'dw-th-label';
+              label.textContent = (th.textContent || '').trim();
+              th.textContent = '';
+              th.appendChild(label);
+            }
+        
+            const raw = (label.textContent || "").trim();
             if (!raw) return;
         
             // Only wrap long headers
@@ -2011,9 +2690,9 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
             if (lines.length > 3) {
               const firstTwo = lines.slice(0, 2);
               const rest = lines.slice(2).join(" ");
-              th.innerHTML = [...firstTwo, rest].join("<br>");
+              label.innerHTML = [...firstTwo, rest].join("<br>");
             } else {
-              th.innerHTML = lines.join("<br>");
+              label.innerHTML = lines.join("<br>");
             }
           });
         }
@@ -2026,9 +2705,12 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
         const suffix = mode === 'bottom10' ? "_bottom10" : "_top10";
         const filename = (base + suffix).slice(0, 70);
 
-        const cloneTable = clone.querySelector("table.dw-table");
-        const fullTableWidth = Math.ceil(cloneTable?.scrollWidth || clone.getBoundingClientRect().width || 1200);
-        
+        // ✅ Choose export width: match the on-page widget width (prevents tiny illegible PNGs)
+        await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+        const widgetW = Math.ceil(widget.getBoundingClientRect().width || 1200);
+        const fullTableWidth = Math.max(900, Math.min(1600, widgetW));
+
         await captureCloneToPng(clone, stage, filename, fullTableWidth);
 
       }catch(err){
@@ -2036,6 +2718,36 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
       }
     }
 
+    function getCurrentViewHtml(){
+      const clone = document.documentElement.cloneNode(true);
+    
+      const cloneTb = clone.querySelector('#bt-block tbody');
+      if (!cloneTb) return '<!doctype html>\n' + clone.outerHTML;
+    
+      const liveRows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
+      const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
+    
+      cloneRows.forEach((r, i) => {
+        const live = liveRows[i];
+        const visible = !!live && matchesFilter(live) && live.style.display !== 'none';
+        r.style.display = visible ? 'table-row' : 'none';
+      });
+    
+      const empty = cloneTb.querySelector('.dw-empty');
+      if (empty) empty.style.display = 'none';
+    
+      return '<!doctype html>\n' + clone.outerHTML;
+    }
+    
+    async function onEmbedCurrentClick(){
+      hideMenu();
+      const code = getCurrentViewHtml();
+      const ok = await copyToClipboard(code);
+      if (menuTitle){
+        menuTitle.textContent = ok ? 'Current view HTML copied!' : 'Copy failed (try again)';
+        setTimeout(() => { menuTitle.textContent = 'Choose action'; }, 1800);
+      }
+    }
     function getFullHtml(){
       const html = document.documentElement ? document.documentElement.outerHTML : "";
       return "<!doctype html>\n" + html;
@@ -2064,6 +2776,26 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
       }
     }
 
+    function getCurrentViewHtml(){
+      const clone = document.documentElement.cloneNode(true);
+      const cloneTb = clone.querySelector('#bt-block table.dw-table tbody');
+      if(!cloneTb) return '<!doctype html>\n' + clone.outerHTML;
+    
+      const liveRows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
+      const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
+    
+      cloneRows.forEach((r, i)=>{
+        const live = liveRows[i];
+        const visible = !!live && matchesFilter(live) && live.style.display !== 'none';
+        r.style.display = visible ? 'table-row' : 'none';
+      });
+    
+      const empty = cloneTb.querySelector('.dw-empty');
+      if(empty) empty.style.display = 'none';
+    
+      return '<!doctype html>\n' + clone.outerHTML;
+    }
+
     async function onEmbedClick(){
       hideMenu();
       const code = getFullHtml();
@@ -2073,13 +2805,27 @@ div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
         setTimeout(()=>{ menuTitle.textContent = 'Choose action'; }, 1800);
       }
     }
+    async function onEmbedCurrentClick(){
+      hideMenu();
+      const code = getCurrentViewHtml();
+      const ok = await copyToClipboard(code);
+    
+      if (menuTitle){
+        menuTitle.textContent = ok ? 'Current view HTML copied!' : 'Copy failed (try again)';
+        setTimeout(() => { menuTitle.textContent = 'Choose action'; }, 1800);
+      }
+    }
 
     if(hasEmbed && btnTop10) btnTop10.addEventListener('click', ()=> downloadDomPng('top10'));
     if(hasEmbed && btnBottom10) btnBottom10.addEventListener('click', ()=> downloadDomPng('bottom10'));
     if(hasEmbed && btnCsv) btnCsv.addEventListener('click', downloadCsv);
     if(hasEmbed && btnEmbed) btnEmbed.addEventListener('click', onEmbedClick);
+    if(hasEmbed && btnCsvCurrent) btnCsvCurrent.addEventListener('click', downloadCurrentViewCsv);
+    if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
+    if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
     renderPage();
+    syncMenuOptions();
   })();
   </script>
 
@@ -2132,6 +2878,50 @@ def format_column_header(col_name: str, mode: str) -> str:
     return s
 
 
+
+def remove_markdown_formatting(text: str) -> str:
+    """Remove **bold** and *italic* markers while preserving the underlying text."""
+    if not text:
+        return ""
+    s = str(text)
+
+    # bold: **text**
+    s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
+
+    # italic: *text*
+    s = re.sub(r"\*(.+?)\*", r"\1", s)
+
+    return s
+
+
+
+def _bt_clear_formatting(state_key: str) -> None:
+    """Clear formatting for a given session_state key (Ctrl+\ equivalent).
+    Safe to use as an on_click callback for buttons tied to text inputs / text areas.
+    """
+    k = str(state_key or "").strip()
+    if not k:
+        return
+    cleaned = remove_markdown_formatting(st.session_state.get(k, ""))
+    st.session_state[k] = cleaned
+    # keep any paired *_draft key in sync
+    dk = f"{k}_draft"
+    if dk in st.session_state:
+        st.session_state[dk] = cleaned
+
+
+# ======================================================
+# Ultra-smooth live preview: commit-on-blur draft fields
+# ======================================================
+def _bt_commit_subtitle() -> None:
+    # Commit draft subtitle to the canonical key used by config/preview/publish
+    st.session_state["bt_widget_subtitle"] = st.session_state.get("bt_widget_subtitle_draft", "")
+
+def _bt_commit_footer_notes() -> None:
+    # Commit draft footer notes to the canonical key used by config/preview/publish
+    st.session_state["bt_footer_notes"] = st.session_state.get("bt_footer_notes_draft", "")
+
+
 def generate_table_html_from_df(
     df: pd.DataFrame,
     title: str,
@@ -2139,6 +2929,8 @@ def generate_table_html_from_df(
     brand_logo_url: str,
     brand_logo_alt: str,
     brand_class: str,
+    title_style: str = "Keep original",
+    subtitle_style: str = "Keep original",
     striped: bool = True,
     center_titles: bool = False,
     branded_title_color: bool = True,
@@ -2162,10 +2954,15 @@ def generate_table_html_from_df(
     heat_strength: float = 0.55,
     heatmap_style: str = "Branded heatmap",
     header_style: str = "Keep original",
+    col_header_overrides: dict | None = None,
     col_format_rules: dict | None = None,
 ) -> str:
 
     df = df.copy()
+
+    # Dynamic heights based on row count
+    row_count = len(df.index)
+    table_max_h = 680 if row_count > 10 else 400
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
     heat_columns_set = set(heat_columns or [])
@@ -2424,7 +3221,12 @@ def generate_table_html_from_df(
     head_cells = []
     for col in df.columns:
         col_type = guess_column_type(df[col])
-        display_col = format_column_header(col, header_style)
+        _ov = (col_header_overrides or {})
+        _base_label = _ov.get(col, col)
+        if header_style == "Keep original":
+            display_col = str(_base_label)
+        else:
+            display_col = format_column_header(str(_base_label), header_style)
         safe_label = html_mod.escape(display_col)
 
         # ✅ add class to bar columns so CSS can force min-width
@@ -2512,18 +3314,32 @@ def generate_table_html_from_df(
     colspan = str(len(df.columns))
 
     stripe_css = (
-        """
-    #bt-block tbody tr:not(.dw-empty):nth-child(odd) td{background:var(--stripe);}
-    #bt-block tbody tr:not(.dw-empty):nth-child(even) td{background:#ffffff;}
-"""
+    """
+    #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
+    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--stripe); } /* striped */
+    #bt-block tbody tr.dw-zebra-even td{ background:#ffffff; }       /* plain */
+    """
         if striped
         else """
     #bt-block tbody tr:not(.dw-empty) td{background:#ffffff;}
-"""
+    """
     )
 
     header_class = "centered" if center_titles else ""
     title_class = "branded" if branded_title_color else ""
+
+    # Apply optional casing rules to title/subtitle (same modes as header row)
+    title_display = format_column_header(title, title_style)
+    subtitle_display = format_column_header(subtitle, subtitle_style) if (subtitle or "").strip() else ""
+
+    # Subtitle supports simple markdown (**bold** and *italic*) like footer notes
+    subtitle_html = ""
+    if (subtitle_display or "").strip():
+        _s = html_mod.escape(subtitle_display)
+        _s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", _s)
+        _s = re.sub(r"\*(.+?)\*", r"<em>\1</em>", _s)
+        subtitle_html = _s
+
 
     header_vis = "" if show_header else "vi-hide"
     footer_vis = "" if show_footer else "vi-hide"
@@ -2557,8 +3373,8 @@ def generate_table_html_from_df(
         .replace("[[TABLE_HEAD]]", table_head_html)
         .replace("[[TABLE_ROWS]]", table_rows_html)
         .replace("[[COLSPAN]]", colspan)
-        .replace("[[TITLE]]", html_mod.escape(title))
-        .replace("[[SUBTITLE]]", html_mod.escape(subtitle or ""))
+        .replace("[[TITLE]]", html_mod.escape(title_display))
+        .replace("[[SUBTITLE]]", subtitle_html)
         .replace("[[BRAND_LOGO_URL]]", brand_logo_url)
         .replace("[[BRAND_LOGO_ALT]]", html_mod.escape(brand_logo_alt))
         .replace("[[BRAND_CLASS]]", brand_class or "")
@@ -2575,6 +3391,7 @@ def generate_table_html_from_df(
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
+        .replace("[[TABLE_MAX_H]]", str(table_max_h))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -2591,63 +3408,7 @@ def stable_config_hash(cfg: dict) -> str:
     keys = sorted(cfg.keys())
     return "|".join([f"{k}={repr(cfg.get(k))}" for k in keys])
 
-def render_preview(preview_slot):
-    # ✅ Render preview UI + output
-    with preview_slot:
-        # Default ON so Preview actually shows something
-        if "bt_show_preview" not in st.session_state:
-            st.session_state["bt_show_preview"] = True
 
-        st.checkbox("Show live preview", key="bt_show_preview")
-
-        if not st.session_state["bt_show_preview"]:
-            st.info("Preview hidden for performance.")
-            return
-
-        live_cfg = draft_config_from_state()
-        live_rules = st.session_state.get("bt_col_format_rules", {})
-
-        df_live = st.session_state.get("bt_df_uploaded")
-        if not isinstance(df_live, pd.DataFrame) or df_live.empty:
-            st.info("Upload a CSV to show preview.")
-            return
-        
-        df_preview = df_live.copy()
-        hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
-        if hidden_cols:
-            df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
-
-        PREVIEW_LIMIT = 100
-        if len(df_preview) > PREVIEW_LIMIT:
-            st.info(
-                f"Preview limited to first {PREVIEW_LIMIT} rows for performance. "
-                f"Full table appears in the published page."
-            )
-            df_preview = df_preview.head(PREVIEW_LIMIT)
-
-        cfg_hash = stable_config_hash(live_cfg)
-
-        try:
-            df_hash = int(pd.util.hash_pandas_object(df_preview, index=True).sum())
-        except Exception:
-            df_hash = hash((df_preview.shape, tuple(df_preview.columns)))
-
-        rules_hash = hash(json.dumps(live_rules, sort_keys=True, default=str))
-        preview_key = f"{cfg_hash}|{df_hash}|{rules_hash}"
-
-        if st.session_state.get("bt_preview_key") != preview_key:
-            st.session_state["bt_preview_key"] = preview_key
-            st.session_state["bt_preview_html"] = html_from_config(
-                df_preview,
-                live_cfg,
-                col_format_rules=live_rules,
-            )
-
-        components.html(
-            st.session_state.get("bt_preview_html", ""),
-            height=820,
-            scrolling=True,
-        )
 def simulate_progress(label: str, total_sleep: float = 0.35):
     ph = st.empty()
     ph.caption(label)
@@ -2666,7 +3427,9 @@ def draft_config_from_state() -> dict:
     return {
         "brand": st.session_state.get("brand_table", "Action Network"),
         "title": st.session_state.get("bt_widget_title", "Table 1"),
+        "title_style": st.session_state.get("bt_title_style", "Keep original"),
         "subtitle": st.session_state.get("bt_widget_subtitle", "Subheading"),
+        "subtitle_style": st.session_state.get("bt_subtitle_style", "Keep original"),
         "striped": st.session_state.get("bt_striped_rows", True),
         "show_header": st.session_state.get("bt_show_header", True),
         "center_titles": st.session_state.get("bt_center_titles", False),
@@ -2690,6 +3453,7 @@ def draft_config_from_state() -> dict:
         "heat_strength": st.session_state.get("bt_heat_strength", 0.55),
         "heatmap_style": st.session_state.get("bt_heatmap_style", "Branded heatmap"),
         "header_style": st.session_state.get("bt_header_style", "Keep original"),
+        "col_header_overrides": st.session_state.get("bt_col_header_overrides", {}) or {},
     }
 
 
@@ -2698,7 +3462,9 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
     return generate_table_html_from_df(
         df=df,
         title=cfg["title"],
+        title_style=cfg.get("title_style", "Keep original"),
         subtitle=cfg["subtitle"],
+        subtitle_style=cfg.get("subtitle_style", "Keep original"),
         brand_logo_url=meta["logo_url"],
         brand_logo_alt=meta["logo_alt"],
         brand_class=meta["brand_class"],
@@ -2725,6 +3491,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         heat_strength=cfg.get("heat_strength", 0.55),
         heatmap_style=cfg.get("heatmap_style", "Branded heatmap"),
         header_style=cfg.get("header_style", "Keep original"),
+        col_header_overrides=cfg.get("col_header_overrides", {}) or {},
 
         # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
@@ -2737,11 +3504,28 @@ def compute_pages_url(user: str, repo: str, filename: str) -> str:
     return f"https://{user}.github.io/{repo}/{filename}"
     
 def build_publish_bundle(widget_file_name: str) -> dict:
-    # IMPORTANT: keep this aligned with what your editor actually uses
-    cfg = draft_config_from_state()
+    """
+    Build the editable bundle that gets saved to GitHub (bundles/<file>.json).
+
+    IMPORTANT:
+    - If the user has clicked **Confirm & Save**, we prefer the CONFIRMED snapshot
+      (bt_df_confirmed + bt_confirmed_cfg) so the bundle always matches the HTML
+      that was actually published.
+    - Otherwise we fall back to the current live draft state.
+    """
+    # Prefer CONFIRMED snapshot when available (keeps bundle aligned with published HTML)
+    cfg = st.session_state.get("bt_confirmed_cfg")
+    if not isinstance(cfg, dict) or not cfg:
+        cfg = draft_config_from_state()
+
+    # Live-only formatting rules are still saved so edits are retained when re-opening
     rules = st.session_state.get("bt_col_format_rules", {}) or {}
 
-    df = st.session_state.get("bt_df_uploaded")
+    # Prefer confirmed df (matches confirmed HTML); fallback to current upload
+    df = st.session_state.get("bt_df_confirmed")
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        df = st.session_state.get("bt_df_uploaded")
+
     if isinstance(df, pd.DataFrame) and not df.empty:
         csv_text = df.to_csv(index=False)
     else:
@@ -2750,29 +3534,59 @@ def build_publish_bundle(widget_file_name: str) -> dict:
     bundle = {
         "schema_version": 1,
         "widget_file_name": widget_file_name,
+
+        # high-level metadata
         "brand": st.session_state.get("brand_table", ""),
         "created_by": (st.session_state.get("bt_created_by_user", "") or "").strip().lower(),
         "created_at_utc": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+
+        # naming + header text
         "table_name_words": st.session_state.get("bt_table_name_words", ""),
         "widget_title": st.session_state.get("bt_widget_title", ""),
         "widget_subtitle": st.session_state.get("bt_widget_subtitle", ""),
+
+        # core state (everything needed to fully restore the editor)
         "config": cfg,
         "col_format_rules": rules,
         "csv": csv_text,
         "hidden_cols": st.session_state.get("bt_hidden_cols", []) or [],
+
+        # keep these for backward/forward compatibility (some older bundles used top-level keys)
         "bar_columns": st.session_state.get("bt_bar_columns", []) or [],
         "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}) or {},
         "heat_columns": st.session_state.get("bt_heat_columns", []) or [],
         "heat_overrides": st.session_state.get("bt_heat_overrides", {}) or {},
     }
     return bundle
-    
+
 def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name: str):
     bundle_path = f"bundles/{widget_file_name}.json"
     bundle = read_github_json(owner, repo, token, bundle_path, branch="main")
-    st.session_state["bt_uploaded_name"] = f"bundle:{widget_file_name}"   # ✅ makes Create tab treat it like a "loaded file"
-    st.session_state["bt_created_by_user"] = (bundle.get("created_by","") or "").strip().lower()
-    st.session_state["bt_created_by_user_select_create"] = st.session_state["bt_created_by_user"] or "Select a user..."
+
+    if not isinstance(bundle, dict) or not bundle:
+        st.error(f"Bundle not found at {bundle_path}. Cannot restore full table settings.")
+        return
+
+    st.session_state["bt_uploaded_name"] = f"bundle:{widget_file_name}"
+    st.session_state["bt_editing_from_bundle"] = True
+    st.session_state["bt_active_bundle_name"] = widget_file_name
+
+    created_by = (bundle.get("created_by", "") or "").strip().lower()
+    st.session_state["bt_created_by_user"] = created_by
+    st.session_state["bt_user_select"] = created_by or "Select a user..."
+
+    cfg = bundle.get("config") or {}
+
+    # Clear editor keys to avoid stale mixes
+    for k in [
+        "bt_show_header","bt_widget_title","bt_widget_subtitle","bt_center_titles","bt_branded_title_color",
+        "bt_show_footer","bt_footer_logo_align","bt_footer_logo_h","bt_show_footer_notes","bt_footer_notes","bt_show_heat_scale",
+        "bt_striped_rows","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
+        "bt_bar_columns","bt_bar_max_overrides","bt_bar_fixed_w",
+        "bt_heat_columns","bt_heat_overrides","bt_heat_strength","bt_heatmap_style","bt_header_style",
+        "bt_col_format_rules","bt_hidden_cols"
+    ]:
+        st.session_state.pop(k, None)
 
     csv_text = (bundle.get("csv") or "")
     if csv_text.strip():
@@ -2781,61 +3595,80 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
         st.session_state["bt_df_source"] = df.copy(deep=True)
         st.session_state["bt_df_confirmed"] = df.copy(deep=True)
 
-    # restore core editor fields
     st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
-    st.session_state["bt_widget_title"] = bundle.get("widget_title", "")
-    st.session_state["bt_widget_subtitle"] = bundle.get("widget_subtitle", "")
 
-    # restore toggles/rules
-    st.session_state["bt_col_format_rules"] = bundle.get("col_format_rules", {}) or {}
-    st.session_state["bt_hidden_cols"] = bundle.get("hidden_cols", []) or []
-    st.session_state["bt_bar_columns"] = bundle.get("bar_columns", []) or []
-    st.session_state["bt_bar_max_overrides"] = bundle.get("bar_max_overrides", {}) or {}
-    st.session_state["bt_heat_columns"] = bundle.get("heat_columns", []) or []
-    st.session_state["bt_heat_overrides"] = bundle.get("heat_overrides", {}) or {}
+    def _pick(*vals, default=None):
+        for v in vals:
+            if v is None:
+                continue
+            if isinstance(v, str):
+                if v.strip() != "":
+                    return v
+            else:
+                return v
+        return default
 
-    # restore config (mapped to editor session keys)
-    cfg = bundle.get("config") or {}
-    
-    CFG_TO_STATE = {
-        "brand": "brand_table",
-        "title": "bt_widget_title",
-        "subtitle": "bt_widget_subtitle",
-        "striped": "bt_striped_rows",
-        "show_header": "bt_show_header",
-        "center_titles": "bt_center_titles",
-        "branded_title_color": "bt_branded_title_color",
-        "show_footer": "bt_show_footer",
-        "footer_logo_align": "bt_footer_logo_align",
-        "footer_logo_h": "bt_footer_logo_h",
-        "show_footer_notes": "bt_show_footer_notes",
-        "footer_notes": "bt_footer_notes",
-        "show_heat_scale": "bt_show_heat_scale",
-        "cell_align": "bt_cell_align",
-        "show_search": "bt_show_search",
-        "show_pager": "bt_show_pager",
-        "show_embed": "bt_show_embed",
-        "show_page_numbers": "bt_show_page_numbers",
-        "bar_columns": "bt_bar_columns",
-        "bar_max_overrides": "bt_bar_max_overrides",
-        "bar_fixed_w": "bt_bar_fixed_w",
-        "heat_columns": "bt_heat_columns",
-        "heat_overrides": "bt_heat_overrides",
-        "heat_strength": "bt_heat_strength",
-        "heatmap_style": "bt_heatmap_style",
-        "header_style": "bt_header_style",
-    }
-    
-    for cfg_key, state_key in CFG_TO_STATE.items():
-        if cfg_key in cfg:
-            st.session_state[state_key] = cfg[cfg_key]
+    # Core config restore with safe defaults (supports legacy key variants)
+    st.session_state["brand_table"]            = _pick(
+        cfg.get("brand"), bundle.get("brand"), st.session_state.get("brand_table"), default="Action Network"
+    )
+    st.session_state["bt_widget_title"]        = _pick(
+        cfg.get("title"), cfg.get("table_title"), bundle.get("widget_title"), bundle.get("table_title"), default="Table 1"
+    )
+    st.session_state["bt_title_style"]        = _pick(
+        cfg.get("title_style"), cfg.get("table_title_style"), bundle.get("title_style"), default="Keep original"
+    )
+    st.session_state["bt_widget_subtitle"]     = _pick(
+        cfg.get("subtitle"), cfg.get("table_subtitle"), bundle.get("widget_subtitle"), bundle.get("table_subtitle"), default="Subheading"
+    )
+    st.session_state["bt_subtitle_style"]     = _pick(
+        cfg.get("subtitle_style"), cfg.get("table_subtitle_style"), bundle.get("subtitle_style"), default="Keep original"
+    )
 
-    # force user back to editor UX
+    st.session_state["bt_show_header"]         = cfg.get("show_header", True)
+    st.session_state["bt_center_titles"]       = cfg.get("center_titles", False)
+    st.session_state["bt_branded_title_color"] = cfg.get("branded_title_color", True)
+
+    st.session_state["bt_show_footer"]         = cfg.get("show_footer", True)
+    st.session_state["bt_footer_logo_align"]   = cfg.get("footer_logo_align", "Center")
+    st.session_state["bt_footer_logo_h"]       = int(cfg.get("footer_logo_h", 36) or 36)
+    st.session_state["bt_show_footer_notes"]   = cfg.get("show_footer_notes", False)
+    st.session_state["bt_footer_notes"]        = cfg.get("footer_notes", "")
+    st.session_state["bt_show_heat_scale"]     = cfg.get("show_heat_scale", False)
+
+    st.session_state["bt_striped_rows"]        = cfg.get("striped", True)
+    st.session_state["bt_cell_align"]          = cfg.get("cell_align", "Center")
+    st.session_state["bt_show_search"]         = cfg.get("show_search", True)
+    st.session_state["bt_show_pager"]          = cfg.get("show_pager", True)
+    st.session_state["bt_show_embed"]          = cfg.get("show_embed", True)
+    st.session_state["bt_show_page_numbers"]   = cfg.get("show_page_numbers", True)
+
+    st.session_state["bt_bar_columns"]         = cfg.get("bar_columns", bundle.get("bar_columns", [])) or []
+    st.session_state["bt_bar_max_overrides"]   = cfg.get("bar_max_overrides", bundle.get("bar_max_overrides", {})) or {}
+    st.session_state["bt_bar_fixed_w"]         = int(cfg.get("bar_fixed_w", 200) or 200)
+
+    st.session_state["bt_heat_columns"]        = cfg.get("heat_columns", bundle.get("heat_columns", [])) or []
+    st.session_state["bt_heat_overrides"]      = cfg.get("heat_overrides", bundle.get("heat_overrides", {})) or {}
+    st.session_state["bt_heat_strength"]       = float(cfg.get("heat_strength", 0.55) or 0.55)
+    st.session_state["bt_heatmap_style"]       = cfg.get("heatmap_style", "Branded heatmap")
+    st.session_state["bt_header_style"]        = cfg.get("header_style", "Keep original")
+
+    st.session_state["bt_col_format_rules"]    = bundle.get("col_format_rules", {}) or {}
+    st.session_state["bt_hidden_cols"]         = bundle.get("hidden_cols", []) or []
+
+    # enforce mutual exclusivity
+    if st.session_state["bt_show_footer_notes"]:
+        st.session_state["bt_show_heat_scale"] = False
+        if st.session_state["bt_footer_logo_align"] == "Center":
+            st.session_state["bt_footer_logo_align"] = "Right"
+    if st.session_state["bt_show_heat_scale"]:
+        st.session_state["bt_show_footer_notes"] = False
+
+    st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
     st.session_state["bt_embed_tabs_visible"] = True
     st.session_state["bt_publish_in_progress"] = False
     st.session_state["bt_live_confirmed"] = True
-
-    st.session_state["bt_confirm_flash"] = True  # optional: show “loaded” message
+    st.session_state["bt_confirm_flash"] = True
     st.rerun()
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
@@ -2956,6 +3789,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_repo", "")
     st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
+    st.session_state.setdefault("bt_col_header_overrides", {})
     st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
     st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
     st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
@@ -3003,6 +3837,178 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_enable_body_editor", False)
     st.session_state.setdefault("bt_body_apply_flash", False)
     st.session_state.setdefault("bt_editor_version", 0)
+
+
+# =========================================================
+# Header draft persistence across view switches
+# (prevents title/subtitle resetting when navigating to Embed Script)
+# =========================================================
+def _cache_header_draft():
+    st.session_state.setdefault("bt_header_cache", {})
+    cache = st.session_state["bt_header_cache"]
+    for k in [
+        "bt_show_header",
+        "bt_widget_title",
+        "bt_title_style",
+        "bt_widget_subtitle",
+        "bt_subtitle_style",
+        "bt_center_titles",
+        "bt_branded_title_color",
+    ]:
+        if k in st.session_state:
+            cache[k] = st.session_state.get(k)
+
+
+def restore_draft_state_from_confirmed():
+    """Keep the *editor* (draft) UI state in sync with the last Confirm & Save.
+
+    Streamlit reruns wipe widget values that aren't rendered on a given run.
+    When the user switches to 'Get Embed Script' and back, some draft keys can
+    silently fall back to defaults (e.g., show_embed=True, show_footer_notes=False),
+    even though the user already confirmed different settings.
+
+    Strategy:
+      - Restore when a key is missing
+      - OR when it looks like it snapped back to a known default and confirmed differs
+      - OR when a value is empty AND confirmed isn't
+    """
+    cfg = st.session_state.get("bt_confirmed_cfg") or {}
+    if not isinstance(cfg, dict) or not cfg:
+        return
+
+    # Only run "snapback to defaults" restoration when returning from Embed tab.
+    current_view = st.session_state.get("bt_left_view", "Edit table contents")
+    prev_view = st.session_state.get("__bt_prev_left_view")
+    coming_back_from_embed = (current_view == "Edit table contents" and prev_view == "Get Embed Script")
+
+    # Confirmed cfg keys -> session_state keys used by the editor/preview
+    mapping = {
+        "brand": "brand_table",
+        "title": "bt_widget_title",
+        "title_style": "bt_title_style",
+        "subtitle": "bt_widget_subtitle",
+        "subtitle_style": "bt_subtitle_style",
+        "striped": "bt_striped_rows",
+        "show_header": "bt_show_header",
+        "center_titles": "bt_center_titles",
+        "branded_title_color": "bt_branded_title_color",
+
+        "show_footer": "bt_show_footer",
+        "footer_logo_align": "bt_footer_logo_align",
+        "footer_logo_h": "bt_footer_logo_h",
+
+        "show_footer_notes": "bt_show_footer_notes",
+        "footer_notes": "bt_footer_notes",
+
+        "show_heat_scale": "bt_show_heat_scale",
+        "heat_scale_label_mode": "bt_heat_scale_label_mode",
+
+        "cell_align": "bt_cell_align",
+        "show_search": "bt_show_search",
+        "show_pager": "bt_show_pager",
+        "show_embed": "bt_show_embed",
+        "show_page_numbers": "bt_show_page_numbers",
+
+        "bar_columns": "bt_bar_columns",
+        "bar_max_overrides": "bt_bar_max_overrides",
+        "bar_fixed_w": "bt_bar_fixed_w",
+
+        "heat_columns": "bt_heat_columns",
+        "heat_overrides": "bt_heat_overrides",
+        "heat_strength": "bt_heat_strength",
+        "heatmap_style": "bt_heatmap_style",
+
+        "header_style": "bt_header_style",
+        "col_header_overrides": "bt_col_header_overrides",
+    }
+
+    # Known defaults that commonly re-appear after reruns (these are the ones we
+    # want to override back to confirmed if confirmed differs)
+    known_defaults = {
+        "bt_widget_title": "Table 1",
+        "bt_title_style": "Keep original",
+        "bt_widget_subtitle": "Subheading",
+        "bt_subtitle_style": "Keep original",
+        "bt_header_style": "Keep original",
+        "bt_col_header_overrides": {},
+        "bt_show_footer_notes": False,
+        "bt_footer_notes": "",
+        "bt_show_embed": True,
+        # These are set in ensure_confirm_state_exists:
+        "bt_footer_logo_align": "Center",
+        "bt_footer_logo_h": 36,
+        "bt_show_heat_scale": False,
+        "bt_heat_scale_label_mode": "Low/High",
+        "bt_bar_columns": [],
+        "bt_bar_max_overrides": {},
+        "bt_bar_fixed_w": 200,
+        "bt_heat_columns": [],
+        "bt_heat_overrides": {},
+        "bt_heat_strength": 0.55,
+        "bt_heatmap_style": "Branded heatmap",
+    }
+
+    def is_empty(v):
+        return v is None or v == "" or v == [] or v == {}  # noqa: E711
+
+    for cfg_key, ss_key in mapping.items():
+        if cfg_key not in cfg:
+            continue
+        confirmed_val = cfg.get(cfg_key)
+
+        # If draft key is missing, restore immediately
+        if ss_key not in st.session_state:
+            st.session_state[ss_key] = confirmed_val
+            continue
+
+        current_val = st.session_state.get(ss_key)
+
+        # 1) If current is empty but confirmed isn't, restore.
+        # NOTE: Title/subtitle are allowed to be intentionally blank.
+        if ss_key not in ("bt_widget_title", "bt_widget_subtitle"):
+            if is_empty(current_val) and not is_empty(confirmed_val):
+                st.session_state[ss_key] = confirmed_val
+                continue
+
+        # 2) If current snapped back to a known default (typically after tab switch),
+        # but confirmed differs, restore.
+        if coming_back_from_embed and ss_key in known_defaults:
+            d = known_defaults[ss_key]
+            if current_val == d and confirmed_val != d:
+                st.session_state[ss_key] = confirmed_val
+                continue
+
+        # 3) For booleans: if confirmed differs and current equals False/True due to reset,
+        # restore ONLY when it matches known default (handled above). Otherwise leave it.
+
+    # Track view so we can detect when the user returns from Embed tab.
+    st.session_state["__bt_prev_left_view"] = current_view
+
+    # Restore dataframe snapshot if draft df disappeared
+    if "bt_df_uploaded" not in st.session_state or st.session_state.get("bt_df_uploaded") is None:
+        if isinstance(st.session_state.get("bt_df_confirmed"), pd.DataFrame):
+            st.session_state["bt_df_uploaded"] = st.session_state["bt_df_confirmed"].copy()
+
+    # Hidden columns: keep draft + confirmed aligned (if present)
+    if "bt_hidden_cols" not in st.session_state and isinstance(st.session_state.get("bt_hidden_cols_draft"), list):
+        st.session_state["bt_hidden_cols"] = list(st.session_state.get("bt_hidden_cols_draft") or [])
+
+def _restore_header_draft():
+    cache = st.session_state.get("bt_header_cache") or {}
+    if not cache:
+        return
+    # Restore if key is missing or has fallen back to defaults
+    defaults = {"bt_widget_title": "Table 1", "bt_widget_subtitle": "Subheading"}
+    for k, v in cache.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+            continue
+        cur = st.session_state.get(k)
+        # Allow users to intentionally clear title/subtitle (blank is valid).
+        # Only restore when Streamlit snaps back to the explicit default label.
+        if k in defaults and (cur is None or str(cur).strip() == defaults[k]) and str(v).strip() not in ("", defaults[k]):
+            st.session_state[k] = v
+
 
 def sync_bar_override(col: str):
     """
@@ -3081,6 +4087,10 @@ def reset_table_edits():
     st.session_state["bt_hidden_cols"] = []
     st.session_state["bt_hidden_cols_draft"] = []
 
+    # ✅ Clear header overrides
+    st.session_state["bt_col_header_overrides"] = {}
+    st.session_state["bt_col_header_overrides_draft"] = {}
+
     # ✅ Force data_editor to reset by changing its key
     st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
 
@@ -3122,69 +4132,204 @@ st.markdown(
       div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
         align-self: flex-start;
       }
-            /* ✅ Segmented controls: FULL WIDTH + 50/50 buttons */
-      div[data-testid="stSegmentedControl"],
-      div[data-baseweb="segmented-control"]{
-        width: 100% !important;
-      }
-      div[data-testid="stSegmentedControl"] > div,
-      div[data-baseweb="segmented-control"] > div{
-        width: 100% !important;
-      }
-      div[data-testid="stSegmentedControl"] div[role="radiogroup"],
-      div[data-baseweb="segmented-control"] div[role="radiogroup"]{
-        width: 100% !important;
-        display: flex !important;
-      }
-      div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label,
-      div[data-baseweb="segmented-control"] div[role="radiogroup"] > label{
-        flex: 1 1 0 !important;        /* each option becomes 50% */
-        max-width: none !important;
-      }
-      div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div,
-      div[data-baseweb="segmented-control"] div[role="radiogroup"] > label > div{
-        width: 100% !important;
-        justify-content: center !important;
-      }
-      /* FORCE segmented control to fill parent container */
-div[data-testid="stSegmentedControl"]{
-  width: 100% !important;
-}
-
-/* outer wrappers */
-div[data-testid="stSegmentedControl"] > div,
-div[data-testid="stSegmentedControl"] > div > div{
-  width: 100% !important;
-  max-width: 100% !important;
-}
-
-/* actual radio group */
-div[data-testid="stSegmentedControl"] div[role="radiogroup"]{
-  display: flex !important;
-  width: 100% !important;
-  max-width: 100% !important;
-}
-
-/* each tab = equal width */
-div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label{
-  flex: 1 1 0 !important;
-  width: 0 !important;
-  max-width: none !important;
-}
-
-/* clickable inner tab content */
-div[data-testid="stSegmentedControl"] div[role="radiogroup"] > label > div{
-  width: 100% !important;
-  justify-content: center !important;
-}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 st.title("Branded Table Generator")
+
+# ✅ Global active-users banner (shared across browsers)
+# NOTE: This is shared state stored in GitHub (active_users.json).
+# Browsers will see updates on refresh/rerun (optionally auto-refresh below).
+ACTIVE_USERS_AUTO_REFRESH_SECONDS = int(get_secret("ACTIVE_USERS_AUTO_REFRESH_SECONDS", 0) or 0)
+if ACTIVE_USERS_AUTO_REFRESH_SECONDS > 0:
+    # Simple full-page refresh (works reliably on Streamlit Cloud)
+    st.markdown(
+        f"<meta http-equiv='refresh' content='{ACTIVE_USERS_AUTO_REFRESH_SECONDS}'>",
+        unsafe_allow_html=True,
+    )
+
+
+try:
+    render_active_users_banner(PUBLISH_OWNER, github_token(PUBLISH_OWNER))
+except Exception:
+    pass
+
+
+def _get_user_passcodes() -> dict:
+    """Return a mapping of {username_lower: six_digit_code}.
+
+    Supports:
+      - secrets.USER_PASSCODES as a TOML table (preferred)
+      - PASSCODE_<USER> flat secrets keys (fallback)
+    """
+    out = {}
+    # Preferred: [USER_PASSCODES] table
+    try:
+        table = st.secrets.get("USER_PASSCODES", {})
+    except Exception:
+        table = {}
+
+    if isinstance(table, Mapping):
+        for k, v in table.items():
+            u = str(k or "").strip().lower()
+            code = str(v or "").strip()
+            if u and re.fullmatch(r"\d{6}", code or ""):
+                out[u] = code
+
+    # Fallback: PASSCODE_<USER> keys
+    try:
+        all_keys = list(getattr(st.secrets, "_secrets", {}).keys())  # works on some runtimes
+    except Exception:
+        all_keys = []
+
+    # Also try a small known list if we can't enumerate
+    candidates = set(all_keys)
+
+    for key in candidates:
+        if not isinstance(key, str):
+            continue
+        if not key.startswith("PASSCODE_"):
+            continue
+        u = key.replace("PASSCODE_", "", 1).strip().lower()
+        try:
+            code = str(st.secrets.get(key, "") or "").strip()
+        except Exception:
+            code = ""
+        if u and re.fullmatch(r"\d{6}", code or ""):
+            out.setdefault(u, code)
+
+    return out
+
+
+# Options shown in dropdown
+_user_passcodes = _get_user_passcodes()
+created_by_options = ["Select a user..."] + sorted(_user_passcodes.keys())
+
+def _validate_passcode(user: str, entered: str) -> bool:
+    user = (user or "").strip().lower()
+    entered = (entered or "").strip()
+    codes = _get_user_passcodes()
+    expected = codes.get(user, "")
+    if not expected:
+        return False
+    # constant-time compare
+    return hmac.compare_digest(entered, expected)
+
+st.session_state.setdefault("bt_user_select", "Select a user...")
+st.session_state.setdefault("bt_logged_in_user", "")
+st.session_state.setdefault("bt_is_logged_in", False)
+
+# user dropdown (login target)
+created_by_choice = st.selectbox(
+    "Created by (tracking only)",
+    options=created_by_options,
+    key="bt_user_select",
+)
+
+selected_user = ""
+if created_by_choice and created_by_choice != "Select a user...":
+    selected_user = created_by_choice.strip().lower()
+
+# If dropdown changed away from the logged-in user, log out (prevents accidental cross-user edits)
+if st.session_state.get("bt_is_logged_in") and selected_user and selected_user != st.session_state.get("bt_logged_in_user", ""):
+    st.session_state["bt_is_logged_in"] = False
+    st.session_state["bt_logged_in_user"] = ""
+    st.session_state.pop("bt_user_passcode", None)
+
+# passcode input + login/logout
+pass_disabled = (not selected_user)
+st.text_input(
+    "6-digit passcode",
+    type="password",
+    max_chars=6,
+    key="bt_user_passcode",
+    disabled=pass_disabled,
+    help="Enter your 6-digit passcode to enable publishing/editing as this user.",
+)
+
+c_login, c_logout, c_status = st.columns([1, 1, 4])
+
+with c_login:
+    login_clicked = st.button(
+        "Log in",
+        disabled=pass_disabled or not (st.session_state.get("bt_user_passcode") or "").strip(),
+        type="primary",
+        use_container_width=True,
+        key="bt_login_btn",
+    )
+
+with c_logout:
+    logout_clicked = st.button(
+        "Log out",
+        disabled=not st.session_state.get("bt_is_logged_in", False),
+        use_container_width=True,
+        key="bt_logout_btn",
+    )
+
+if logout_clicked:
+    _u = (st.session_state.get("bt_logged_in_user") or "").strip().lower()
+    if _u:
+        remove_active_user(PUBLISH_OWNER, github_token(PUBLISH_OWNER), _u)
+    st.session_state["bt_is_logged_in"] = False
+    st.session_state["bt_logged_in_user"] = ""
+    st.session_state.pop("bt_user_passcode", None)
+    st.rerun()
+
+if login_clicked:
+    entered = (st.session_state.get("bt_user_passcode") or "").strip()
+    if not re.fullmatch(r"\d{6}", entered):
+        st.error("Passcode must be exactly **6 digits**.")
+    elif not _validate_passcode(selected_user, entered):
+        st.error("Wrong passcode.")
+    else:
+        st.session_state["bt_is_logged_in"] = True
+        st.session_state["bt_logged_in_user"] = selected_user
+        st.success(f"Logged in as **{selected_user}**.")
+        write_active_users_state(PUBLISH_OWNER, github_token(PUBLISH_OWNER), selected_user, action="login")
+        st.rerun()
+
+with c_status:
+    if st.session_state.get("bt_is_logged_in", False):
+        st.markdown(f"✅ **Logged in as:** `{st.session_state.get('bt_logged_in_user','')}`")
+    else:
+        st.caption("Not logged in. You can browse published tables, but publishing/editing requires login.")
+
+# 🔄 Heartbeat: keep the active-users list fresh while you're logged in
+if st.session_state.get("bt_is_logged_in") and st.session_state.get("bt_logged_in_user"):
+    import time as _time
+    _now = _time.time()
+    _last = float(st.session_state.get("bt_last_active_heartbeat", 0) or 0)
+    if (_now - _last) >= ACTIVE_USER_HEARTBEAT_SECONDS:
+        try:
+            write_active_users_state(
+                PUBLISH_OWNER,
+                github_token(PUBLISH_OWNER),
+                st.session_state.get("bt_logged_in_user"),
+                action="heartbeat",
+            )
+        except Exception:
+            pass
+        st.session_state["bt_last_active_heartbeat"] = _now
+
+# ✅ This is the ONLY identity used for tracking + permissions
+st.session_state.setdefault("bt_created_by_user", "")
+st.session_state["bt_created_by_user"] = st.session_state.get("bt_logged_in_user", "") if st.session_state.get("bt_is_logged_in", False) else ""
+
+# =========================================================
+# Main tabs
+# =========================================================
+style_radio_as_big_tabs("main_tab", height_px=60, font_px=20, radius_px=0)
+
 st.session_state.setdefault("main_tab", "Create New Table")
-main_tab = st.radio("", ["Create New Table", "Published Tables"], horizontal=True, key="main_tab", label_visibility="collapsed")
+main_tab = st.radio(
+    "",
+    ["Create New Table", "Published Tables"],
+    horizontal=True,
+    key="main_tab",
+    label_visibility="collapsed",
+)
 
 # =========================================================
 # ✅ TAB 2: Published Tables  (ONLY THIS VIEW)
@@ -3192,24 +4337,8 @@ main_tab = st.radio("", ["Create New Table", "Published Tables"], horizontal=Tru
 if main_tab == "Published Tables":
     st.markdown("### Published Tables")
     st.caption("All published tables found in GitHub Pages across repos.")
-        # ✅ Who are you? (needed so "Edit" permissions work in this tab)
-    allowed_users = list(PUBLISH_USERS)
-    created_by_options = ["Select a user..."] + allowed_users
-
-    st.session_state.setdefault("bt_created_by_user_select", "Select a user...")
-
-    created_by_input_pub = st.selectbox(
-        "Created by (so Edit works)",
-        options=created_by_options,
-        key="bt_created_by_user_select",
-    )
-
-    created_by_user_pub = ""
-    if created_by_input_pub and created_by_input_pub != "Select a user...":
-        created_by_user_pub = created_by_input_pub.strip().lower()
-
-    # ✅ store globally (used by can_edit logic)
-    st.session_state["bt_created_by_user"] = created_by_user_pub
+    # ✅ Current user (from the global selector above)
+    current_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
 
     # ✅ Ensure filter keys exist (prevents weird state issues)
     st.session_state.setdefault("pub_brand_filter", "All")
@@ -3312,7 +4441,9 @@ if main_tab == "Published Tables":
                     use_container_width=True,
                     on_click=reset_pub_filters,
                 )
-            
+            # ✅ Always initialize so tab blocks never crash
+            df_view = pd.DataFrame()
+
             # ✅ Apply filters
             df_view = df_pub.copy()
             
@@ -3389,6 +4520,12 @@ if main_tab == "Published Tables":
         """,
         unsafe_allow_html=True,
     )
+    # ✅ Fallback safeguard before tabs
+    if "df_view" not in locals():
+        df_view = st.session_state.get("df_pub_cache", pd.DataFrame())
+        if not isinstance(df_view, pd.DataFrame):
+            df_view = pd.DataFrame()
+        
     tab_preview_tables, tab_delete_tables = st.tabs(
         ["Preview tables", "Delete tables (admin)"]
     )
@@ -3400,8 +4537,8 @@ if main_tab == "Published Tables":
         st.markdown("#### Delete tables (admin)")
     
         delete_cols = ["Brand", "Table Name", "Has CSV", "Pages URL", "Repo", "File", "Created By", "Created UTC"]
-        df_delete = df_view.copy()
-    
+        df_delete = df_view.copy() if isinstance(df_view, pd.DataFrame) else pd.DataFrame()
+
         # Make sure all required columns exist (prevents KeyError)
         for c in delete_cols:
             if c not in df_delete.columns:
@@ -3588,7 +4725,10 @@ if main_tab == "Published Tables":
                         @st.dialog("Table Preview", width="large")
                         def preview_dialog(url):
                             st.markdown(f"**Previewing:** {url}")
-            
+
+                            # ✅ left-aligned notice strip (used when table is not editable / legacy)
+                            notice_html = ""
+
                             c1, c2, c3 = st.columns(3)
             
                             with c1:
@@ -3598,13 +4738,28 @@ if main_tab == "Published Tables":
                                 if not can_edit:
                                     owner_name = row_created_by or "someone else"
                                     st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
-                                    st.caption(f"Only {owner_name} can edit this table.")
+
+                                    notice_html = f'''
+                                    <div style="
+                                      margin-top: 10px;
+                                      padding: 10px 12px;
+                                      border-radius: 10px;
+                                      background: rgba(255, 193, 7, 0.16);
+                                      border: 1px solid rgba(255, 193, 7, 0.45);
+                                      color: #7a4b00;
+                                      font-size: 13px;
+                                      line-height: 1.25;
+                                      text-align: left;
+                                    ">
+                                      <strong>Note:</strong> Only <strong>{owner_name}</strong> can edit this table.
+                                    </div>
+                                    '''
                                 else:
                                     has_csv = (row.get("Has CSV") == "✅")
-            
+
                                     if not has_csv:
                                         st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                        st.caption("This table was published before editable CSV support.")
+                                        notice_html = '''<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.25);color:#1f3a8a;font-size:13px;line-height:1.25;text-align:left;"><strong>Note:</strong> Legacy table (no editable bundle). Re-publish once from <strong>Create New Table</strong> to enable full edit restore.</div>'''
                                     else:
                                         if st.button(
                                             "✏️ Edit this table",
@@ -3613,14 +4768,18 @@ if main_tab == "Published Tables":
                                         ):
                                             # ✅ jump to editor tab first, otherwise rerun stays on Published Tables
                                             st.session_state["main_tab"] = "Create New Table"
-                                        
+
                                             # ✅ prevent the preview from re-opening on rerun
                                             st.session_state["pub_last_preview_url"] = ""
                                             st.session_state.pop("pub_table_click_df", None)
-                                        
+
                                             # ✅ load the bundle (this already calls st.rerun())
+                                            bundle_path = f"bundles/{selected_file}.json"
+                                            bundle_probe = read_github_json(publish_owner, selected_repo, token_to_use, bundle_path, branch="main")
+                                            if not bundle_probe:
+                                                st.error(f"Bundle not found at {bundle_path}. Cannot restore full table settings.")
+                                                st.stop()
                                             load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
-                                                    
                             with c3:
                                 if st.button(
                                     "🗑️ Delete this table",
@@ -3646,7 +4805,10 @@ if main_tab == "Published Tables":
                                     st.session_state.pop("pub_table_click_df", None)
             
                                     st.rerun()
-            
+
+                            if notice_html:
+                                st.markdown(notice_html, unsafe_allow_html=True)
+
                             components.iframe(url, height=650, scrolling=True)
             
                         preview_dialog(selected_url)
@@ -3726,25 +4888,9 @@ if main_tab == "Published Tables":
 if main_tab == "Create New Table":
 
     # =========================================================
-    # ✅ Global "Created by" (mandatory before upload)
+    # ✅ "Created by" comes from the global selector above
     # =========================================================
-    allowed_users = list(PUBLISH_USERS)
-    created_by_options = ["Select a user..."] + allowed_users
-
-    st.session_state.setdefault("bt_created_by_user_select_create", "Select a user...")
-
-    created_by_input_global = st.selectbox(
-    "Created by (tracking only)",
-    options=created_by_options,
-    key="bt_created_by_user_select_create",
-    )
-
-    created_by_user_global = ""
-    if created_by_input_global and created_by_input_global != "Select a user...":
-        created_by_user_global = created_by_input_global.strip().lower()
-
-    # store globally (used later in Publish tab)
-    st.session_state["bt_created_by_user"] = created_by_user_global
+    created_by_user_global = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
 
     # =========================================================
     # ✅ Upload CSV (disabled until "Created by" selected)
@@ -3752,10 +4898,10 @@ if main_tab == "Create New Table":
     uploaded_file = st.file_uploader(
         "Upload Your CSV File",
         type=["csv"],
-        disabled=not bool(created_by_user_global),
+        disabled=(not bool(created_by_user_global) and not st.session_state.get("bt_editing_from_bundle", False)),
     )
 
-    if not created_by_user_global:
+    if (not created_by_user_global) and (not st.session_state.get("bt_editing_from_bundle", False)):
         st.info("Select **Created by** to enable CSV upload.")
     else:
         # =========================================================
@@ -3793,6 +4939,9 @@ if main_tab == "Create New Table":
         else:
             # ✅ Source of data: upload wins, otherwise use loaded bundle df
             if uploaded_file is not None:
+                # New upload takes precedence over edit-bundle mode
+                st.session_state["bt_editing_from_bundle"] = False
+                st.session_state.pop("bt_active_bundle_name", None)
                 try:
                     df_uploaded_now = pd.read_csv(uploaded_file)
                 except Exception as e:
@@ -3820,947 +4969,1292 @@ if main_tab == "Create New Table":
                     st.session_state["bt_df_confirmed"] = df_uploaded_now.copy(deep=True)  # confirmed snapshot seed
         
                 ensure_confirm_state_exists()
+                restore_draft_state_from_confirmed()
 
-# ===================== Top: Primary Tabs (2 full-width buttons) =====================
-st.session_state.setdefault("bt_left_view", "Edit table contents")
 
-c1, c2 = st.columns(2, gap="small")
+        
+                _restore_header_draft()
 
-with c1:
-    if st.button("Edit table contents", use_container_width=True, type="secondary"):
-        st.session_state["bt_left_view"] = "Edit table contents"
-        st.rerun()
+                left_col, right_col = st.columns([1, 3], gap="large")
 
-with c2:
-    if st.button("Get Embed Script", use_container_width=True, type="secondary"):
-        st.session_state["bt_left_view"] = "Get Embed Script"
-        st.rerun()
-
-left_view = st.session_state["bt_left_view"]
-
-st.divider()
-
-# Now build your 2-column layout below the full-width switch
-left_col, right_col = st.columns([1, 3], gap="large")
-
-# ===================== Left column =====================
-with left_col:
-    pass  # keep your left-side controls below (your existing code continues)
-
-    # ---------- EDIT TAB ----------
-    if left_view == "Edit table contents":
-        st.markdown("#### Edit table contents")
-
-        # ✅ Confirm & Save at the top
-        st.button(
-            "Confirm & Save",
-            key="bt_confirm_btn",
-            use_container_width=True,
-            type="primary",
-            on_click=do_confirm_snapshot,
-        )
-
-        if st.session_state.get("bt_confirm_flash", False):
-            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
-            st.session_state["bt_confirm_flash"] = False
-
-        SETTINGS_PANEL_HEIGHT = 590  # px
-        sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(
-            ["Header", "Footer", "Body", "Bars", "Heat"]
-        )
-
-        with sub_head:
-            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                show_header = st.checkbox(
-                    "Show Header Box",
-                    value=st.session_state.get("bt_show_header", True),
-                    key="bt_show_header",
-                )
-
-                st.text_input(
-                    "Table Title",
-                    value=st.session_state.get("bt_widget_title", "Table 1"),
-                    key="bt_widget_title",
-                    disabled=not show_header,
-                )
-                st.text_input(
-                    "Table Subtitle",
-                    value=st.session_state.get("bt_widget_subtitle", "Subheading"),
-                    key="bt_widget_subtitle",
-                    disabled=not show_header,
-                )
-
-                st.checkbox(
-                    "Center Title And Subtitle",
-                    value=st.session_state.get("bt_center_titles", False),
-                    key="bt_center_titles",
-                    disabled=not show_header,
-                )
-                st.checkbox(
-                    "Branded Title Colour",
-                    value=st.session_state.get("bt_branded_title_color", True),
-                    key="bt_branded_title_color",
-                    disabled=not show_header,
-                )
-
-        with sub_footer:
-            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                show_footer = st.checkbox(
-                    "Show Footer (Logo)",
-                    value=st.session_state.get("bt_show_footer", True),
-                    key="bt_show_footer",
-                )
-
-                st.selectbox(
-                    "Footer Logo Alignment",
-                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False)
-                             else ["Right", "Center", "Left"]),
-                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False)
-                           else ["Right", "Center", "Left"]).index(
-                        st.session_state.get("bt_footer_logo_align", "Center")
-                        if not st.session_state.get("bt_show_footer_notes", False)
-                        else (st.session_state.get("bt_footer_logo_align", "Right")
-                              if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"]
-                              else "Right")
-                    ),
-                    key="bt_footer_logo_align",
-                    disabled=not show_footer,
-                )
-
-                st.number_input(
-                    "Logo height (px)",
-                    min_value=16,
-                    max_value=90,
-                    value=int(st.session_state.get("bt_footer_logo_h", 36)),
-                    step=2,
-                    key="bt_footer_logo_h",
-                    disabled=not show_footer,
-                    help="Adjust the logo height. Footer height stays fixed.",
-                )
-
-                st.divider()
-
-                show_footer_notes = st.checkbox(
-                    "Show Footer Notes",
-                    value=st.session_state.get("bt_show_footer_notes", False),
-                    key="bt_show_footer_notes",
-                    disabled=(not show_footer),
-                    on_change=on_footer_notes_toggle,
-                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically.",
-                )
-
-                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
-
-                st.text_area(
-                    "Footer notes",
-                    value=st.session_state.get("bt_footer_notes", ""),
-                    key="bt_footer_notes",
-                    height=140,
-                    disabled=not (show_footer and show_footer_notes),
-                    help="Bold: **text**  •  Italic: *text*",
-                )
-
-                components.html(
-                    """
-                    <script>
-                    (function(){
-                      const doc = window.parent && window.parent.document;
-                      if(!doc) return;
-
-                      function findTextarea(){
-                        return doc.querySelector('textarea[aria-label="Footer notes"]');
-                      }
-                      function dispatchStreamlitInput(el){
-                        el.dispatchEvent(new Event('input', { bubbles:true }));
-                      }
-                      function applyEdit(ta, start, end, replacement, selectMode){
-                        ta.focus();
-                        if (typeof ta.setRangeText === 'function'){
-                          ta.setRangeText(replacement, start, end, selectMode || 'preserve');
-                          dispatchStreamlitInput(ta);
-                          return;
-                        }
-                        const v = ta.value ?? '';
-                        ta.value = v.slice(0, start) + replacement + v.slice(end);
-                        dispatchStreamlitInput(ta);
-                      }
-                      function getValue(el){ return el?.value ?? ''; }
-                      function hasWrapper(text, left, right){
-                        return text.startsWith(left) && text.endsWith(right);
-                      }
-                      function toggleWrapSelection(ta, left, right){
-                        const start = ta.selectionStart ?? 0;
-                        const end = ta.selectionEnd ?? 0;
-                        const v = getValue(ta);
-
-                        if (start === end){
-                          applyEdit(ta, start, end, left + right, 'end');
-                          const pos = start + left.length;
-                          try{ ta.setSelectionRange(pos, pos); }catch(e){}
-                          return;
-                        }
-                        const sel = v.slice(start, end);
-                        if (hasWrapper(sel, left, right)){
-                          const unwrapped = sel.slice(left.length, sel.length - right.length);
-                          applyEdit(ta, start, end, unwrapped, 'select');
-                          return;
-                        }
-                        applyEdit(ta, start, end, left + sel + right, 'select');
-                      }
-                      function stripFormatting(text){
-                        let t = text ?? "";
-                        t = t.replace(/\\*\\*/g, "");
-                        t = t.replace(/\\*/g, "");
-                        return t;
-                      }
-                      function stripAllFormatting(ta){
-                        const v = getValue(ta);
-                        const cleaned = stripFormatting(v);
-                        if (cleaned !== v){
-                          applyEdit(ta, 0, v.length, cleaned, 'preserve');
-                        }
-                      }
-                      function mount(ta){
-                        if(!ta || ta.dataset.btMounted === '1') return;
-                        ta.dataset.btMounted = '1';
-
-                        const isMac = navigator.platform.toUpperCase().includes('MAC');
-
-                        ta.addEventListener('keydown', (e)=>{
-                          const mod = isMac ? e.metaKey : e.ctrlKey;
-                          if(!mod) return;
-
-                          const k = (e.key || '').toLowerCase();
-                          if (k === 'b'){
-                            e.preventDefault();
-                            toggleWrapSelection(ta, '**', '**');
-                          }
-                          if (k === 'i'){
-                            e.preventDefault();
-                            toggleWrapSelection(ta, '*', '*');
-                          }
-                          if (k === 'x' && e.shiftKey){
-                            e.preventDefault();
-                            stripAllFormatting(ta);
-                          }
-                        }, true);
-                      }
-
-                      const obs = new MutationObserver(()=>{
-                        const ta = findTextarea();
-                        if(ta) mount(ta);
-                      });
-
-                      obs.observe(doc.body, { childList:true, subtree:true });
-
-                      const ta0 = findTextarea();
-                      if(ta0) mount(ta0);
-
-                      setTimeout(()=>{ try{ obs.disconnect(); }catch(e){} }, 120000);
-                    })();
-                    </script>
-                    """,
-                    height=1,
-                )
-
-        with sub_body:
-            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                st.checkbox(
-                    "Striped Rows",
-                    value=st.session_state.get("bt_striped_rows", True),
-                    key="bt_striped_rows",
-                )
-
-                st.selectbox(
-                    "Table Content Alignment",
-                    options=["Center", "Left", "Right"],
-                    index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
-                    key="bt_cell_align",
-                )
-
-                st.selectbox(
-                    "Column header style",
-                    options=["Keep original", "Sentence case", "Title Case", "ALL CAPS"],
-                    index=["Keep original", "Sentence case", "Title Case", "ALL CAPS"].index(
-                        st.session_state.get("bt_header_style", "Keep original")
-                    ),
-                    key="bt_header_style",
-                    help="Controls how column headers are displayed. This does not change your CSV data.",
-                )
-
-                st.divider()
-                st.markdown("#### Table Controls")
-
-                st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
-                st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
-
-                st.checkbox(
-                    "Show Page Numbers",
-                    value=st.session_state.get("bt_show_page_numbers", True),
-                    key="bt_show_page_numbers",
-                    disabled=not st.session_state.get("bt_show_pager", True),
-                    help="Only works when Pager is enabled.",
-                )
-
-                st.checkbox(
-                    "Show Embed / Download Button",
-                    value=st.session_state.get("bt_show_embed", True),
-                    key="bt_show_embed",
-                )
-
-                st.divider()
-                st.markdown("#### Column Formatting (Live Preview Only)")
-
-                st.session_state.setdefault("bt_col_format_rules", {})
-
-                df_for_cols = st.session_state.get("bt_df_uploaded")
-                all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
-
-                if not all_cols:
-                    st.info("Upload a CSV to enable column formatting.")
-                else:
-                    st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
-                    st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
-
-                    mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                    if mode in ("prefix", "suffix"):
-                        st.text_input("Value", key="bt_fmt_value", placeholder="$")
-                    else:
-                        st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
-
-                    def add_update_fmt():
-                        col = st.session_state.get("bt_fmt_selected_col")
-                        mode2 = st.session_state.get("bt_fmt_selected_mode", "prefix")
-
-                        if mode2 in ("prefix", "suffix"):
-                            v = (st.session_state.get("bt_fmt_value", "") or "").strip()
-                            if not v:
-                                st.session_state["bt_col_format_rules"].pop(col, None)
-                                return
-                            rule = {"mode": mode2, "value": v}
-                        else:
-                            rule = {"mode": mode2}
-
-                        st.session_state["bt_col_format_rules"][col] = rule
-
-                    st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-
-                    if st.session_state["bt_col_format_rules"]:
-                        st.caption("Current formatting rules:")
-                        st.json(st.session_state["bt_col_format_rules"])
-
-        with sub_bars:
-            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                st.markdown("#### Bar Columns")
-
-                df_for_cols = st.session_state.get("bt_df_uploaded")
-                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
-                    st.info("Upload a CSV to enable bars.")
-                else:
-                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
-
-                    if not numeric_cols:
-                        st.warning("No numeric columns found for bars.")
-                    else:
-                        st.session_state["bt_bar_columns"] = [
-                            c for c in (st.session_state.get("bt_bar_columns") or [])
-                            if c in numeric_cols
-                        ]
-
-                        st.multiselect(
-                            "Choose columns to display as bars",
-                            options=numeric_cols,
-                            default=st.session_state.get("bt_bar_columns", []),
-                            key="bt_bar_columns",
-                            on_change=prune_bar_overrides,
-                            help="Only numeric columns can be converted into bar columns.",
-                        )
-
-                        st.number_input(
-                            "Bar width (px)",
-                            min_value=120,
-                            max_value=360,
-                            value=int(st.session_state.get("bt_bar_fixed_w", 200)),
-                            step=10,
-                            key="bt_bar_fixed_w",
-                            help="This controls the fixed bar track width for all bar columns.",
-                        )
-
-                        st.divider()
-                        st.markdown("#### Max Value Overrides (Optional)")
-
-                        st.session_state.setdefault("bt_bar_max_overrides", {})
-
-                        selected = st.session_state.get("bt_bar_columns", [])
-                        if not selected:
-                            st.caption("Select at least one bar column to set overrides.")
-                        else:
-                            for col in selected:
-                                current = st.session_state["bt_bar_max_overrides"].get(col, "")
-                                new_val = st.text_input(
-                                    f"Max override for: {col}",
-                                    value=str(current),
-                                    help="Leave blank to auto-scale based on max value in the column.",
-                                    key=f"bt_bar_override_{col}",
-                                ).strip()
-
-                                if new_val == "":
-                                    st.session_state["bt_bar_max_overrides"].pop(col, None)
-                                else:
-                                    try:
-                                        st.session_state["bt_bar_max_overrides"][col] = float(new_val)
-                                    except Exception:
-                                        st.warning(f"'{new_val}' is not a valid number for {col}.")
-
-        with sub_heat:
-            with st.container(height=SETTINGS_PANEL_HEIGHT):
-                st.markdown("#### Heatmap Columns")
-
-                df_for_cols = st.session_state.get("bt_df_uploaded")
-                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
-                    st.info("Upload a CSV to enable heatmap.")
-                else:
-                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
-
-                    if not numeric_cols:
-                        st.warning("No numeric columns found for heatmap.")
-                    else:
-                        st.session_state["bt_heat_columns"] = [
-                            c for c in (st.session_state.get("bt_heat_columns") or [])
-                            if c in numeric_cols
-                        ]
-
-                        st.multiselect(
-                            "Choose numeric columns to shade as a heatmap",
-                            options=numeric_cols,
-                            default=st.session_state.get("bt_heat_columns", []),
-                            key="bt_heat_columns",
-                            help="Applies background intensity based on value within each column.",
-                        )
-
-                        st.selectbox(
-                            "Heatmap style",
-                            options=["Branded heatmap", "Standard heatmap (5 colors)"],
-                            index=["Branded heatmap", "Standard heatmap (5 colors)"].index(
-                                st.session_state.get("bt_heatmap_style", "Branded heatmap")
-                            ),
-                            key="bt_heatmap_style",
-                            help="Branded = current brand color intensity. Standard = 5-color scale (Green → Blue → Yellow → Orange → Red).",
-                        )
-
-                        st.slider(
-                            "Heat strength",
-                            min_value=0.10,
-                            max_value=0.85,
-                            value=float(st.session_state.get("bt_heat_strength", 0.55)),
-                            step=0.05,
-                            key="bt_heat_strength",
-                            help="Controls max opacity of the heat shading.",
-                        )
-
-                        st.checkbox(
-                            "Show heatmap scale in footer",
-                            value=bool(st.session_state.get("bt_show_heat_scale", False)),
-                            key="bt_show_heat_scale",
-                            disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
-                            on_change=on_heat_scale_toggle,
-                            help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
-                        )
-
-                        st.divider()
-                        st.markdown("#### Range Overrides (Optional)")
-                        st.session_state.setdefault("bt_heat_overrides", {})
-
-                        selected = st.session_state.get("bt_heat_columns", [])
-                        if not selected:
-                            st.caption("Select at least one heat column to set overrides.")
-                        else:
-                            for col in selected:
-                                cur = st.session_state["bt_heat_overrides"].get(col, {}) or {}
-                                c1, c2 = st.columns(2)
-
-                                vmin = c1.text_input(
-                                    f"Min override: {col}",
-                                    value="" if cur.get("min") is None else str(cur.get("min")),
-                                    key=f"bt_heat_min_{col}",
-                                    help="Leave blank to auto-use column min.",
-                                ).strip()
-
-                                vmax = c2.text_input(
-                                    f"Max override: {col}",
-                                    value="" if cur.get("max") is None else str(cur.get("max")),
-                                    key=f"bt_heat_max_{col}",
-                                    help="Leave blank to auto-use column max.",
-                                ).strip()
-
-                                st.session_state["bt_heat_overrides"].setdefault(col, {})
-
-                                if vmin == "":
-                                    st.session_state["bt_heat_overrides"][col].pop("min", None)
-                                else:
-                                    try:
-                                        st.session_state["bt_heat_overrides"][col]["min"] = float(vmin)
-                                    except Exception:
-                                        st.warning(f"'{vmin}' is not a valid min for {col}.")
-
-                                if vmax == "":
-                                    st.session_state["bt_heat_overrides"][col].pop("max", None)
-                                else:
-                                    try:
-                                        st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
-                                    except Exception:
-                                        st.warning(f"'{vmax}' is not a valid max for {col}.")
-
-    # ---------- EMBED TAB ----------
-    else:
-        # Live publish status UI
-        if st.session_state.get("bt_publish_in_progress", False):
-            st.info("🚀 Publishing updates… This can take up to a minute.")
-
-            pages_url = st.session_state.get("bt_last_published_url")
-            expected_hash = st.session_state.get("bt_expected_live_hash")
-
-            if pages_url and expected_hash:
-                if st.button("Check if page is live"):
-                    if is_page_live_with_hash(pages_url, expected_hash):
-                        st.session_state["bt_publish_in_progress"] = False
-                        st.session_state["bt_live_confirmed"] = True
-                        st.success("✅ Page is live with the latest updates.")
-                    else:
-                        st.warning("⏳ Still updating. Please try again in a few seconds.")
-
-        st.markdown("#### Get Embed Script")
-
-        st.session_state.setdefault("bt_embed_started", False)
-        st.session_state.setdefault("bt_embed_show_html", False)
-
-        html_generated = bool(st.session_state.get("bt_html_generated", False))
-        created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
-
-        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
-
-        st.session_state["bt_embed_started"] = True
-        embed_generated = bool(st.session_state.get("bt_embed_generated", False))
-        embed_stale = bool(st.session_state.get("bt_embed_stale", False))
-
-        if embed_generated and embed_stale:
-            st.warning("Your embed scripts are out of date. Click **Update embed scripts** to publish the latest confirmed version.")
-
-        btn_label = "Update embed scripts" if (embed_generated and embed_stale) else "Get embed script"
-
-        if not html_generated:
-            st.warning("Click **Confirm & Save** first so the latest HTML is generated.")
-
-        st.caption("Give a table name in a few words (this creates your hosted page for the iframe).")
-        table_name_words = st.text_input(
-            "Give a table name in few words",
-            value=st.session_state.get("bt_table_name_words", ""),
-            key="bt_table_name_words",
-            placeholder="Example: Best Super Bowl Cities",
-        ).strip()
-
-        widget_file_name = ""
-        if table_name_words:
-            safe = re.sub(r"[^A-Za-z0-9\-\_\s]", "", table_name_words).strip()
-            safe = re.sub(r"\s+", "-", safe).strip("-")
-            safe = safe.lower() or "table"
-            widget_file_name = safe + ".html"
-
-        st.session_state["bt_widget_file_name"] = widget_file_name
-
-        publish_owner = (PUBLISH_OWNER or "").strip().lower()
-
-        token_to_use = ""
-        if GITHUB_PAT:
-            token_to_use = GITHUB_PAT
-        else:
-            try:
-                token_to_use = get_installation_token_for_user(publish_owner)
-            except Exception:
-                token_to_use = ""
-
-        installation_token = token_to_use
-        if not installation_token:
-            st.caption("❌ No publishing token found (PAT or GitHub App).")
-            if GITHUB_APP_SLUG:
-                st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
-
-        current_brand = st.session_state.get("brand_table", "")
-        repo_name = suggested_repo_name(current_brand)
-        st.session_state["bt_gh_repo"] = repo_name
-
-        file_exists = False
-        existing_pages_url = ""
-        existing_meta = {}
-        can_overwrite_owner = False
-
-        can_check = bool(publish_owner and installation_token and repo_name and widget_file_name)
-
-        check_now = st.button(
-            "Check name availability",
-            disabled=not can_check,
-            use_container_width=True,
-        )
-
-        if check_now and can_check:
-            file_exists = github_file_exists_cached(
-                publish_owner,
-                repo_name,
-                installation_token,
-                widget_file_name,
-                branch="main",
-            )
-
-            if file_exists:
-                existing_pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
-                try:
-                    registry = read_github_json_cached(
-                        publish_owner,
-                        repo_name,
-                        installation_token,
-                        "widget_registry.json",
-                        branch="main",
-                    )
-                    existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
-                except Exception:
-                    existing_meta = {}
-
-                existing_created_by = (existing_meta.get("created_by", "") or "").strip().lower()
-                can_overwrite_owner = (not existing_created_by) or (existing_created_by == created_by_user)
-
-        # ✅ store results so the rest of the UI logic below can use them on reruns
-        st.session_state["bt_file_exists"] = file_exists
-        st.session_state["bt_existing_pages_url"] = existing_pages_url
-        st.session_state["bt_existing_meta"] = existing_meta
-        st.session_state["bt_can_overwrite_owner"] = can_overwrite_owner
-
-        file_exists = st.session_state.get("bt_file_exists", False)
-        existing_pages_url = st.session_state.get("bt_existing_pages_url", "")
-        existing_meta = st.session_state.get("bt_existing_meta", {})
-        can_overwrite_owner = st.session_state.get("bt_can_overwrite_owner", False)
-
-        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
-
-        same_target_as_last_publish = bool(
-            st.session_state.get("bt_embed_generated", False)
-            and st.session_state.get("bt_last_published_file") == widget_file_name
-            and st.session_state.get("bt_last_published_repo") == repo_name
-        )
-
-        if file_exists and not embed_done and not same_target_as_last_publish:
-            st.info("ℹ️ A page with this table name already exists.")
-            if existing_pages_url:
-                st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
-            if existing_meta:
-                st.caption(
-                    f"Existing info → Brand: {existing_meta.get('brand','?')} | "
-                    f"Created by: {existing_meta.get('created_by','?')} | "
-                    f"UTC: {existing_meta.get('created_at_utc','?')}"
-                )
-
-            if can_overwrite_owner:
-                st.checkbox(
-                    "Overwrite existing page",
-                    value=bool(st.session_state.get("bt_allow_swap", False)),
-                    key="bt_allow_swap",
-                )
-            else:
-                st.session_state["bt_allow_swap"] = False
-
-                st.checkbox(
-                    "Overwrite existing page",
-                    value=False,
-                    key="bt_allow_swap_disabled",
-                    disabled=True,
-                    help=f"Only the original creator ({existing_created_by or 'unknown'}) can overwrite this page.",
-                )
-                owner_label = f"{existing_created_by}'s" if existing_created_by else "another user's"
-                st.warning(f"⛔ This is **{owner_label} page**, so you can’t overwrite it.")
-
-        allow_swap = bool(st.session_state.get("bt_allow_swap", False))
-
-        swap_confirmed = (not file_exists) or (allow_swap and can_overwrite_owner) or same_target_as_last_publish
-
-        can_publish = bool(
-            html_generated
-            and publish_owner
-            and repo_name
-            and widget_file_name
-            and installation_token
-            and created_by_user
-            and swap_confirmed
-        )
-
-        publish_clicked = st.button(
-            btn_label,
-            use_container_width=True,
-            disabled=not can_publish,
-        )
-
-        if not can_publish:
-            missing = []
-            if not html_generated:
-                missing.append("Confirm & Save")
-            if not table_name_words:
-                missing.append("table name")
-            if publish_owner and not installation_token:
-                missing.append("publishing token")
-            if file_exists and not swap_confirmed:
-                if not can_overwrite_owner:
-                    missing.append("you can’t overwrite (different creator)")
-                else:
-                    missing.append("confirm override (checkbox)")
-            if missing:
-                st.caption("To enable publishing: " + ", ".join(missing) + ".")
-
-        if publish_clicked:
-            st.session_state["bt_embed_tabs_visible"] = True
-            st.session_state["bt_publish_in_progress"] = True
-            st.session_state["bt_publish_started_at"] = time.time()
-            st.session_state["bt_expected_live_hash"] = st.session_state.get("bt_html_hash", "")
-            st.session_state["bt_live_confirmed"] = False
-
-            try:
-                html_final = (
-                    f"<!-- BT_PUBLISH_HASH:{st.session_state.get('bt_html_hash','')} -->\n"
-                    + st.session_state.get("bt_html_code", "")
-                )
-                if not html_final:
-                    raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
-
-                simulate_progress("Publishing to GitHub…", total_sleep=0.35)
-
-                ensure_repo_exists(publish_owner, repo_name, installation_token)
-
-                try:
-                    ensure_pages_enabled(publish_owner, repo_name, installation_token, branch="main")
-                except Exception:
-                    pass
-
-                upload_file_to_github(
-                    publish_owner,
-                    repo_name,
-                    installation_token,
-                    widget_file_name,
-                    html_final,
-                    f"Add/Update {widget_file_name} from Branded Table App",
-                    branch="main",
-                )
-
-                bundle = build_publish_bundle(widget_file_name)
-                bundle_path = f"bundles/{widget_file_name}.json"
-
-                upload_file_to_github(
-                    publish_owner,
-                    repo_name,
-                    installation_token,
-                    bundle_path,
-                    json.dumps(bundle, indent=2),
-                    f"Add/Update bundle for {widget_file_name}",
-                    branch="main",
-                )
-
-                pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
-
-                st.session_state["bt_last_published_url"] = pages_url
-                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
-                st.session_state["bt_last_published_repo"] = repo_name
-                st.session_state["bt_last_published_file"] = widget_file_name
-
-                created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-                st.session_state["bt_embed_generated"] = True
-                st.session_state["bt_embed_stale"] = False
-
-                github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
-                table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
-
-                meta = {
-                    "brand": current_brand,
-                    "table_title": table_title,
-                    "file": widget_file_name,
-                    "pages_url": pages_url,
-                    "github_repo_url": github_repo_url,
-                    "created_by": created_by_user,
-                    "created_at_utc": created_utc,
-                    "bundle_path": f"bundles/{widget_file_name}.json",
-                    "has_bundle": True,
-                }
-
-                try:
-                    update_widget_registry(
-                        owner=publish_owner,
-                        repo=repo_name,
-                        token=installation_token,
-                        widget_file_name=widget_file_name,
-                        meta=meta,
-                        branch="main",
-                    )
-                except Exception:
-                    pass
-
-                with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
-                    live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
-
-                if live:
-                    st.session_state["bt_iframe_code"] = build_iframe_snippet(
-                        pages_url,
-                        height=int(st.session_state.get("bt_iframe_height", 800)),
-                    )
-
-                    st.session_state["bt_publish_in_progress"] = False
-                    st.session_state["bt_live_confirmed"] = True
-
-                    st.success("✅ Page is live. IFrame is ready.")
-                else:
-                    st.session_state["bt_iframe_code"] = ""
-                    st.session_state["bt_live_confirmed"] = False
-                    st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
-
-            except Exception as e:
-                st.error(f"Publish / IFrame generation failed: {e}")
-
-        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-        show_tabs = bool(published_url_val and st.session_state.get("bt_live_confirmed", False))
-
-        if show_tabs:
-            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
-            if published_url_val:
-                st.caption("Published Page")
-                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
-
-            embed_view = tab_switch(
-                "Embed view",
-                ["HTML Code", "IFrame"],
-                key="bt_embed_view",
-                default="HTML Code",
-            )
-
-            if embed_view == "HTML Code":
-                html_code_val = (st.session_state.get("bt_html_code") or "").strip()
-                if not html_code_val:
-                    st.info("Click **Confirm & Save** to generate HTML.")
-                else:
-                    st.caption("HTML Code")
-
-                    st.text_area(
-                        "HTML Code",
-                        value=html_code_val,
-                        height=340,
+                # ✅ Right side: Preview + Body Editor tabs
+                with right_col:
+                    style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=0)
+                    right_view = st.radio(
+                        "Right view",
+                        ["Preview", "Edit table content (Optional)"],
+                        horizontal=True,
                         label_visibility="collapsed",
-                        key="bt_html_code_view",
+                        key="bt_right_view",
+                    )
+                    
+                    # Always create this so the preview renderer at the bottom can use it
+                    preview_slot = st.container()
+                    
+                    if right_view == "Preview":
+                        # (Intentionally blank) — remove the extra big "Preview" heading.
+                        pass
+                
+                    else:
+                        st.markdown("### Edit table content (Optional)")
+                        st.caption("Edit cells + hide columns here. Click **Apply changes to preview** to update the preview.")
+
+                        # Quick header preview (updates instantly as you type in the left panel)
+                        _t = apply_text_case(st.session_state.get("bt_widget_title", "Table 1"), st.session_state.get("bt_title_style", "Keep original"))
+                        _s = apply_text_case(st.session_state.get("bt_widget_subtitle", ""), st.session_state.get("bt_subtitle_style", "Keep original"))
+                        st.markdown(f"**{_t}**")
+                        if (_s or "").strip():
+                            st.markdown(_s)
+
+                
+                        df_live = st.session_state.get("bt_df_uploaded")
+                
+                        if not isinstance(df_live, pd.DataFrame) or df_live.empty:
+                            st.info("Upload a CSV to enable editing.")
+                        else:
+                            all_cols = list(df_live.columns)
+
+                            st.session_state.setdefault(
+                                "bt_hidden_cols_draft",
+                                st.session_state.get("bt_hidden_cols", []) or []
+                            )
+
+                            editor_version = st.session_state.get("bt_editor_version", 0)
+                            editor_key_df = f"bt_df_editor_{editor_version}"
+                            editor_key_hdr = f"bt_header_editor_{editor_version}"
+
+                            def _apply_table_edits_to_preview():
+                                df_now = st.session_state.get("bt_df_uploaded")
+                                if not isinstance(df_now, pd.DataFrame) or df_now.empty:
+                                    return
+
+                                all_cols_now = list(df_now.columns)
+
+                                # ✅ Save hidden columns
+                                hidden_draft_now = st.session_state.get("bt_hidden_cols_draft", []) or []
+                                st.session_state["bt_hidden_cols"] = hidden_draft_now
+
+                                visible_cols_now = [c for c in all_cols_now if c not in set(hidden_draft_now)]
+
+                                # ✅ Apply header label overrides (display only)
+                                try:
+                                    base_overrides = dict(st.session_state.get("bt_col_header_overrides_draft", {}) or {})
+                                except Exception:
+                                    base_overrides = {}
+
+                                edited_hdr_df_now = st.session_state.get("bt_hdr_editor_df")
+                                if not isinstance(edited_hdr_df_now, pd.DataFrame):
+                                    edited_hdr_df_now = st.session_state.get(editor_key_hdr)
+                                if isinstance(edited_hdr_df_now, pd.DataFrame):
+                                    try:
+                                        for _, rr in edited_hdr_df_now.iterrows():
+                                            orig = str(rr.get("Column", "") or "")
+                                            lbl = str(rr.get("Header label (optional)", "") or "").strip()
+                                            if not orig:
+                                                continue
+                                            if lbl == "" or lbl == orig:
+                                                base_overrides.pop(orig, None)
+                                            else:
+                                                base_overrides[orig] = lbl
+                                    except Exception:
+                                        pass
+
+                                st.session_state["bt_col_header_overrides"] = base_overrides
+                                st.session_state["bt_col_header_overrides_draft"] = dict(base_overrides)
+
+                                # ✅ Apply edited visible cells back into the full live df
+                                edited_df_visible_now = st.session_state.get("bt_body_editor_df")
+                                if not isinstance(edited_df_visible_now, pd.DataFrame):
+                                    edited_df_visible_now = st.session_state.get(editor_key_df)
+                                if not isinstance(edited_df_visible_now, pd.DataFrame):
+                                    edited_df_visible_now = df_now[visible_cols_now].copy()
+
+                                base = df_now.copy()
+                                for col in visible_cols_now:
+                                    if col in edited_df_visible_now.columns and col in base.columns:
+                                        try:
+                                            base[col] = edited_df_visible_now[col].values
+                                        except Exception:
+                                            pass
+
+                                st.session_state["bt_df_uploaded"] = base
+                                st.session_state["bt_body_apply_flash"] = True
+
+                            # ✅ Put the buttons ABOVE the dropdown so users don't miss them
+                            b1, b2 = st.columns([1, 1])
+                            b1.button(
+                                "✅ Apply changes to preview",
+                                use_container_width=True,
+                                on_click=_apply_table_edits_to_preview,
+                            )
+                            b2.button(
+                                "↩ Reset table edits",
+                                use_container_width=True,
+                                on_click=reset_table_edits,
+                            )
+
+                            if st.session_state.get("bt_body_apply_flash", False):
+                                st.success("Preview updated ✅")
+                                st.session_state["bt_body_apply_flash"] = False
+
+                            st.multiselect(
+                                "Hide columns",
+                                options=all_cols,
+                                default=st.session_state.get("bt_hidden_cols_draft", []),
+                                key="bt_hidden_cols_draft",
+                                help="Hidden columns will be removed from preview + final output after Apply.",
+                            )
+
+                            hidden_cols_draft = st.session_state.get("bt_hidden_cols_draft", []) or []
+                            visible_cols = [c for c in all_cols if c not in set(hidden_cols_draft)]
+                            df_visible = df_live[visible_cols].copy()
+
+                            # ✅ Header row editing (display labels)
+                            st.session_state.setdefault(
+                                "bt_col_header_overrides_draft",
+                                st.session_state.get("bt_col_header_overrides", {}) or {}
+                            )
+
+                            with st.expander("Edit header row (display labels)", expanded=False):
+                                draft_overrides = st.session_state.get("bt_col_header_overrides_draft", {}) or {}
+                                hdr_df = pd.DataFrame({
+                                    "Column": visible_cols,
+                                    "Header label (optional)": [draft_overrides.get(c, "") for c in visible_cols],
+                                })
+
+                                edited_hdr_df = st.data_editor(
+
+
+                                    hdr_df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    num_rows="fixed",
+                                    column_config={
+                                        "Column": st.column_config.TextColumn("Column", disabled=True),
+                                        "Header label (optional)": st.column_config.TextColumn(
+                                            "Header label (optional)",
+                                            help="Leave blank to use the original column name. This only changes how the header is displayed (does not rename data columns).",
+                                        ),
+                                    },
+
+
+                                    key=editor_key_hdr,
+
+
+                                )
+
+
+                                # store the edited header-label dataframe explicitly (Streamlit widget state isn't always a DataFrame)
+
+
+                                st.session_state["bt_hdr_editor_df"] = edited_hdr_df
+
+                            # Show header labels in the grid using draft overrides (or the original column name)
+
+
+                            draft_overrides_for_grid = st.session_state.get("bt_col_header_overrides_draft", {}) or {}
+
+
+                            hdr_style_for_grid = st.session_state.get("bt_header_style", "Keep original")
+
+
+                            grid_col_config = {}
+
+
+                            for _c in df_visible.columns:
+
+
+                                _base = (draft_overrides_for_grid.get(_c) or "").strip() or _c
+
+
+                                _lbl = str(_base) if hdr_style_for_grid == "Keep original" else format_column_header(str(_base), hdr_style_for_grid)
+
+
+                                # Use TextColumn for label only (data types remain unchanged)
+
+
+                                grid_col_config[_c] = st.column_config.Column(label=_lbl)
+
+
+                            
+
+
+                            edited_body_df = st.data_editor(
+
+
+                                df_visible,
+                                use_container_width=True,
+                                hide_index=True,
+                                num_rows="fixed",
+
+
+                                column_config=grid_col_config,
+
+
+                                key=editor_key_df,
+
+
+                            )
+
+
+                            # store edited body dataframe explicitly
+
+
+                            st.session_state["bt_body_editor_df"] = edited_body_df
+
+                # ===================== Left: Tabs =====================
+                with left_col:
+                    style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=0)
+                    left_view = st.radio(
+                        "Left view",
+                        ["Edit table contents", "Get Embed Script"],
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        on_change=_cache_header_draft,
+                        key="bt_left_view",
                     )
 
-                    st.download_button(
-                        "Download HTML file",
-                        data=html_code_val,
-                        file_name="table.html",
-                        mime="text/html",
-                        use_container_width=True,
-                    )
+                    # ---------- EDIT TAB ----------
+                    if left_view == "Edit table contents":
+                        st.markdown("#### Edit table contents")
 
-            else:
-                iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-                st.caption("IFrame Code")
+                        # ✅ Confirm & Save at the top
+                        st.button(
+                            "Confirm & Save",
+                            key="bt_confirm_btn",
+                            use_container_width=True,
+                            type="primary",
+                            on_click=do_confirm_snapshot,
+                        )
 
-                st.text_area(
-                    "IFrame Code",
-                    value=iframe_val or "",
-                    height=160,
-                    label_visibility="collapsed",
-                    key="bt_iframe_code_view",
-                )
+                        if st.session_state.get("bt_confirm_flash", False):
+                            st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
+                            st.session_state["bt_confirm_flash"] = False
 
-                st.download_button(
-                    "Download iframe snippet",
-                    data=iframe_val or "",
-                    file_name="iframe-snippet.html",
-                    mime="text/html",
-                    use_container_width=True,
-                )
+                        SETTINGS_PANEL_HEIGHT = 590  # px
+
+                        sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(["Header", "Footer", "Body", "Bars", "Heat"])
+
+                        with sub_head:
+                            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                                show_header = st.checkbox(
+                                    "Show Header Box",
+                                    value=st.session_state.get("bt_show_header", True),
+                                    key="bt_show_header",
+                                )
+
+                                st.text_input(
+                                    "Table Title",
+                                    key="bt_widget_title",
+                                    placeholder="Table 1",
+                                    disabled=not show_header,
+                                )
+                                _case_opts = ["Keep original", "Sentence case", "Title case", "ALL CAPS"]
+                                st.selectbox(
+                                    "Title text case",
+                                    options=_case_opts,
+                                    index=_case_opts.index(st.session_state.get("bt_title_style", "Keep original")),
+                                    key="bt_title_style",
+                                    disabled=not show_header,
+                                )
+
+                                
+                                sub_c1, sub_c2 = st.columns([0.86, 0.14])
+                                with sub_c1:
+                                    st.session_state.setdefault("bt_widget_subtitle_draft", st.session_state.get("bt_widget_subtitle", ""))
+                                    st.text_input(
+                                        "Table Subtitle",
+                                        key="bt_widget_subtitle_draft",
+                                        placeholder="Subheading",
+                                        disabled=not show_header,
+                                        on_change=_bt_commit_subtitle,
+                                    )
+                                with sub_c2:
+                                    st.write("")  # align with input
+                                    st.write("")
+                                    st.button(
+                                        "↺",
+                                        key="bt_reset_subtitle_format",
+                                        help="Clear formatting (Ctrl+\\)",
+                                        disabled=not show_header,
+                                        use_container_width=True,
+                                        on_click=_bt_clear_formatting,
+                                        args=("bt_widget_subtitle",),
+                                    )
 
 
-# ✅ Right side: ONLY run preview/editor when left_view is "Edit table contents"
-with right_col:
-    preview_slot = st.container()
+                                st.caption("Shortcuts: **Ctrl/⌘+B** bold • **Ctrl/⌘+I** italic")
 
-    if left_view != "Edit table contents":
-        st.markdown("### Preview")
-        st.info("Preview is disabled while you’re in **Get Embed Script** for faster switching.")
-        preview_slot.empty()
-        st.session_state["bt_show_preview"] = False
+                                components.html(
+                                    """
+                                    <script>
+                                    (function(){
+                                      const doc = window.parent && window.parent.document;
+                                      if(!doc) return;
 
-    else:
-        right_view = tab_switch(
-            "Right view",
-            ["Preview", "Edit table content (Optional)"],
-            key="bt_right_view",
-            default="Preview",
-        )
+                                      function findInput(){
+                                        return doc.querySelector('input[aria-label="Table Subtitle"]');
+                                      }
 
-        if right_view == "Preview":
-            st.markdown("### Preview")
-            df_live = st.session_state.get("bt_df_uploaded")
-            if not isinstance(df_live, pd.DataFrame) or df_live.empty:
-                st.info("Upload a CSV to show preview.")
-            else:
-                render_preview(preview_slot)
+                                      function dispatchStreamlitInput(el){
+                                        el.dispatchEvent(new Event('input', { bubbles:true }));
+                                      }
 
-        else:
-            st.markdown("### Edit table content (Optional)")
-            st.caption("Edit cells + hide columns here. Click **Apply changes to preview** to update the preview.")
+                                      function applyEdit(inp, start, end, replacement, selectMode){
+                                        inp.focus();
+                                        if (typeof inp.setRangeText === 'function'){
+                                          inp.setRangeText(replacement, start, end, selectMode || 'preserve');
+                                          dispatchStreamlitInput(inp);
+                                          return;
+                                        }
+                                        const v = inp.value ?? '';
+                                        inp.value = v.slice(0, start) + replacement + v.slice(end);
+                                        dispatchStreamlitInput(inp);
+                                      }
 
-            df_live = st.session_state.get("bt_df_uploaded")
+                                      function getValue(el){ return el?.value ?? ''; }
 
-            if not isinstance(df_live, pd.DataFrame) or df_live.empty:
-                st.info("Upload a CSV to enable editing.")
-            else:
-                all_cols = list(df_live.columns)
+                                      function hasWrapper(text, left, right){
+                                        return text.startsWith(left) && text.endsWith(right);
+                                      }
 
-                st.session_state.setdefault(
-                    "bt_hidden_cols_draft",
-                    st.session_state.get("bt_hidden_cols", []) or []
-                )
+                                      function toggleWrapSelection(inp, left, right){
+                                        const start = inp.selectionStart ?? 0;
+                                        const end = inp.selectionEnd ?? 0;
+                                        const v = getValue(inp);
 
-                st.multiselect(
-                    "Hide columns",
-                    options=all_cols,
-                    default=st.session_state.get("bt_hidden_cols_draft", []),
-                    key="bt_hidden_cols_draft",
-                    help="Hidden columns will be removed from preview + final output after Apply.",
-                )
+                                        if (start === end){
+                                          applyEdit(inp, start, end, left + right, 'end');
+                                          const pos = start + left.length;
+                                          try{ inp.setSelectionRange(pos, pos); }catch(e){}
+                                          return;
+                                        }
 
-                hidden_cols_draft = st.session_state.get("bt_hidden_cols_draft", []) or []
-                visible_cols = [c for c in all_cols if c not in set(hidden_cols_draft)]
-                df_visible = df_live[visible_cols].copy()
+                                        const sel = v.slice(start, end);
 
-                edited_df_visible = st.data_editor(
-                    df_visible,
-                    use_container_width=True,
-                    hide_index=True,
-                    num_rows="fixed",
-                    key=f"bt_df_editor_{st.session_state.get('bt_editor_version', 0)}",
-                )
+                                        if (hasWrapper(sel, left, right)){
+                                          const unwrapped = sel.slice(left.length, sel.length - right.length);
+                                          applyEdit(inp, start, end, unwrapped, 'select');
+                                          return;
+                                        }
 
-                c1, c2 = st.columns([1, 1])
-                apply_clicked = c1.button("✅ Apply changes to preview", use_container_width=True)
-                c2.button(
-                    "↩ Reset table edits",
-                    use_container_width=True,
-                    on_click=reset_table_edits,
-                )
+                                        applyEdit(inp, start, end, left + sel + right, 'select');
+                                      }
 
-                if apply_clicked:
-                    st.session_state["bt_hidden_cols"] = st.session_state.get("bt_hidden_cols_draft", []) or []
+                                      function mount(inp){
+                                        if(!inp || inp.dataset.btSubtitleMounted === '1') return;
+                                        inp.dataset.btSubtitleMounted = '1';
 
-                    base = st.session_state["bt_df_uploaded"].copy()
-                    for col in edited_df_visible.columns:
-                        base[col] = edited_df_visible[col].values
+                                        const isMac = navigator.platform.toUpperCase().includes('MAC');
 
-                    st.session_state["bt_df_uploaded"] = base
-                    st.session_state["bt_body_apply_flash"] = True
-                    st.rerun()
+                                        inp.addEventListener('keydown', (e)=>{
+                                          const mod = isMac ? e.metaKey : e.ctrlKey;
+                                          if(!mod) return;
 
-                # ✅ IMPORTANT: flash message only (no embed code under it)
-                if st.session_state.get("bt_body_apply_flash", False):
-                    st.success("Preview updated ✅")
-                    st.session_state["bt_body_apply_flash"] = False
+                                          const k = (e.key || '').toLowerCase();
+
+                                          if (k === 'b'){
+                                            e.preventDefault();
+                                            toggleWrapSelection(inp, '**', '**');
+                                          }
+
+                                          if (k === 'i'){
+                                            e.preventDefault();
+                                            toggleWrapSelection(inp, '*', '*');
+                                          }
+                                        }, true);
+                                      }
+
+                                      const obs = new MutationObserver(()=>{
+                                        const inp = findInput();
+                                        if(inp) mount(inp);
+                                      });
+
+                                      obs.observe(doc.body, { childList:true, subtree:true });
+
+                                      const i0 = findInput();
+                                      if(i0) mount(i0);
+                                    })();
+                                    </script>
+                                    """,
+                                    height=0,
+                                )
+
+                                st.selectbox(
+                                    "Subtitle text case",
+                                    options=_case_opts,
+                                    index=_case_opts.index(st.session_state.get("bt_subtitle_style", "Keep original")),
+                                    key="bt_subtitle_style",
+                                    disabled=not show_header,
+                                )
+
+                                st.checkbox(
+                                    "Center Title And Subtitle",
+                                    value=st.session_state.get("bt_center_titles", False),
+                                    key="bt_center_titles",
+                                    disabled=not show_header,
+                                )
+                                st.checkbox(
+                                    "Branded Title Colour",
+                                    value=st.session_state.get("bt_branded_title_color", True),
+                                    key="bt_branded_title_color",
+                                    disabled=not show_header,
+                                )
+
+                        with sub_footer:
+                            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                                show_footer = st.checkbox(
+                                    "Show Footer (Logo)",
+                                    value=st.session_state.get("bt_show_footer", True),
+                                    key="bt_show_footer",
+                                )
+
+                                st.selectbox(
+                                    "Footer Logo Alignment",
+                                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]),
+                                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]).index(
+                                        st.session_state.get("bt_footer_logo_align", "Center")
+                                        if not st.session_state.get("bt_show_footer_notes", False)
+                                        else (st.session_state.get("bt_footer_logo_align", "Right") if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"] else "Right")
+                                    ),
+                                    key="bt_footer_logo_align",
+                                    disabled=not show_footer,
+                                )
+
+                                st.number_input(
+                                    "Logo height (px)",
+                                    min_value=16,
+                                    max_value=90,
+                                    value=int(st.session_state.get("bt_footer_logo_h", 36)),
+                                    step=2,
+                                    key="bt_footer_logo_h",
+                                    disabled=not show_footer,
+                                    help="Adjust the logo height. Footer height stays fixed.",
+                                )
+
+                                st.divider()
+
+                                show_footer_notes = st.checkbox(
+                                    "Show Footer Notes",
+                                    value=st.session_state.get("bt_show_footer_notes", False),
+                                    key="bt_show_footer_notes",
+                                    disabled=(not show_footer),
+                                    on_change=on_footer_notes_toggle,
+                                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically.",
+                                )
+
+                                st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
+
+                                
+                                fn_c1, fn_c2 = st.columns([0.86, 0.14])
+                                with fn_c1:
+                                    st.session_state.setdefault("bt_footer_notes_draft", st.session_state.get("bt_footer_notes", ""))
+                                    st.text_area(
+                                        "Footer notes",
+                                        key="bt_footer_notes_draft",
+                                        height=140,
+                                        disabled=not (show_footer and show_footer_notes),
+                                        help="Bold: **text**  •  Italic: *text*",
+                                        on_change=_bt_commit_footer_notes,
+                                    )
+                                with fn_c2:
+                                    st.write("")  # align with textarea
+                                    st.write("")
+                                    st.write("")
+                                    st.button(
+                                        "↺",
+                                        key="bt_reset_footer_notes_format",
+                                        help="Clear formatting (Ctrl+\\)",
+                                        disabled=not (show_footer and show_footer_notes),
+                                        use_container_width=True,
+                                        on_click=_bt_clear_formatting,
+                                        args=("bt_footer_notes",),
+                                    )
+
+
+                                components.html(
+                                    """
+                                    <script>
+                                    (function(){
+                                      const doc = window.parent && window.parent.document;
+                                      if(!doc) return;
+
+                                      function findTextarea(){
+                                        return doc.querySelector('textarea[aria-label="Footer notes"]');
+                                      }
+
+                                      function dispatchStreamlitInput(el){
+                                        el.dispatchEvent(new Event('input', { bubbles:true }));
+                                      }
+
+                                      function applyEdit(ta, start, end, replacement, selectMode){
+                                        ta.focus();
+                                        if (typeof ta.setRangeText === 'function'){
+                                          ta.setRangeText(replacement, start, end, selectMode || 'preserve');
+                                          dispatchStreamlitInput(ta);
+                                          return;
+                                        }
+                                        const v = ta.value ?? '';
+                                        ta.value = v.slice(0, start) + replacement + v.slice(end);
+                                        dispatchStreamlitInput(ta);
+                                      }
+
+                                      function getValue(el){ return el?.value ?? ''; }
+
+                                      function hasWrapper(text, left, right){
+                                        return text.startsWith(left) && text.endsWith(right);
+                                      }
+
+                                      function toggleWrapSelection(ta, left, right){
+                                        const start = ta.selectionStart ?? 0;
+                                        const end = ta.selectionEnd ?? 0;
+                                        const v = getValue(ta);
+
+                                        if (start === end){
+                                          applyEdit(ta, start, end, left + right, 'end');
+                                          const pos = start + left.length;
+                                          try{ ta.setSelectionRange(pos, pos); }catch(e){}
+                                          return;
+                                        }
+
+                                        const sel = v.slice(start, end);
+
+                                        if (hasWrapper(sel, left, right)){
+                                          const unwrapped = sel.slice(left.length, sel.length - right.length);
+                                          applyEdit(ta, start, end, unwrapped, 'select');
+                                          return;
+                                        }
+
+                                        applyEdit(ta, start, end, left + sel + right, 'select');
+                                      }
+
+                                      function stripFormatting(text){
+                                        let t = text ?? "";
+                                        t = t.replace(/\\*\\*/g, "");
+                                        t = t.replace(/\\*/g, "");
+                                        return t;
+                                      }
+
+                                      function stripAllFormatting(ta){
+                                        const v = getValue(ta);
+                                        const cleaned = stripFormatting(v);
+                                        if (cleaned !== v){
+                                          applyEdit(ta, 0, v.length, cleaned, 'preserve');
+                                        }
+                                      }
+
+                                      function mount(ta){
+                                        if(!ta || ta.dataset.btMounted === '1') return;
+                                        ta.dataset.btMounted = '1';
+
+                                        const isMac = navigator.platform.toUpperCase().includes('MAC');
+
+                                        ta.addEventListener('keydown', (e)=>{
+                                          const mod = isMac ? e.metaKey : e.ctrlKey;
+                                          if(!mod) return;
+
+                                          const k = (e.key || '').toLowerCase();
+
+                                          if (k === 'b'){
+                                            e.preventDefault();
+                                            toggleWrapSelection(ta, '**', '**');
+                                          }
+
+                                          if (k === 'i'){
+                                            e.preventDefault();
+                                            toggleWrapSelection(ta, '*', '*');
+                                          }
+
+                                          if (k === 'x' && e.shiftKey){
+                                            e.preventDefault();
+                                            stripAllFormatting(ta);
+                                          }
+                                        }, true);
+                                      }
+
+                                      const obs = new MutationObserver(()=>{
+                                        const ta = findTextarea();
+                                        if(ta) mount(ta);
+                                      });
+
+                                      obs.observe(doc.body, { childList:true, subtree:true });
+
+                                      const ta0 = findTextarea();
+                                      if(ta0) mount(ta0);
+
+                                      setTimeout(()=>{ try{ obs.disconnect(); }catch(e){} }, 120000);
+                                    })();
+                                    </script>
+                                    """,
+                                    height=1,
+                                )
+
+                        with sub_body:
+                            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                                st.checkbox(
+                                    "Striped Rows",
+                                    value=st.session_state.get("bt_striped_rows", True),
+                                    key="bt_striped_rows",
+                                )
+                        
+                                st.selectbox(
+                                    "Table Content Alignment",
+                                    options=["Center", "Left", "Right"],
+                                    index=["Center", "Left", "Right"].index(st.session_state.get("bt_cell_align", "Center")),
+                                    key="bt_cell_align",
+                                )
+                        
+                                st.selectbox(
+                                    "Column header style",
+                                    options=["Keep original", "Sentence case", "Title Case", "ALL CAPS"],
+                                    index=["Keep original", "Sentence case", "Title Case", "ALL CAPS"].index(st.session_state.get("bt_header_style", "Keep original")),
+                                    key="bt_header_style",
+                                    help="Controls how column headers are displayed. This does not change your CSV data.",
+                                )
+                        
+                                st.divider()
+                                st.markdown("#### Table Controls")
+                        
+                                st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
+                                st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
+                        
+                                st.checkbox(
+                                    "Show Page Numbers",
+                                    value=st.session_state.get("bt_show_page_numbers", True),
+                                    key="bt_show_page_numbers",
+                                    disabled=not st.session_state.get("bt_show_pager", True),
+                                    help="Only works when Pager is enabled.",
+                                )
+                        
+                                st.checkbox(
+                                    "Show Embed / Download Button",
+                                    key="bt_show_embed",
+                                )
+                        
+                                st.divider()
+                                st.markdown("#### Column Formatting (Live Preview Only)")
+                        
+                                st.session_state.setdefault("bt_col_format_rules", {})
+                        
+                                df_for_cols = st.session_state.get("bt_df_uploaded")
+                                all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
+                        
+                                if not all_cols:
+                                    st.info("Upload a CSV to enable column formatting.")
+                                else:
+                                    st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
+                                    st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
+                        
+                                    mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+                                    if mode in ("prefix", "suffix"):
+                                        st.text_input("Value", key="bt_fmt_value", placeholder="$")
+                                    else:
+                                        st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
+                        
+                                    def add_update_fmt():
+                                        col = st.session_state.get("bt_fmt_selected_col")
+                                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
+                        
+                                        if mode in ("prefix", "suffix"):
+                                            v = (st.session_state.get("bt_fmt_value", "") or "").strip()
+                                            if not v:
+                                                st.session_state["bt_col_format_rules"].pop(col, None)
+                                                return
+                                            rule = {"mode": mode, "value": v}
+                                        else:
+                                            rule = {"mode": mode}
+                        
+                                        st.session_state["bt_col_format_rules"][col] = rule
+                        
+                                    st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
+                        
+                                    if st.session_state["bt_col_format_rules"]:
+                                        st.caption("Current formatting rules:")
+                                        st.json(st.session_state["bt_col_format_rules"])
+
+                        with sub_bars:
+                            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                                st.markdown("#### Bar Columns")
+
+                                df_for_cols = st.session_state.get("bt_df_uploaded")
+                                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
+                                    st.info("Upload a CSV to enable bars.")
+                                else:
+                                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
+
+                                    if not numeric_cols:
+                                        st.warning("No numeric columns found for bars.")
+                                    else:
+                                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
+                                        st.session_state["bt_bar_columns"] = [
+                                            c for c in (st.session_state.get("bt_bar_columns") or [])
+                                            if c in numeric_cols
+                                        ]
+
+                                        st.multiselect(
+                                            "Choose columns to display as bars",
+                                            options=numeric_cols,
+                                            default=st.session_state.get("bt_bar_columns", []),
+                                            key="bt_bar_columns",
+                                            on_change=prune_bar_overrides,
+                                            help="Only numeric columns can be converted into bar columns.",
+                                        )
+
+                                        st.number_input(
+                                            "Bar width (px)",
+                                            min_value=120,
+                                            max_value=360,
+                                            value=int(st.session_state.get("bt_bar_fixed_w", 200)),
+                                            step=10,
+                                            key="bt_bar_fixed_w",
+                                            help="This controls the fixed bar track width for all bar columns.",
+                                        )
+
+                                        st.divider()
+                                        st.markdown("#### Max Value Overrides (Optional)")
+
+                                        st.session_state.setdefault("bt_bar_max_overrides", {})
+
+                                        selected = st.session_state.get("bt_bar_columns", [])
+                                        if not selected:
+                                            st.caption("Select at least one bar column to set overrides.")
+                                        else:
+                                            for col in selected:
+                                                current = st.session_state["bt_bar_max_overrides"].get(col, "")
+                                                new_val = st.text_input(
+                                                    f"Max override for: {col}",
+                                                    value=str(current),
+                                                    help="Leave blank to auto-scale based on max value in the column.",
+                                                    key=f"bt_bar_override_{col}",
+                                                ).strip()
+
+                                                if new_val == "":
+                                                    st.session_state["bt_bar_max_overrides"].pop(col, None)
+                                                else:
+                                                    try:
+                                                        st.session_state["bt_bar_max_overrides"][col] = float(new_val)
+                                                    except Exception:
+                                                        st.warning(f"'{new_val}' is not a valid number for {col}.")
+                        with sub_heat:
+                            with st.container(height=SETTINGS_PANEL_HEIGHT):
+                                st.markdown("#### Heatmap Columns")
+    
+                                df_for_cols = st.session_state.get("bt_df_uploaded")
+                                if not isinstance(df_for_cols, pd.DataFrame) or df_for_cols.empty:
+                                    st.info("Upload a CSV to enable heatmap.")
+                                else:
+                                    numeric_cols = [c for c in df_for_cols.columns if guess_column_type(df_for_cols[c]) == "num"]
+    
+                                    if not numeric_cols:
+                                        st.warning("No numeric columns found for heatmap.")
+                                    else:
+                                        # ✅ Prevent Streamlit crash if saved defaults include cols not in this CSV
+                                        st.session_state["bt_heat_columns"] = [
+                                            c for c in (st.session_state.get("bt_heat_columns") or [])
+                                            if c in numeric_cols
+                                        ]
+
+                                        st.multiselect(
+                                            "Choose numeric columns to shade as a heatmap",
+                                            options=numeric_cols,
+                                            default=st.session_state.get("bt_heat_columns", []),
+                                            key="bt_heat_columns",
+                                            help="Applies background intensity based on value within each column.",
+                                        )
+
+                                        st.selectbox(
+                                            "Heatmap style",
+                                            options=["Branded heatmap", "Standard heatmap (5 colors)"],
+                                            index=["Branded heatmap", "Standard heatmap (5 colors)"].index(
+                                                st.session_state.get("bt_heatmap_style", "Branded heatmap")
+                                            ),
+                                            key="bt_heatmap_style",
+                                            help="Branded = current brand color intensity. Standard = 5-color scale (Green → Blue → Yellow → Orange → Red).",
+                                        )
+    
+                                        st.slider(
+                                            "Heat strength",
+                                            min_value=0.10,
+                                            max_value=0.85,
+                                            value=float(st.session_state.get("bt_heat_strength", 0.55)),
+                                            step=0.05,
+                                            key="bt_heat_strength",
+                                            help="Controls max opacity of the heat shading.",
+                                        )
+                                        st.checkbox(
+                                            "Show heatmap scale in footer",
+                                            value=bool(st.session_state.get("bt_show_heat_scale", False)),
+                                            key="bt_show_heat_scale",
+                                            disabled=bool(st.session_state.get("bt_show_footer_notes", False)),
+                                            on_change=on_heat_scale_toggle,   # ✅ ADD THIS
+                                            help="Adds a compact legend bar in the footer. Cannot be used with Footer Notes.",
+                                        )
+    
+                                        st.divider()
+                                        st.markdown("#### Range Overrides (Optional)")
+                                        st.session_state.setdefault("bt_heat_overrides", {})
+    
+                                        selected = st.session_state.get("bt_heat_columns", [])
+                                        if not selected:
+                                            st.caption("Select at least one heat column to set overrides.")
+                                        else:
+                                            for col in selected:
+                                                cur = st.session_state["bt_heat_overrides"].get(col, {}) or {}
+                                                c1, c2 = st.columns(2)
+    
+                                                vmin = c1.text_input(
+                                                    f"Min override: {col}",
+                                                    value="" if cur.get("min") is None else str(cur.get("min")),
+                                                    key=f"bt_heat_min_{col}",
+                                                    help="Leave blank to auto-use column min.",
+                                                ).strip()
+    
+                                                vmax = c2.text_input(
+                                                    f"Max override: {col}",
+                                                    value="" if cur.get("max") is None else str(cur.get("max")),
+                                                    key=f"bt_heat_max_{col}",
+                                                    help="Leave blank to auto-use column max.",
+                                                ).strip()
+    
+                                                st.session_state["bt_heat_overrides"].setdefault(col, {})
+    
+                                                if vmin == "":
+                                                    st.session_state["bt_heat_overrides"][col].pop("min", None)
+                                                else:
+                                                    try:
+                                                        st.session_state["bt_heat_overrides"][col]["min"] = float(vmin)
+                                                    except Exception:
+                                                        st.warning(f"'{vmin}' is not a valid min for {col}.")
+    
+                                                if vmax == "":
+                                                    st.session_state["bt_heat_overrides"][col].pop("max", None)
+                                                else:
+                                                    try:
+                                                        st.session_state["bt_heat_overrides"][col]["max"] = float(vmax)
+                                                    except Exception:
+                                                        st.warning(f"'{vmax}' is not a valid max for {col}.")                                   
+
+                    # ---------- EMBED TAB ----------
+                    else:
+                        # Live publish status UI
+                        if st.session_state.get("bt_publish_in_progress", False):
+                            st.info("🚀 Publishing updates… This can take up to a minute.")
+                        
+                            pages_url = st.session_state.get("bt_last_published_url")
+                            expected_hash = st.session_state.get("bt_expected_live_hash")
+                        
+                            if pages_url and expected_hash:
+                                if st.button("Check if page is live"):
+                                    if is_page_live_with_hash(pages_url, expected_hash):
+                                        st.session_state["bt_publish_in_progress"] = False
+                                        st.session_state["bt_live_confirmed"] = True
+                                        st.success("✅ Page is live with the latest updates.")
+                                    else:
+                                        st.warning("⏳ Still updating. Please try again in a few seconds.")
+                        st.markdown("#### Get Embed Script")
+
+                        st.session_state.setdefault("bt_embed_started", False)
+                        st.session_state.setdefault("bt_embed_show_html", False)
+                        st.session_state.setdefault("bt_update_confirm_text", "")
+                        st.session_state.setdefault("bt_existing_created_by", "")
+
+                        html_generated = bool(st.session_state.get("bt_html_generated", False))
+                        created_by_user = (st.session_state.get("bt_created_by_user", "") or "").strip().lower()
+
+                        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
+
+                        st.session_state["bt_embed_started"] = True
+                        embed_generated = bool(st.session_state.get("bt_embed_generated", False))
+                        embed_stale = bool(st.session_state.get("bt_embed_stale", False))
+                    
+                        if embed_generated and embed_stale:
+                            st.warning("Your embed scripts are out of date. Click **Create embed script** to publish the latest confirmed version.")
+                    
+                        btn_label = "Create embed script"
+
+                        if not html_generated:
+                            st.warning("Click **Confirm & Save** first so the latest HTML is generated.")
+
+                        st.caption("Give a table name in a few words (this creates your hosted page for the iframe).")
+                        table_name_words = st.text_input(
+                            "Give a table name in few words",
+                            value=st.session_state.get("bt_table_name_words", ""),
+                            key="bt_table_name_words",
+                            placeholder="Example: Best Super Bowl Cities",
+                        ).strip()
+
+                        widget_file_name = ""
+                        if table_name_words:
+                            safe = re.sub(r"[^A-Za-z0-9\-\_\s]", "", table_name_words).strip()
+                            safe = re.sub(r"\s+", "-", safe).strip("-")
+                            safe = safe.lower() or "table"
+                            widget_file_name = safe + ".html"
+
+                        st.session_state["bt_widget_file_name"] = widget_file_name
+
+                        publish_owner = (PUBLISH_OWNER or "").strip().lower()
+
+                        token_to_use = ""
+                        if GITHUB_PAT:
+                            token_to_use = GITHUB_PAT
+                        else:
+                            try:
+                                token_to_use = get_installation_token_for_user(publish_owner)
+                            except Exception:
+                                token_to_use = ""
+
+                        installation_token = token_to_use
+                        if not installation_token:
+                            st.caption("❌ No publishing token found (PAT or GitHub App).")
+                            if GITHUB_APP_SLUG:
+                                st.caption(f"Install GitHub App: https://github.com/apps/{GITHUB_APP_SLUG}")
+
+                        current_brand = st.session_state.get("brand_table", "")
+                        repo_name = suggested_repo_name(current_brand)
+                        st.session_state["bt_gh_repo"] = repo_name
+                        
+                        can_check = bool(publish_owner and installation_token and repo_name and widget_file_name)
+                        
+                        file_exists = False
+                        existing_pages_url = ""
+                        existing_meta = {}
+                        can_overwrite_owner = False
+                        existing_created_by = ""
+                        
+                        # Auto-check existence (no separate "Check name availability" button)
+                        if can_check:
+                            file_exists = github_file_exists_cached(
+                                publish_owner,
+                                repo_name,
+                                installation_token,
+                                widget_file_name,
+                                branch="main",
+                            )
+                        
+                            if file_exists:
+                                existing_pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
+                                try:
+                                    registry = read_github_json_cached(
+                                        publish_owner,
+                                        repo_name,
+                                        installation_token,
+                                        "widget_registry.json",
+                                        branch="main",
+                                    )
+                                    existing_meta = registry.get(widget_file_name, {}) if isinstance(registry, dict) else {}
+                                except Exception:
+                                    existing_meta = {}
+                        
+                                existing_created_by = (existing_meta.get("created_by", "") or "").strip().lower()
+                                can_overwrite_owner = (not existing_created_by) or (existing_created_by == created_by_user)
+                        
+                        # ✅ store results so the rest of the UI logic below can use them on reruns
+                        st.session_state["bt_file_exists"] = file_exists
+                        st.session_state["bt_existing_pages_url"] = existing_pages_url
+                        st.session_state["bt_existing_meta"] = existing_meta
+                        st.session_state["bt_can_overwrite_owner"] = can_overwrite_owner
+                        st.session_state["bt_existing_created_by"] = existing_created_by
+                        
+                        file_exists = st.session_state.get("bt_file_exists", False)
+                        existing_pages_url = st.session_state.get("bt_existing_pages_url", "")
+                        existing_meta = st.session_state.get("bt_existing_meta", {})
+                        can_overwrite_owner = st.session_state.get("bt_can_overwrite_owner", False)
+                        existing_created_by = st.session_state.get("bt_existing_created_by", "")
+                        embed_done = bool((st.session_state.get("bt_last_published_url") or "").strip())
+                        
+                        # ✅ If the user already published this exact repo+file in this session,
+                        # allow updates WITHOUT needing the overwrite checkbox.
+                        same_target_as_last_publish = bool(
+                            st.session_state.get("bt_embed_generated", False)
+                            and st.session_state.get("bt_last_published_file") == widget_file_name
+                            and st.session_state.get("bt_last_published_repo") == repo_name
+                        )
+                        
+                        if file_exists and not embed_done and not same_target_as_last_publish:
+                            st.info("ℹ️ A page with this table name already exists.")
+                            if existing_pages_url:
+                                st.link_button("🔗 Open existing page", existing_pages_url, use_container_width=True)
+                            if existing_meta:
+                                st.caption(
+                                    f"Existing info → Brand: {existing_meta.get('brand','?')} | "
+                                    f"Created by: {existing_meta.get('created_by','?')} | "
+                                    f"UTC: {existing_meta.get('created_at_utc','?')}"
+                                )
+                        
+                            if can_overwrite_owner:
+                                st.warning("This table already exists. To update it, type **UPDATE** below.")
+                                st.text_input(
+                                    "Type UPDATE to confirm overwrite",
+                                    key="bt_update_confirm_text",
+                                    placeholder="UPDATE",
+                                )
+                            else:
+                                # non-owner can never overwrite
+                                st.session_state["bt_update_confirm_text"] = ""
+                                owner_label = f"{existing_created_by}'s" if existing_created_by else "another user's"
+                                st.warning(f"⛔ This is **{owner_label} page**, so you can’t overwrite it.")
+                        
+                        # ✅ Read typed confirmation
+                        update_text = (st.session_state.get("bt_update_confirm_text", "") or "").strip().upper()
+                        update_confirmed = (update_text == "UPDATE")   
+                        swap_confirmed = (not file_exists) or (update_confirmed and can_overwrite_owner) or same_target_as_last_publish
+                        
+                        can_publish = bool(
+                            html_generated
+                            and publish_owner
+                            and repo_name
+                            and widget_file_name
+                            and installation_token
+                            and created_by_user
+                            and swap_confirmed
+                        )
+                        
+                        publish_clicked = st.button(
+                            btn_label,
+                            use_container_width=True,
+                            disabled=not can_publish,
+                        )
+
+                        if not can_publish:
+                            missing = []
+                            if not html_generated:
+                                missing.append("Confirm & Save")
+                            if not table_name_words:
+                                missing.append("table name")
+                            if publish_owner and not installation_token:
+                                missing.append("publishing token")
+                            if file_exists and not swap_confirmed:
+                                if not can_overwrite_owner:
+                                    missing.append("you can’t overwrite (different creator)")
+                                else:
+                                    missing.append("type UPDATE to confirm overwrite")
+                            if missing:
+                                st.caption("To enable publishing: " + ", ".join(missing) + ".")
+
+                        if publish_clicked:
+                            st.session_state["bt_embed_tabs_visible"] = True
+                            # mark publish as in-progress
+                            st.session_state["bt_publish_in_progress"] = True
+                            st.session_state["bt_publish_started_at"] = time.time()
+                            st.session_state["bt_expected_live_hash"] = st.session_state.get("bt_html_hash", "")
+                            st.session_state["bt_live_confirmed"] = False
+                        
+
+                            try:
+                                html_final = (
+                                    f"<!-- BT_PUBLISH_HASH:{st.session_state.get('bt_html_hash','')} -->\n"
+                                    + st.session_state.get("bt_html_code", "")
+                                )
+                                if not html_final:
+                                    raise RuntimeError("No generated HTML found. Click Confirm & Save first.")
+
+                                simulate_progress("Publishing to GitHub…", total_sleep=0.35)
+
+                                ensure_repo_exists(publish_owner, repo_name, installation_token)
+
+                                try:
+                                    ensure_pages_enabled(publish_owner, repo_name, installation_token, branch="main")
+                                except Exception:
+                                    pass
+
+                                upload_file_to_github(
+                                    publish_owner,
+                                    repo_name,
+                                    installation_token,
+                                    widget_file_name,
+                                    html_final,
+                                    f"Add/Update {widget_file_name} from Branded Table App",
+                                    branch="main",
+                                )
+                                
+                                # ✅ NEW: also publish the editable bundle (CSV + config + rules)
+                                bundle = build_publish_bundle(widget_file_name)
+                                bundle_path = f"bundles/{widget_file_name}.json"
+                                
+                                upload_file_to_github(
+                                    publish_owner,
+                                    repo_name,
+                                    installation_token,
+                                    bundle_path,
+                                    json.dumps(bundle, indent=2),
+                                    f"Add/Update bundle for {widget_file_name}",
+                                    branch="main",
+                                )
+                                
+                                pages_url = compute_pages_url(publish_owner, repo_name, widget_file_name)
+                                
+                                st.session_state["bt_last_published_url"] = pages_url
+                                st.session_state["bt_published_hash"] = st.session_state.get("bt_html_hash", "")
+                                st.session_state["bt_last_published_repo"] = repo_name
+                                st.session_state["bt_last_published_file"] = widget_file_name        
+                                created_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                                # ✅ mark embed scripts as generated + fresh
+                                st.session_state["bt_embed_generated"] = True
+                                st.session_state["bt_embed_stale"] = False
+
+                                github_repo_url = f"https://github.com/{publish_owner}/{repo_name}"
+                                table_title = st.session_state.get("bt_widget_title", "").strip() or table_name_words or widget_file_name
+
+                                meta = {
+                                    "brand": current_brand,
+                                    "table_title": table_title,
+                                    "file": widget_file_name,
+                                    "pages_url": pages_url,
+                                    "github_repo_url": github_repo_url,
+                                    "created_by": created_by_user,
+                                    "created_at_utc": created_utc,
+                                    "bundle_path": f"bundles/{widget_file_name}.json",
+                                    "has_bundle": True,
+                                }
+
+                                try:
+                                    update_widget_registry(
+                                        owner=publish_owner,
+                                        repo=repo_name,
+                                        token=installation_token,
+                                        widget_file_name=widget_file_name,
+                                        meta=meta,
+                                        branch="main",
+                                    )
+                                except Exception:
+                                    pass
+
+                                with st.spinner("Waiting for GitHub Pages to go live (avoiding 404)…"):
+                                    live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
+
+                                if live:
+                                    st.session_state["bt_iframe_code"] = build_iframe_snippet(
+                                        pages_url,
+                                        height=int(st.session_state.get("bt_iframe_height", 800)),
+                                    )
+                                
+                                    # ✅ IMPORTANT: mark the page live + stop "in progress" state
+                                    st.session_state["bt_publish_in_progress"] = False
+                                    st.session_state["bt_live_confirmed"] = True
+                                
+                                    st.success("✅ Page is live. IFrame is ready.")
+                                else:
+                                    st.session_state["bt_iframe_code"] = ""
+                                
+                                    # ✅ still deploying
+                                    st.session_state["bt_live_confirmed"] = False
+                                
+                                    st.warning("⚠️ URL created but GitHub Pages is still deploying. Try again in ~30s.")
+
+                            except Exception as e:
+                                st.error(f"Publish / IFrame generation failed: {e}")
+
+                        published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+                        show_tabs = bool(published_url_val and st.session_state.get("bt_live_confirmed", False))
+
+                        if show_tabs:
+                            published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
+                            if published_url_val:
+                                st.caption("Published Page")
+                                st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+
+                            # ✅ Faster than st.tabs(): only renders ONE view per rerun
+                            style_radio_as_big_tabs("bt_embed_view", height_px=46, font_px=16, radius_px=0)
+                            embed_view = st.radio(
+                                "Embed view",
+                                ["HTML Code", "IFrame"],
+                                horizontal=True,
+                                label_visibility="collapsed",
+                                key="bt_embed_view",
+                            )
+                            
+                            if embed_view == "HTML Code":
+                                html_code_val = (st.session_state.get("bt_html_code") or "").strip()
+                                if not html_code_val:
+                                    st.info("Click **Confirm & Save** to generate HTML.")
+                                else:
+                                    st.caption("HTML Code")
+                            
+                                    # ✅ Rendering huge st.code blocks is slow — use text_area (faster) + optional code view
+                                    st.text_area(
+                                        "HTML Code",
+                                        value=html_code_val,
+                                        height=340,
+                                        label_visibility="collapsed",
+                                        key="bt_html_code_view",
+                                    )
+                            
+                                    st.download_button(
+                                        "Download HTML file",
+                                        data=html_code_val,
+                                        file_name="table.html",
+                                        mime="text/html",
+                                        use_container_width=True,
+                                    )
+                            
+                            else:
+                                iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
+                                st.caption("IFrame Code")
+                            
+                                st.text_area(
+                                    "IFrame Code",
+                                    value=iframe_val or "",
+                                    height=160,
+                                    label_visibility="collapsed",
+                                    key="bt_iframe_code_view",
+                                )
+                            
+                                st.download_button(
+                                    "Download iframe snippet",
+                                    data=iframe_val or "",
+                                    file_name="iframe-snippet.html",
+                                    mime="text/html",
+                                    use_container_width=True,
+                                )
+
+                # ✅ Render preview LAST (HARD-GATED: do NOT run on Get embed script)
+                _left_view = st.session_state.get("bt_left_view", "Edit table contents")
+                _right_view = st.session_state.get("bt_right_view", "Preview")
+                
+                # Only render preview when:
+                # - Left view is "Edit table contents"
+                # - Right view is "Preview"
+                if _left_view == "Edit table contents" and _right_view == "Preview":
+                    with preview_slot:
+                        st.session_state.setdefault("bt_show_preview", False)
+                        st.checkbox("Show live preview", key="bt_show_preview")
+                
+                        if not st.session_state["bt_show_preview"]:
+                            st.info("Preview hidden for performance.")
+                        else:
+                            live_cfg = draft_config_from_state()
+                            live_rules = st.session_state.get("bt_col_format_rules", {})
+                
+                            df_preview = st.session_state["bt_df_uploaded"].copy()
+                            hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
+                            if hidden_cols:
+                                df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
+                
+                            cfg_hash = stable_config_hash(live_cfg)
+                
+                            try:
+                                df_hash = int(pd.util.hash_pandas_object(df_preview, index=True).sum())
+                            except Exception:
+                                df_hash = hash((df_preview.shape, tuple(df_preview.columns)))
+                
+                            rules_hash = hash(json.dumps(live_rules, sort_keys=True, default=str))
+                            preview_key = f"{cfg_hash}|{df_hash}|{rules_hash}"
+                
+                            if st.session_state.get("bt_preview_key") != preview_key:
+                                st.session_state["bt_preview_key"] = preview_key
+                                st.session_state["bt_preview_html"] = html_from_config(
+                                    df_preview,
+                                    live_cfg,
+                                    col_format_rules=live_rules,
+                                )
+                
+                            preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
+                            preview_height = 820 if preview_rows > 10 else 560
+                            components.html(
+                                st.session_state.get("bt_preview_html", ""),
+                                height=preview_height,
+                                scrolling=True,
+                            )
+                else:
+                    # Clear any previously mounted preview so it does NOT persist visually
+                    preview_slot.empty()
