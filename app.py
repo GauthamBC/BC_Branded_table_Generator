@@ -125,6 +125,7 @@ def style_radio_as_big_tabs(
     inactive_bg: str = "#FFFFFF",
     inactive_fg: str = "#2f3542",
     border: str = "1px solid rgba(0,0,0,0.12)",
+    gap_px: int = 12,
 ):
     """Style a specific st.radio (by key) as a stretched full-width button group."""
     st.markdown(
@@ -134,23 +135,28 @@ def style_radio_as_big_tabs(
             width: 100% !important;
         }}
 
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            align-items: stretch !important;
-            gap: 12px !important;
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div > div {{
             width: 100% !important;
         }}
 
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {{
-            flex: 1 1 0 !important;
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            align-items: stretch !important;
+            gap: {gap_px}px !important;
             width: 100% !important;
-            margin: 0 !important;
+            min-width: 100% !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {{
+            width: 100% !important;
             min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
             display: flex !important;
             align-items: stretch !important;
             justify-content: stretch !important;
-            padding: 0 !important;
             border: 0 !important;
             background: transparent !important;
         }}
@@ -168,6 +174,7 @@ def style_radio_as_big_tabs(
         div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {{
             flex: 1 1 auto !important;
             width: 100% !important;
+            min-width: 100% !important;
             min-height: {height_px}px !important;
             display: flex !important;
             justify-content: center !important;
@@ -181,7 +188,7 @@ def style_radio_as_big_tabs(
             font-weight: 700 !important;
             font-size: {font_px}px !important;
             line-height: 1.1 !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            box-shadow: none !important;
             transition: all 0.15s ease !important;
         }}
 
@@ -195,7 +202,7 @@ def style_radio_as_big_tabs(
             background: {active_bg} !important;
             color: {active_fg} !important;
             border-color: {active_bg} !important;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.12) !important;
+            box-shadow: none !important;
         }}
 
         div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"] p {{
@@ -210,6 +217,83 @@ def style_radio_as_big_tabs(
         unsafe_allow_html=True,
     )
 
+
+def style_main_nav_tabs(radio_key: str):
+    """Force the top main tabs to render as a full-width segmented bar."""
+    st.markdown(
+        f"""
+        <style>
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) {{
+            width: 100% !important;
+            min-width: 100% !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div > div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+            width: 100% !important;
+            min-width: 100% !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0 !important;
+            border: 1px solid rgba(255, 90, 95, 0.22) !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            background: #ffe9eb !important;
+            box-shadow: none !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {{
+            width: 100% !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+            background: transparent !important;
+            border: 0 !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:not(:last-child) > div:last-child {{
+            border-right: 1px solid rgba(255, 90, 95, 0.22) !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {{
+            width: 100% !important;
+            min-width: 100% !important;
+            min-height: 64px !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: #ffe9eb !important;
+            color: #7a1f28 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            line-height: 1.15 !important;
+            padding: 0 20px !important;
+            box-shadow: none !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"][aria-checked="true"] > div:last-child {{
+            background: #FF5A5F !important;
+            color: #ffffff !important;
+            border: 0 !important;
+            box-shadow: none !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {{
+            box-shadow: inset 0 0 0 9999px rgba(0,0,0,0.02) !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 import jwt  # ✅ PyJWT
 import pandas as pd
@@ -4409,7 +4493,8 @@ st.session_state["bt_created_by_user"] = st.session_state.get("bt_logged_in_user
 # =========================================================
 # Main tabs
 # =========================================================
-style_radio_as_big_tabs("main_tab", height_px=60, font_px=20, radius_px=12)
+style_radio_as_big_tabs("main_tab", height_px=64, font_px=18, radius_px=0, gap_px=0, inactive_bg="#ffe9eb", inactive_fg="#7a1f28", border="1px solid rgba(255,90,95,0.22)")
+style_main_nav_tabs("main_tab")
 
 st.session_state.setdefault("main_tab", "Create New Table")
 main_tab = st.radio(
@@ -5064,24 +5149,11 @@ if main_tab == "Create New Table":
         
                 _restore_header_draft()
 
-                # ✅ Primary editor navigation across the full content width
-                style_radio_as_big_tabs("bt_left_view", height_px=56, font_px=18, radius_px=12)
-                left_view = st.radio(
-                    "Left view",
-                    ["Edit table contents", "Get Embed Script"],
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    on_change=_cache_header_draft,
-                    key="bt_left_view",
-                )
-
-                st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-
                 left_col, right_col = st.columns([1, 3], gap="large")
 
                 # ✅ Right side: Preview + Body Editor tabs
                 with right_col:
-                    style_radio_as_big_tabs("bt_right_view", height_px=56, font_px=18, radius_px=12)
+                    style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=12)
                     right_view = st.radio(
                         "Right view",
                         ["Preview", "Edit table content (Optional)"],
@@ -5304,8 +5376,18 @@ if main_tab == "Create New Table":
 
                             st.session_state["bt_body_editor_df"] = edited_body_df
 
-                # ===================== Left: Panels =====================
+                # ===================== Left: Tabs =====================
                 with left_col:
+                    style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=12)
+                    left_view = st.radio(
+                        "Left view",
+                        ["Edit table contents", "Get Embed Script"],
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        on_change=_cache_header_draft,
+                        key="bt_left_view",
+                    )
+
                     # ---------- EDIT TAB ----------
                     if left_view == "Edit table contents":
                         st.markdown("#### Edit table contents")
