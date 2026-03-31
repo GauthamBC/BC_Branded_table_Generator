@@ -5075,7 +5075,7 @@ if main_tab == "Create New Table":
                     key="bt_left_view",
                 )
 
-                st.markdown("<div style="height:10px"></div>", unsafe_allow_html=True)
+                st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
                 left_col, right_col = st.columns([1, 3], gap="large")
 
