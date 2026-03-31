@@ -10,6 +10,111 @@ import io
 import json
 from collections.abc import Mapping
 
+def inject_global_radio_button_css():
+    """Render all Streamlit radio controls like full-width rectangle button groups.
+    This is intentionally global so no individual radio falls back to the native dot UI.
+    """
+    st.markdown(
+        """
+        <style>
+        /* ===== Global radio -> button styling ===== */
+        div[data-testid="stRadio"] {
+            width: 100% !important;
+        }
+
+        div[data-testid="stRadio"] > div {
+            width: 100% !important;
+        }
+
+        div[data-testid="stRadio"] [role="radiogroup"] {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+            width: 100% !important;
+        }
+
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] {
+            flex: 1 1 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            border: 0 !important;
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        /* Hide the native radio circle / icon wrappers */
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:first-child,
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] svg,
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] input[type="radio"] {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Visible button surface */
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            min-height: 52px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            padding: 0 18px !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(0,0,0,0.14) !important;
+            background: #ffffff !important;
+            color: #2f3542 !important;
+            font-weight: 700 !important;
+            line-height: 1.15 !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+            transition: all 0.15s ease !important;
+        }
+
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {
+            border-color: rgba(0,0,0,0.24) !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
+        }
+
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] input[type="radio"]:checked + div,
+        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] > div:last-child {
+            background: #FF5A5F !important;
+            border-color: #FF5A5F !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.12) !important;
+        }
+
+        div[data-testid="stRadio"] label[data-baseweb="radio"] p {
+            margin: 0 !important;
+            width: 100% !important;
+            text-align: center !important;
+            font-weight: 700 !important;
+        }
+
+        @media (max-width: 640px) {
+            div[data-testid="stRadio"] [role="radiogroup"] {
+                gap: 10px !important;
+            }
+
+            div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
+                min-height: 48px !important;
+                padding: 0 12px !important;
+                font-size: 15px !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def style_radio_as_big_tabs(
     radio_key: str,
     height_px: int = 58,
@@ -21,48 +126,53 @@ def style_radio_as_big_tabs(
     inactive_fg: str = "#2f3542",
     border: str = "1px solid rgba(0,0,0,0.12)",
 ):
-    """Style a Streamlit st.radio (by key) to render like full-width button tabs.
-    Keeps the underlying st.radio functionality unchanged.
-    """
+    """Style a specific st.radio (by key) as a stretched full-width button group."""
     st.markdown(
         f"""
         <style>
-        /* Full wrapper width */
         div[data-testid="stRadio"]:has(input[name="{radio_key}"]) {{
             width: 100% !important;
         }}
 
-        /* Two equal-width button tabs */
-        div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch !important;
             gap: 12px !important;
             width: 100% !important;
         }}
 
-        div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"] {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {{
+            flex: 1 1 0 !important;
             width: 100% !important;
             margin: 0 !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            padding: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
         }}
 
-        /* Hide the native radio input/dot */
-        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:first-child,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] svg,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
             position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
             opacity: 0 !important;
             pointer-events: none !important;
         }}
 
-        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) div[aria-hidden="true"] {{
-            display: none !important;
-        }}
-
-        /* Button surface */
-        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {{
+            flex: 1 1 auto !important;
             width: 100% !important;
             min-height: {height_px}px !important;
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
+            text-align: center !important;
             padding: 0 18px !important;
             border: {border} !important;
             border-radius: {radius_px}px !important;
@@ -71,32 +181,29 @@ def style_radio_as_big_tabs(
             font-weight: 700 !important;
             font-size: {font_px}px !important;
             line-height: 1.1 !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
             transition: all 0.15s ease !important;
         }}
 
-        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div:hover {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {{
             border-color: rgba(0,0,0,0.22) !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
         }}
 
-        /* Active tab */
-        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"][aria-checked="true"] > div:last-child {{
             background: {active_bg} !important;
             color: {active_fg} !important;
             border-color: {active_bg} !important;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.12) !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.12) !important;
         }}
 
-        /* Mobile stack */
-        @media (max-width: 640px) {{
-            div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
-                grid-template-columns: 1fr !important;
-            }}
-
-            label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
-                font-size: 18px !important;
-            }}
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"] p {{
+            margin: 0 !important;
+            width: 100% !important;
+            text-align: center !important;
+            font-size: {font_px}px !important;
+            font-weight: 700 !important;
         }}
         </style>
         """,
@@ -111,6 +218,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+inject_global_radio_button_css()
 
 @st.cache_resource
 def http_session() -> requests.Session:
@@ -130,66 +239,20 @@ def http_session() -> requests.Session:
 
 def style_radio_as_tabs(
     radio_key: str,
-    active_bg: str = "rgba(0, 200, 83, 0.18)",
-    active_border: str = "rgba(0, 200, 83, 0.55)",
+    active_bg: str = "#FF5A5F",
+    active_border: str = "#FF5A5F",
 ):
-    """Style a specific st.radio (by key) to visually render like segmented tabs.
-    Keeps the underlying st.radio functionality unchanged.
-    """
-    st.markdown(
-        f"""
-        <style>
-          /* Turn radio group into segmented tabs */
-          label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
-            display: none !important;
-          }}
-
-          label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 10px 18px !important;
-            border: 1px solid rgba(0,0,0,0.10) !important;
-            background: rgba(0,0,0,0.04) !important;
-            font-weight: 650 !important;
-          }}
-
-          div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
-            display: flex !important;
-            gap: 0 !important;
-            width: 100% !important;
-          }}
-
-          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"] {{
-            flex: 1 1 0 !important;
-            margin-right: 0 !important;
-          }}
-
-          /* Active tab */
-          label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div {{
-            background: {active_bg} !important;
-            border-color: {active_border} !important;
-            color: #0b1f16 !important;
-          }}
-
-          /* Rounded ends */
-          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:first-child input[name="{radio_key}"] + div {{
-            border-top-left-radius: 12px !important;
-            border-bottom-left-radius: 12px !important;
-          }}
-          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:last-child input[name="{radio_key}"] + div {{
-            border-top-right-radius: 12px !important;
-            border-bottom-right-radius: 12px !important;
-          }}
-
-          /* Remove double borders between segments */
-          div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:not(:first-child) input[name="{radio_key}"] + div {{
-            border-left: 0 !important;
-          }}
-        </style>
-        """,
-        unsafe_allow_html=True,
+    """Alias kept for compatibility; uses the same full-width rectangle button styling."""
+    style_radio_as_big_tabs(
+        radio_key=radio_key,
+        height_px=52,
+        radius_px=12,
+        font_px=16,
+        active_bg=active_bg,
+        active_fg="white",
+        inactive_bg="#FFFFFF",
+        inactive_fg="#2f3542",
+        border=f"1px solid {active_border if active_border else 'rgba(0,0,0,0.12)'}",
     )
 
 
@@ -5005,7 +5068,7 @@ if main_tab == "Create New Table":
 
                 # ✅ Right side: Preview + Body Editor tabs
                 with right_col:
-                    style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=0)
+                    style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=12)
                     right_view = st.radio(
                         "Right view",
                         ["Preview", "Edit table content (Optional)"],
@@ -5230,7 +5293,7 @@ if main_tab == "Create New Table":
 
                 # ===================== Left: Tabs =====================
                 with left_col:
-                    style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=0)
+                    style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=12)
                     left_view = st.radio(
                         "Left view",
                         ["Edit table contents", "Get Embed Script"],
@@ -6180,7 +6243,7 @@ if main_tab == "Create New Table":
                                 st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
 
                             # ✅ Faster than st.tabs(): only renders ONE view per rerun
-                            style_radio_as_big_tabs("bt_embed_view", height_px=46, font_px=16, radius_px=0)
+                            style_radio_as_big_tabs("bt_embed_view", height_px=46, font_px=16, radius_px=12)
                             embed_view = st.radio(
                                 "Embed view",
                                 ["HTML Code", "IFrame"],
