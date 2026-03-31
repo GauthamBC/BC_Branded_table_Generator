@@ -219,50 +219,56 @@ def style_radio_as_big_tabs(
 
 
 def style_main_nav_tabs(radio_key: str):
-    """Force the top main tabs to render as a full-width segmented bar."""
+    """Force the top main tabs to occupy the full available row as a 50/50 segmented bar."""
     st.markdown(
         f"""
         <style>
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) {{
-            width: 100% !important;
-            min-width: 100% !important;
-        }}
-
+        /* Expand every ancestor wrapper around the main nav radio */
+        div[data-testid="element-container"]:has(div[data-testid="stRadio"] input[name="{radio_key}"]),
+        div[data-testid="stVerticalBlock"]:has(div[data-testid="stRadio"] input[name="{radio_key}"]),
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stRadio"] input[name="{radio_key}"]),
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]),
         div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div,
         div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div > div,
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div > div > div {
             width: 100% !important;
             min-width: 100% !important;
-        }}
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+            display: block !important;
+        }
 
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {
             display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
             gap: 0 !important;
             border: 1px solid rgba(255, 90, 95, 0.22) !important;
             border-radius: 0 !important;
             overflow: hidden !important;
             background: #ffe9eb !important;
             box-shadow: none !important;
-        }}
+        }
 
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {
             width: 100% !important;
             min-width: 0 !important;
+            max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            display: block !important;
+            display: flex !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
             background: transparent !important;
             border: 0 !important;
-        }}
+        }
 
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:not(:last-child) > div:last-child {{
-            border-right: 1px solid rgba(255, 90, 95, 0.22) !important;
-        }}
-
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
             width: 100% !important;
-            min-width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
             min-height: 64px !important;
             border: 0 !important;
             border-radius: 0 !important;
@@ -277,19 +283,23 @@ def style_main_nav_tabs(radio_key: str):
             line-height: 1.15 !important;
             padding: 0 20px !important;
             box-shadow: none !important;
-        }}
+        }
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:not(:last-child) > div:last-child {
+            border-right: 1px solid rgba(255, 90, 95, 0.22) !important;
+        }
 
         div[data-testid="stRadio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div,
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"][aria-checked="true"] > div:last-child {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"][aria-checked="true"] > div:last-child {
             background: #FF5A5F !important;
             color: #ffffff !important;
             border: 0 !important;
             box-shadow: none !important;
-        }}
+        }
 
-        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {{
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {
             box-shadow: inset 0 0 0 9999px rgba(0,0,0,0.02) !important;
-        }}
+        }
         </style>
         """,
         unsafe_allow_html=True,
