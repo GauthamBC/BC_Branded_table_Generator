@@ -13,64 +13,90 @@ from collections.abc import Mapping
 def style_radio_as_big_tabs(
     radio_key: str,
     height_px: int = 58,
-    radius_px: int = 0,
+    radius_px: int = 12,
     font_px: int = 20,
-    active_bg: str = "#00C853",
+    active_bg: str = "#FF5A5F",
     active_fg: str = "white",
-    inactive_bg: str = "#E7F6EE",
-    inactive_fg: str = "#0b1f16",
-    border: str = "1px solid rgba(0,0,0,0.10)",
+    inactive_bg: str = "#FFFFFF",
+    inactive_fg: str = "#2f3542",
+    border: str = "1px solid rgba(0,0,0,0.12)",
 ):
-    """Style a Streamlit st.radio (by key) to render like full-width segmented tabs.
+    """Style a Streamlit st.radio (by key) to render like full-width button tabs.
     Keeps the underlying st.radio functionality unchanged.
     """
     st.markdown(
         f"""
         <style>
-        /* Hide actual radio circles */
+        /* Full wrapper width */
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) {{
+            width: 100% !important;
+        }}
+
+        /* Two equal-width button tabs */
+        div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 12px !important;
+            width: 100% !important;
+        }}
+
+        div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"] {{
+            width: 100% !important;
+            margin: 0 !important;
+        }}
+
+        /* Hide the native radio input/dot */
         label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
+            position: absolute !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }}
+
+        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) div[aria-hidden="true"] {{
             display: none !important;
         }}
 
-        /* Make the group a full-width segmented bar */
-        div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
-            display: flex !important;
-            width: 100% !important;
-            gap: 0 !important;
-        }}
-
-        /* Each option is equal width */
-        div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"] {{
-            flex: 1 1 0 !important;
-            margin-right: 0 !important;
-        }}
-
-        /* The clickable “tab button” */
+        /* Button surface */
         label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
             width: 100% !important;
-            height: {height_px}px !important;
+            min-height: {height_px}px !important;
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             padding: 0 18px !important;
-
             border: {border} !important;
+            border-radius: {radius_px}px !important;
             background: {inactive_bg} !important;
             color: {inactive_fg} !important;
             font-weight: 700 !important;
             font-size: {font_px}px !important;
-            border-radius: {radius_px}px !important;
+            line-height: 1.1 !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+            transition: all 0.15s ease !important;
+        }}
+
+        label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div:hover {{
+            border-color: rgba(0,0,0,0.22) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
         }}
 
         /* Active tab */
         label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div {{
             background: {active_bg} !important;
             color: {active_fg} !important;
+            border-color: {active_bg} !important;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.12) !important;
         }}
 
-        /* Remove double border between segments */
-        div[role="radiogroup"]:has(input[name="{radio_key}"]) > label[data-baseweb="radio"]:not(:first-child) input[name="{radio_key}"] + div {{
-            border-left: 0 !important;
+        /* Mobile stack */
+        @media (max-width: 640px) {{
+            div[role="radiogroup"]:has(input[name="{radio_key}"]) {{
+                grid-template-columns: 1fr !important;
+            }}
+
+            label[data-baseweb="radio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] + div {{
+                font-size: 18px !important;
+            }}
         }}
         </style>
         """,
@@ -4320,7 +4346,7 @@ st.session_state["bt_created_by_user"] = st.session_state.get("bt_logged_in_user
 # =========================================================
 # Main tabs
 # =========================================================
-style_radio_as_big_tabs("main_tab", height_px=60, font_px=20, radius_px=0)
+style_radio_as_big_tabs("main_tab", height_px=60, font_px=20, radius_px=12)
 
 st.session_state.setdefault("main_tab", "Create New Table")
 main_tab = st.radio(
