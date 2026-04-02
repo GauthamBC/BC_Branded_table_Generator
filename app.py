@@ -315,28 +315,6 @@ from urllib3.util.retry import Retry
 
 inject_global_radio_button_css()
 
-st.markdown(
-    """
-    <style>
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]),
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) {
-        width: 100% !important;
-    }
-
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]) > button,
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button {
-        width: 100% !important;
-        min-height: 64px !important;
-        font-size: 18px !important;
-        font-weight: 700 !important;
-        border-radius: 12px !important;
-        white-space: normal !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 @st.cache_resource
 def http_session() -> requests.Session:
     s = requests.Session()
@@ -4356,12 +4334,6 @@ if ACTIVE_USERS_AUTO_REFRESH_SECONDS > 0:
     )
 
 
-try:
-    render_active_users_banner(PUBLISH_OWNER, github_token(PUBLISH_OWNER))
-except Exception:
-    pass
-
-
 def _get_user_passcodes() -> dict:
     """Return a mapping of {username_lower: six_digit_code}.
 
@@ -4522,35 +4494,26 @@ if st.session_state.get("bt_is_logged_in") and st.session_state.get("bt_logged_i
 st.session_state.setdefault("bt_created_by_user", "")
 st.session_state["bt_created_by_user"] = st.session_state.get("bt_logged_in_user", "") if st.session_state.get("bt_is_logged_in", False) else ""
 
+# ✅ Active users panel moved below login / logout controls
+try:
+    render_active_users_banner(PUBLISH_OWNER, github_token(PUBLISH_OWNER))
+except Exception:
+    pass
+
 # =========================================================
 # Main tabs
 # =========================================================
+style_radio_as_big_tabs("main_tab", height_px=64, font_px=18, radius_px=0, gap_px=0, inactive_bg="#ffe9eb", inactive_fg="#7a1f28", border="1px solid rgba(255,90,95,0.22)")
+style_main_nav_tabs("main_tab")
+
 st.session_state.setdefault("main_tab", "Create New Table")
-
-_main_tab_current = st.session_state.get("main_tab", "Create New Table")
-_main_tab_col1, _main_tab_col2 = st.columns(2, gap="small")
-
-with _main_tab_col1:
-    if st.button(
-        "Create New\nTable",
-        key="main_tab_btn_create",
-        use_container_width=True,
-        type="primary" if _main_tab_current == "Create New Table" else "secondary",
-    ):
-        st.session_state["main_tab"] = "Create New Table"
-        st.rerun()
-
-with _main_tab_col2:
-    if st.button(
-        "Published Tables",
-        key="main_tab_btn_published",
-        use_container_width=True,
-        type="primary" if _main_tab_current == "Published Tables" else "secondary",
-    ):
-        st.session_state["main_tab"] = "Published Tables"
-        st.rerun()
-
-main_tab = st.session_state.get("main_tab", "Create New Table")
+main_tab = st.radio(
+    "",
+    ["Create New Table", "Published Tables"],
+    horizontal=True,
+    key="main_tab",
+    label_visibility="collapsed",
+)
 
 # =========================================================
 # ✅ TAB 2: Published Tables  (ONLY THIS VIEW)
