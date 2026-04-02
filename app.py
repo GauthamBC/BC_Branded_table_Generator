@@ -1217,45 +1217,65 @@ def remove_active_user(owner: str, token: str, user: str) -> bool:
 
 
 def render_active_users_banner(owner: str, token: str):
-    """Collapsible 'Active users' panel (global, shared across sessions).
+    """Compact live status bar showing currently active users as pills."""
+    try:
+        repo = get_active_state_repo(owner, token)
+        if not repo or not active_state_repo_exists(owner, repo, token):
+            st.caption("Live status unavailable right now.")
+            return
 
-    This is intentionally NOT always visible as a big banner — it lives in an expander
-    so only interested users open it.
-    """
-    with st.expander("🟢 Active users", expanded=False):
-        try:
-            repo = get_active_state_repo(owner, token)
-            if not repo or not active_state_repo_exists(owner, repo, token):
-                st.warning(
-                    "Active-user state repo not found or not accessible. "
-                    "Set ACTIVE_STATE_REPO in secrets (e.g., BrandedGeneratorState)."
-                )
-                return
-
-            state = read_active_users_state(owner, token)
-            if not state:
-                st.caption(f"No active users detected (last ~{ACTIVE_USER_TTL_MINUTES} mins).")
-                return
-
-            # sort by last seen (utc desc)
-            def _key(item):
-                meta = item[1] or {}
-                dt = _parse_iso_z(meta.get("utc", "")) or datetime.datetime.min
-                return dt
-
-            items = sorted(state.items(), key=_key, reverse=True)
-
-            # Friendly list
-            for u, meta in items:
-                rel = format_relative_minutes((meta or {}).get("utc", ""))
-                st.markdown(f"- **{u}** — {rel}")
-
-            st.caption(
-                f"Auto-removes users after ~{ACTIVE_USER_TTL_MINUTES} minutes without a heartbeat."
+        state = read_active_users_state(owner, token)
+        if not state:
+            st.markdown(
+                """
+                <div style="margin-top:10px;margin-bottom:4px;padding:12px 14px;border:1px solid rgba(16,185,129,0.22);border-radius:999px;background:#f7fffb;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#166534;white-space:nowrap;">🟢 Live now</span>
+                  <span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#ffffff;border:1px solid rgba(0,0,0,0.08);color:#6b7280;font-weight:600;">No active users</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-        except Exception as e:
-            # Keep this non-fatal and non-spammy
-            st.warning("Could not load active-user state right now.")
+            return
+
+        def _key(item):
+            meta = item[1] or {}
+            dt = _parse_iso_z(meta.get("utc", "")) or datetime.datetime.min
+            return dt
+
+        items = sorted(state.items(), key=_key, reverse=True)
+        current_user = (st.session_state.get("bt_logged_in_user", "") or "").strip().lower()
+
+        pill_html = []
+        for u, meta in items:
+            rel = format_relative_minutes((meta or {}).get("utc", ""))
+            is_you = bool(current_user) and u == current_user
+            label = html_mod.escape(u)
+            if is_you:
+                label += " <span style='opacity:.8;'>(You)</span>"
+                pill_style = "background:#ecfdf5;border:1px solid rgba(16,185,129,0.34);color:#166534;"
+            else:
+                pill_style = "background:#ffffff;border:1px solid rgba(0,0,0,0.08);color:#374151;"
+
+            rel_html = f"<span style='opacity:.72;font-weight:600;'> · {html_mod.escape(rel)}</span>" if rel else ""
+            pill_html.append(
+                f"<span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-weight:700;white-space:nowrap;{pill_style}">{label}{rel_html}</span>"
+            )
+
+        count = len(items)
+        count_label = f"{count} active now" if count != 1 else "1 active now"
+
+        st.markdown(
+            f"""
+            <div style="margin-top:10px;margin-bottom:4px;padding:12px 14px;border:1px solid rgba(16,185,129,0.22);border-radius:999px;background:#f7fffb;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#166534;white-space:nowrap;">🟢 Live now</span>
+              <span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#ecfdf5;border:1px solid rgba(16,185,129,0.26);color:#166534;font-weight:700;white-space:nowrap;">{html_mod.escape(count_label)}</span>
+              {''.join(pill_html)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    except Exception:
+        st.caption("Could not load live status right now.")
 
 
 def get_github_file_sha(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
