@@ -1251,7 +1251,7 @@ def render_active_users_banner(owner: str, token: str):
             is_you = bool(current_user) and u == current_user
             label = html_mod.escape(u)
             if is_you:
-                label += " <span style='opacity:.8;'>(You)</span>'
+                label += " <span style='opacity:.8;'>(You)</span>"
                 pill_style = "background:#ecfdf5;border:1px solid rgba(16,185,129,0.34);color:#166534;"
             else:
                 pill_style = "background:#ffffff;border:1px solid rgba(0,0,0,0.08);color:#374151;"
