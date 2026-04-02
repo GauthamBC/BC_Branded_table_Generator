@@ -4356,12 +4356,6 @@ if ACTIVE_USERS_AUTO_REFRESH_SECONDS > 0:
     )
 
 
-try:
-    render_active_users_banner(PUBLISH_OWNER, github_token(PUBLISH_OWNER))
-except Exception:
-    pass
-
-
 def _get_user_passcodes() -> dict:
     """Return a mapping of {username_lower: six_digit_code}.
 
@@ -4500,6 +4494,12 @@ with c_status:
         st.markdown(f"✅ **Logged in as:** `{st.session_state.get('bt_logged_in_user','')}`")
     else:
         st.caption("Not logged in. You can browse published tables, but publishing/editing requires login.")
+
+
+try:
+    render_active_users_banner(PUBLISH_OWNER, github_token(PUBLISH_OWNER))
+except Exception:
+    pass
 
 # 🔄 Heartbeat: keep the active-users list fresh while you're logged in
 if st.session_state.get("bt_is_logged_in") and st.session_state.get("bt_logged_in_user"):
