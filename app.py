@@ -1251,12 +1251,12 @@ def render_active_users_banner(owner: str, token: str):
             is_you = bool(current_user) and u == current_user
             label = html_mod.escape(u)
             if is_you:
-                label += " <span style='opacity:.8;'>(You)</span>"
+                label += " <span style='opacity:.8;'>(You)</span>'
                 pill_style = "background:#ecfdf5;border:1px solid rgba(16,185,129,0.34);color:#166534;"
             else:
                 pill_style = "background:#ffffff;border:1px solid rgba(0,0,0,0.08);color:#374151;"
 
-            rel_html = f"<span style='opacity:.72;font-weight:600;'> · {html_mod.escape(rel)}</span>' if rel else ""
+            rel_html = f'<span style='opacity:.72;font-weight:600;'> · {html_mod.escape(rel)}</span>' if rel else ""
             pill_html.append(
                 f'<span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-weight:700;white-space:nowrap;{pill_style}">{label}{rel_html}</span>'
             )
