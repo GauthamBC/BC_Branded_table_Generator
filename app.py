@@ -319,12 +319,16 @@ st.markdown(
     """
     <style>
     div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]),
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) {
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]),
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) {
         width: 100% !important;
     }
 
     div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]) > button,
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button {
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
         width: 100% !important;
         min-height: 64px !important;
         font-size: 18px !important;
@@ -4448,7 +4452,7 @@ st.text_input(
     help="Enter your 6-digit passcode to enable publishing/editing as this user.",
 )
 
-c_login, c_logout, c_status = st.columns([1, 1, 4])
+c_login, c_logout = st.columns(2, gap="small")
 
 with c_login:
     login_clicked = st.button(
@@ -4489,11 +4493,10 @@ if login_clicked:
         write_active_users_state(PUBLISH_OWNER, github_token(PUBLISH_OWNER), selected_user, action="login")
         st.rerun()
 
-with c_status:
-    if st.session_state.get("bt_is_logged_in", False):
-        st.markdown(f"✅ **Logged in as:** `{st.session_state.get('bt_logged_in_user','')}`")
-    else:
-        st.caption("Not logged in. You can browse published tables, but publishing/editing requires login.")
+if st.session_state.get("bt_is_logged_in", False):
+    st.markdown(f"✅ **Logged in as:** `{st.session_state.get('bt_logged_in_user','')}`")
+else:
+    st.caption("Not logged in. You can browse published tables, but publishing/editing requires login.")
 
 
 try:
