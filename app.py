@@ -3401,6 +3401,7 @@ def generate_table_html_from_df(
         Supports:
           - plus_if_positive (smart "+")
           - moneyline_plus (alias for plus_if_positive)
+          - comma_separator (adds thousand separators)
           - prefix / suffix (accepts ANY symbols)
           - optional flags for prefix/suffix:
               only_if_positive: true
@@ -3435,6 +3436,14 @@ def generate_table_html_from_df(
                 return f"+{s}"
             return s
     
+        # ✅ COMMA SEPARATOR: format numeric values with thousand separators
+        if mode == "comma_separator":
+            if num is None:
+                return s
+            if abs(num - round(num)) < 1e-12:
+                return f"{int(round(num)):,}"
+            return f"{num:,.2f}".rstrip("0").rstrip(".")
+
         # Conditions for prefix/suffix
         only_pos = bool(rules.get("only_if_positive", False))
         only_neg = bool(rules.get("only_if_negative", False))
@@ -6020,7 +6029,11 @@ if main_tab == "Create New Table":
                                     st.info("Upload a CSV to enable column formatting.")
                                 else:
                                     st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
-                                    st.selectbox("Format", options=["prefix", "suffix", "plus_if_positive"], key="bt_fmt_selected_mode")
+                                    st.selectbox(
+                                        "Format",
+                                        options=["prefix", "suffix", "plus_if_positive", "comma_separator"],
+                                        key="bt_fmt_selected_mode",
+                                    )
                         
                                     mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
                                     if mode in ("prefix", "suffix"):
