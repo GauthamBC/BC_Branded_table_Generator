@@ -305,6 +305,117 @@ def style_main_nav_tabs(radio_key: str):
         unsafe_allow_html=True,
     )
 
+
+
+def style_full_width_radio_tabs(
+    radio_key: str,
+    height_px: int = 64,
+    radius_px: int = 12,
+    font_px: int = 18,
+    active_bg: str = "#FF5A5F",
+    active_fg: str = "#ffffff",
+    inactive_bg: str = "#FFFFFF",
+    inactive_fg: str = "#2f3542",
+    border: str = "1px solid rgba(0,0,0,0.12)",
+    gap_px: int = 12,
+):
+    """Force a specific radio control to stretch full width across the available row."""
+    st.markdown(
+        f"""
+        <style>
+        div[data-testid="element-container"]:has(div[data-testid="stRadio"] input[name="{radio_key}"]),
+        div[data-testid="stVerticalBlock"]:has(div[data-testid="stRadio"] input[name="{radio_key}"]),
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stRadio"] input[name="{radio_key}"]),
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]),
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div > div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) > div > div > div {{
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+            display: block !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] {{
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+            align-items: stretch !important;
+            gap: {gap_px}px !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] {{
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            border: 0 !important;
+            background: transparent !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:first-child,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] svg,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"] {{
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {{
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            min-height: {height_px}px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            text-align: center !important;
+            padding: 0 18px !important;
+            border: {border} !important;
+            border-radius: {radius_px}px !important;
+            background: {inactive_bg} !important;
+            color: {inactive_fg} !important;
+            font-weight: 700 !important;
+            font-size: {font_px}px !important;
+            line-height: 1.1 !important;
+            box-shadow: none !important;
+            transition: all 0.15s ease !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {{
+            border-color: rgba(0,0,0,0.22) !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) input[name="{radio_key}"]:checked + div,
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"][aria-checked="true"] > div:last-child {{
+            background: {active_bg} !important;
+            color: {active_fg} !important;
+            border-color: {active_bg} !important;
+            box-shadow: none !important;
+        }}
+
+        div[data-testid="stRadio"]:has(input[name="{radio_key}"]) label[data-baseweb="radio"] p {{
+            margin: 0 !important;
+            width: 100% !important;
+            text-align: center !important;
+            font-size: {font_px}px !important;
+            font-weight: 700 !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 import jwt  # ✅ PyJWT
 import pandas as pd
 import requests
@@ -5202,7 +5313,7 @@ if main_tab == "Create New Table":
                 # =====================================================
                 # Full-width control rows above the editor/preview area
                 # =====================================================
-                style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=12)
+                style_full_width_radio_tabs("bt_left_view", height_px=64, font_px=18, radius_px=12)
                 left_view = st.radio(
                     "Left view",
                     ["Edit table contents", "Get Embed Script"],
@@ -5214,7 +5325,7 @@ if main_tab == "Create New Table":
 
                 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-                style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=12)
+                style_full_width_radio_tabs("bt_right_view", height_px=64, font_px=18, radius_px=12)
                 right_view = st.radio(
                     "Right view",
                     ["Preview", "Edit table content (Optional)"],
