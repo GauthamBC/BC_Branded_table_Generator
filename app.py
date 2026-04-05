@@ -5199,41 +5199,26 @@ if main_tab == "Create New Table":
         
                 _restore_header_draft()
 
-                # ✅ Place the left action tabs ABOVE the right-side preview/body tabs
-                style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=12)
-                left_view = st.radio(
-                    "Left view",
-                    ["Edit table contents", "Get Embed Script"],
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    on_change=_cache_header_draft,
-                    key="bt_left_view",
-                )
-
-                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-
-                style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=12)
-                right_view = st.radio(
-                    "Right view",
-                    ["Preview", "Edit table content (Optional)"],
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    key="bt_right_view",
-                )
-
-                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-
                 left_col, right_col = st.columns([1, 3], gap="large")
 
                 # ✅ Right side: Preview + Body Editor tabs
                 with right_col:
+                    style_radio_as_big_tabs("bt_right_view", height_px=52, font_px=18, radius_px=12)
+                    right_view = st.radio(
+                        "Right view",
+                        ["Preview", "Edit table content (Optional)"],
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        key="bt_right_view",
+                    )
+                    
                     # Always create this so the preview renderer at the bottom can use it
                     preview_slot = st.container()
-
+                    
                     if right_view == "Preview":
                         # (Intentionally blank) — remove the extra big "Preview" heading.
                         pass
-
+                
                     else:
                         st.markdown("### Edit table content (Optional)")
                         st.caption("Edit cells + hide columns here. Click **Apply changes to preview** to update the preview.")
@@ -5443,6 +5428,16 @@ if main_tab == "Create New Table":
 
                 # ===================== Left: Tabs =====================
                 with left_col:
+                    style_radio_as_big_tabs("bt_left_view", height_px=52, font_px=18, radius_px=12)
+                    left_view = st.radio(
+                        "Left view",
+                        ["Edit table contents", "Get Embed Script"],
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        on_change=_cache_header_draft,
+                        key="bt_left_view",
+                    )
+
                     # ---------- EDIT TAB ----------
                     if left_view == "Edit table contents":
                         st.markdown("#### Edit table contents")
