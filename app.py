@@ -432,14 +432,22 @@ st.markdown(
     div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]),
     div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]),
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
-    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) {
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) {
         width: 100% !important;
     }
 
     div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]) > button,
     div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
         width: 100% !important;
         min-height: 64px !important;
         font-size: 18px !important;
@@ -5313,26 +5321,55 @@ if main_tab == "Create New Table":
                 # =====================================================
                 # Full-width control rows above the editor/preview area
                 # =====================================================
-                style_full_width_radio_tabs("bt_left_view", height_px=64, font_px=18, radius_px=12)
-                left_view = st.radio(
-                    "Left view",
-                    ["Edit table contents", "Get Embed Script"],
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    on_change=_cache_header_draft,
-                    key="bt_left_view",
-                )
+                st.session_state.setdefault("bt_left_view", "Edit table contents")
+                st.session_state.setdefault("bt_right_view", "Preview")
+
+                _left_btn_col1, _left_btn_col2 = st.columns(2, gap="small")
+                with _left_btn_col1:
+                    if st.button(
+                        "Edit table contents",
+                        key="bt_left_edit_btn",
+                        use_container_width=True,
+                        type="primary" if st.session_state.get("bt_left_view") == "Edit table contents" else "secondary",
+                    ):
+                        _cache_header_draft()
+                        st.session_state["bt_left_view"] = "Edit table contents"
+                        st.rerun()
+                with _left_btn_col2:
+                    if st.button(
+                        "Get Embed Script",
+                        key="bt_left_embed_btn",
+                        use_container_width=True,
+                        type="primary" if st.session_state.get("bt_left_view") == "Get Embed Script" else "secondary",
+                    ):
+                        _cache_header_draft()
+                        st.session_state["bt_left_view"] = "Get Embed Script"
+                        st.rerun()
 
                 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-                style_full_width_radio_tabs("bt_right_view", height_px=64, font_px=18, radius_px=12)
-                right_view = st.radio(
-                    "Right view",
-                    ["Preview", "Edit table content (Optional)"],
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    key="bt_right_view",
-                )
+                _right_btn_col1, _right_btn_col2 = st.columns(2, gap="small")
+                with _right_btn_col1:
+                    if st.button(
+                        "Preview",
+                        key="bt_right_preview_btn",
+                        use_container_width=True,
+                        type="primary" if st.session_state.get("bt_right_view") == "Preview" else "secondary",
+                    ):
+                        st.session_state["bt_right_view"] = "Preview"
+                        st.rerun()
+                with _right_btn_col2:
+                    if st.button(
+                        "Edit table content (Optional)",
+                        key="bt_right_body_btn",
+                        use_container_width=True,
+                        type="primary" if st.session_state.get("bt_right_view") == "Edit table content (Optional)" else "secondary",
+                    ):
+                        st.session_state["bt_right_view"] = "Edit table content (Optional)"
+                        st.rerun()
+
+                left_view = st.session_state.get("bt_left_view", "Edit table contents")
+                right_view = st.session_state.get("bt_right_view", "Preview")
 
                 left_col, right_col = st.columns([1, 3], gap="large")
 
