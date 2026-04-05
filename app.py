@@ -3397,27 +3397,35 @@ def generate_table_html_from_df(
     def apply_column_formatting(col_name: str, display_val: str, raw_val) -> str:
         """
         Applies per-column formatting rules AFTER numeric formatting.
-    
-        Supports:
-          - plus_if_positive (smart "+")
-          - moneyline_plus (alias for plus_if_positive)
-          - comma_separator (adds thousand separators)
-          - prefix / suffix (accepts ANY symbols)
-          - optional flags for prefix/suffix:
-              only_if_positive: true
-              only_if_negative: true
-              only_if_nonzero: true
+
+        Supports combining multiple rules on the same column, e.g.:
+          - comma_separator + plus_if_positive -> +1,234
+          - comma_separator + prefix -> $1,234
+          - plus_if_positive + comma_separator + suffix -> +1,234%
         """
         rules = col_format_rules.get(col_name) or {}
-        mode = str(rules.get("mode", "")).strip().lower()
-    
+
+        raw_modes = rules.get("modes", None)
+        if isinstance(raw_modes, (list, tuple, set)):
+            modes = [str(m).strip().lower() for m in raw_modes if str(m).strip()]
+        else:
+            legacy_mode = str(rules.get("mode", "")).strip().lower()
+            modes = [legacy_mode] if legacy_mode else []
+
+        # Backward compatibility for legacy aliases
+        modes = ["plus_if_positive" if m == "moneyline_plus" else m for m in modes]
+
+        # Preserve order but remove duplicates
+        seen_modes = set()
+        modes = [m for m in modes if not (m in seen_modes or seen_modes.add(m))]
+
         if display_val is None:
             return ""
-    
+
         s = str(display_val).strip()
         if s == "":
             return s
-    
+
         # Try to parse number from raw value (preferred), fallback to display string
         num = None
         try:
@@ -3427,50 +3435,45 @@ def generate_table_html_from_df(
                 num = parse_number(s)
             except Exception:
                 num = None
-    
-        # ✅ SMART PLUS: only add "+" for positive numeric values
-        if mode in ("plus_if_positive", "moneyline_plus"):
-            if s.startswith("+") or s.startswith("-"):
-                return s
-            if num is not None and num > 0:
-                return f"+{s}"
-            return s
-    
-        # ✅ COMMA SEPARATOR: format numeric values with thousand separators
-        if mode == "comma_separator":
-            if num is None:
-                return s
-            if abs(num - round(num)) < 1e-12:
-                return f"{int(round(num)):,}"
-            return f"{num:,.2f}".rstrip("0").rstrip(".")
 
-        # Conditions for prefix/suffix
+        # Legacy condition flags still supported for prefix/suffix
         only_pos = bool(rules.get("only_if_positive", False))
         only_neg = bool(rules.get("only_if_negative", False))
         only_nz = bool(rules.get("only_if_nonzero", False))
-    
-        # If any condition flag is set, require a valid numeric value
+
         if (only_pos or only_neg or only_nz) and num is None:
             return s
-    
         if only_pos and not (num > 0):
             return s
         if only_neg and not (num < 0):
             return s
         if only_nz and not (num != 0):
             return s
-    
-        # ✅ Prefix: allow ANY symbols ($, £, +, -, %, etc.)
-        if mode == "prefix":
-            pref = str(rules.get("value", "") or "")
-            return f"{pref}{s}"
-    
-        # ✅ Suffix: allow ANY symbols ($, £, +, -, %, etc.)
-        if mode == "suffix":
-            suf = str(rules.get("value", "") or "")
-            return f"{s}{suf}"
-    
+
+        # Apply numeric transforms first in a stable order
+        if "comma_separator" in modes and num is not None:
+            if abs(num - round(num)) < 1e-12:
+                s = f"{int(round(num)):,}"
+            else:
+                s = f"{num:,.2f}".rstrip("0").rstrip(".")
+
+        if "plus_if_positive" in modes:
+            if not s.startswith("+") and not s.startswith("-") and num is not None and num > 0:
+                s = f"+{s}"
+
+        # Then affixes
+        if "prefix" in modes:
+            pref = str(rules.get("prefix_value", rules.get("value", "")) or "")
+            if pref:
+                s = f"{pref}{s}"
+
+        if "suffix" in modes:
+            suf = str(rules.get("suffix_value", rules.get("value", "")) or "")
+            if suf:
+                s = f"{s}{suf}"
+
         return s
+
     def heat_background_css(pct_0_to_1: float, alpha: float) -> str:
         """
         Returns CSS for heat background based on selected style.
@@ -6019,45 +6022,118 @@ if main_tab == "Create New Table":
                         
                                 st.divider()
                                 st.markdown("#### Column Formatting (Live Preview Only)")
-                        
+
                                 st.session_state.setdefault("bt_col_format_rules", {})
-                        
+
                                 df_for_cols = st.session_state.get("bt_df_uploaded")
                                 all_cols = list(df_for_cols.columns) if isinstance(df_for_cols, pd.DataFrame) and not df_for_cols.empty else []
-                        
+
                                 if not all_cols:
                                     st.info("Upload a CSV to enable column formatting.")
                                 else:
-                                    st.selectbox("Column", options=all_cols, key="bt_fmt_selected_col")
+                                    fmt_options = ["prefix", "suffix", "plus_if_positive", "comma_separator"]
+
+                                    def _normalize_fmt_rule_for_editor(rule: dict) -> tuple[list[str], str, str]:
+                                        rule = rule or {}
+                                        raw_modes = rule.get("modes", None)
+
+                                        if isinstance(raw_modes, (list, tuple, set)):
+                                            modes = [str(m).strip().lower() for m in raw_modes if str(m).strip()]
+                                        else:
+                                            legacy_mode = str(rule.get("mode", "")).strip().lower()
+                                            modes = [legacy_mode] if legacy_mode else []
+
+                                        modes = ["plus_if_positive" if m == "moneyline_plus" else m for m in modes]
+                                        seen = set()
+                                        modes = [m for m in modes if m in fmt_options and not (m in seen or seen.add(m))]
+
+                                        prefix_value = str(rule.get("prefix_value", "") or "")
+                                        suffix_value = str(rule.get("suffix_value", "") or "")
+
+                                        legacy_value = str(rule.get("value", "") or "")
+                                        if "prefix" in modes and not prefix_value:
+                                            prefix_value = legacy_value
+                                        if "suffix" in modes and not suffix_value:
+                                            suffix_value = legacy_value
+
+                                        return modes, prefix_value, suffix_value
+
+                                    def sync_fmt_editor_from_selected_col():
+                                        col = st.session_state.get("bt_fmt_selected_col")
+                                        rule = st.session_state.get("bt_col_format_rules", {}).get(col, {}) or {}
+                                        modes, prefix_value, suffix_value = _normalize_fmt_rule_for_editor(rule)
+                                        st.session_state["bt_fmt_selected_modes"] = modes
+                                        st.session_state["bt_fmt_prefix_value"] = prefix_value
+                                        st.session_state["bt_fmt_suffix_value"] = suffix_value
+
+                                    selected_col = st.session_state.get("bt_fmt_selected_col")
+                                    if selected_col not in all_cols:
+                                        st.session_state["bt_fmt_selected_col"] = all_cols[0]
+                                        selected_col = all_cols[0]
+
+                                    if "bt_fmt_editor_loaded_for_col" not in st.session_state:
+                                        sync_fmt_editor_from_selected_col()
+                                        st.session_state["bt_fmt_editor_loaded_for_col"] = selected_col
+                                    elif st.session_state.get("bt_fmt_editor_loaded_for_col") != selected_col:
+                                        sync_fmt_editor_from_selected_col()
+                                        st.session_state["bt_fmt_editor_loaded_for_col"] = selected_col
+
                                     st.selectbox(
-                                        "Format",
-                                        options=["prefix", "suffix", "plus_if_positive", "comma_separator"],
-                                        key="bt_fmt_selected_mode",
+                                        "Column",
+                                        options=all_cols,
+                                        key="bt_fmt_selected_col",
+                                        on_change=sync_fmt_editor_from_selected_col,
                                     )
-                        
-                                    mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                                    if mode in ("prefix", "suffix"):
-                                        st.text_input("Value", key="bt_fmt_value", placeholder="$")
-                                    else:
+
+                                    st.multiselect(
+                                        "Format",
+                                        options=fmt_options,
+                                        key="bt_fmt_selected_modes",
+                                        help="You can combine multiple formats on the same column.",
+                                    )
+
+                                    selected_modes = st.session_state.get("bt_fmt_selected_modes", []) or []
+
+                                    if "prefix" in selected_modes:
+                                        st.text_input("Prefix value", key="bt_fmt_prefix_value", placeholder="$")
+                                    if "suffix" in selected_modes:
+                                        st.text_input("Suffix value", key="bt_fmt_suffix_value", placeholder="%")
+                                    if not {"prefix", "suffix"} & set(selected_modes):
                                         st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
-                        
+
                                     def add_update_fmt():
                                         col = st.session_state.get("bt_fmt_selected_col")
-                                        mode = st.session_state.get("bt_fmt_selected_mode", "prefix")
-                        
-                                        if mode in ("prefix", "suffix"):
-                                            v = (st.session_state.get("bt_fmt_value", "") or "").strip()
-                                            if not v:
+                                        modes = st.session_state.get("bt_fmt_selected_modes", []) or []
+
+                                        seen = set()
+                                        modes = [str(m).strip().lower() for m in modes if str(m).strip()]
+                                        modes = [m for m in modes if m in fmt_options and not (m in seen or seen.add(m))]
+
+                                        if not modes:
+                                            st.session_state["bt_col_format_rules"].pop(col, None)
+                                            return
+
+                                        rule = {"modes": modes}
+
+                                        if "prefix" in modes:
+                                            prefix_value = (st.session_state.get("bt_fmt_prefix_value", "") or "").strip()
+                                            if not prefix_value:
                                                 st.session_state["bt_col_format_rules"].pop(col, None)
                                                 return
-                                            rule = {"mode": mode, "value": v}
-                                        else:
-                                            rule = {"mode": mode}
-                        
+                                            rule["prefix_value"] = prefix_value
+
+                                        if "suffix" in modes:
+                                            suffix_value = (st.session_state.get("bt_fmt_suffix_value", "") or "").strip()
+                                            if not suffix_value:
+                                                st.session_state["bt_col_format_rules"].pop(col, None)
+                                                return
+                                            rule["suffix_value"] = suffix_value
+
                                         st.session_state["bt_col_format_rules"][col] = rule
-                        
+                                        st.session_state["bt_fmt_editor_loaded_for_col"] = col
+
                                     st.button("✅ Add / Update", use_container_width=True, on_click=add_update_fmt)
-                        
+
                                     if st.session_state["bt_col_format_rules"]:
                                         st.caption("Current formatting rules:")
                                         st.json(st.session_state["bt_col_format_rules"])
