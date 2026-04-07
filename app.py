@@ -1516,7 +1516,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
 <body style="margin:0; overflow:auto;">
 
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[CELL_ALIGN_CLASS]]" style="width:100%;max-width:100%;margin:0;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:0;border-radius:12px;
          box-shadow:0 1px 2px rgba(0,0,0,.07),0 6px 16px rgba(0,0,0,.09);">
@@ -1652,13 +1652,29 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .vi-table-header{
       padding:10px 16px 8px;
       border-bottom:1px solid var(--brand-100);
-      background:linear-gradient(90deg,var(--brand-50),#ffffff);
+      background:var(--brand-50);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .vi-table-embed .vi-header-main{
+      min-width:0;
+      flex:1 1 auto;
       display:flex;
       flex-direction:column;
       align-items:flex-start;
       gap:2px;
     }
-    .vi-table-embed .vi-table-header.centered{ align-items:center; text-align:center; }
+    .vi-table-embed .vi-table-header.centered .vi-header-main{ align-items:center; text-align:center; }
+    .vi-table-embed .vi-header-actions{
+      flex:0 0 auto;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-end;
+      min-width:max-content;
+    }
+    .vi-table-embed .vi-header-actions.vi-hide{ display:none !important; }
     .vi-table-embed .vi-table-header .title{
       margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:750; color:#111827; display:block;
     }
@@ -2101,7 +2117,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
-      background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
+      background: var(--brand-50) !important;
     }
 
     /* Footer */
@@ -2111,7 +2127,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding:0 14px;            /* fixed-height footer; no vertical padding */
       height:64px;               /* ✅ fixed footer height */
       border-top:1px solid var(--footer-border);
-      background:linear-gradient(90deg,var(--brand-50),#ffffff);
+      background:var(--brand-50);
       position: sticky;
       bottom: 0;
       z-index: 20;
@@ -2180,6 +2196,26 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       display:flex;
       justify-content:flex-end;
       align-items:center;
+    }
+
+    .vi-table-embed .footer-embed-wrap{
+      flex: 0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      margin-left:auto;
+    }
+    .vi-table-embed .footer-embed-wrap.vi-hide{ display:none !important; }
+    .vi-table-embed.footer-with-embed .footer-inner{
+      flex-direction: row !important;
+      justify-content: space-between !important;
+    }
+    .vi-table-embed.footer-with-embed .footer-logo{
+      justify-content:flex-start;
+      margin-right:auto;
+    }
+    .vi-table-embed.footer-with-embed .footer-embed-wrap{
+      margin-left:12px;
     }
 
     .vi-table-embed .footer-scale-wrap{
@@ -2271,8 +2307,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
   <!-- Header -->
   <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
-    <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
-    <span class="subtitle">[[SUBTITLE]]</span>
+    <div class="vi-header-main">
+      <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
+      <span class="subtitle">[[SUBTITLE]]</span>
+    </div>
+    <div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header"></div>
   </div>
 
   <!-- Table block -->
@@ -2304,7 +2343,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         </div>
 
         <!-- Embed/Download -->
-        <div class="dw-embed [[EMBED_VIS_CLASS]]">
+        <div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
           <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
 
           <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
@@ -2321,7 +2360,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
               <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-image-current">Download Current View Image</button>
               <button type="button" class="dw-menu-btn vi-hide" id="dw-copy-html-current">Copy Current View HTML</button>
             </div>
-        </div>
+        </div></div>
       </div>
     </div>
 
@@ -2362,6 +2401,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
       </div>
 
+      <div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer"></div>
+
     </div>
   </div>
 
@@ -2393,6 +2434,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const nextBtn = pagerWrap ? pagerWrap.querySelector('[data-page="next"]') : null;
 
     const embedWrap = controls.querySelector('.dw-embed');
+    const widgetRoot = document.querySelector('section.vi-table-embed');
+    const embedPosition = ((widgetRoot && widgetRoot.dataset.embedPosition) || 'body').toLowerCase();
+    const targetSlot = document.querySelector(`[data-embed-target="${embedPosition}"]`);
+    if (embedWrap && targetSlot && targetSlot !== embedWrap.parentElement){
+      targetSlot.appendChild(embedWrap);
+    }
     const downloadBtn = embedWrap ? embedWrap.querySelector('#dw-download-png') : null;
     const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
     const btnTop10 = embedWrap ? embedWrap.querySelector('#dw-dl-top10') : null;
@@ -3354,6 +3401,7 @@ def generate_table_html_from_df(
     show_search: bool = True,
     show_pager: bool = True,
     show_embed: bool = True,
+    embed_position: str = "Body",
     show_page_numbers: bool = True,
     show_header: bool = True,
     show_footer: bool = True,
@@ -3773,17 +3821,34 @@ def generate_table_html_from_df(
         subtitle_html = _s
 
 
+    embed_position = (embed_position or "Body").strip().lower()
+    if embed_position not in {"header", "footer", "body"}:
+        embed_position = "body"
+
+    if show_embed and embed_position == "footer":
+        show_footer_notes = False
+        footer_notes_html = ""
+
     header_vis = "" if show_header else "vi-hide"
     footer_vis = "" if show_footer else "vi-hide"
 
-    controls_vis = "" if (show_search or show_pager or show_embed) else "vi-hide"
+    body_embed_active = bool(show_embed and embed_position == "body")
+    header_embed_active = bool(show_embed and embed_position == "header" and show_header)
+    footer_embed_active = bool(show_embed and embed_position == "footer" and show_footer)
+
+    controls_vis = "" if (show_search or show_pager or body_embed_active) else "vi-hide"
     search_vis = "" if show_search else "vi-hide"
     pager_vis = "" if show_pager else "vi-hide"
     embed_vis = "" if show_embed else "vi-hide"
     page_status_vis = "" if (show_page_numbers and show_pager) else "vi-hide"
+    header_embed_target_vis = "" if header_embed_active else "vi-hide"
+    body_embed_target_vis = "" if body_embed_active else "vi-hide"
+    footer_embed_target_vis = "" if footer_embed_active else "vi-hide"
 
     footer_logo_align = (footer_logo_align or "Center").strip().lower()
-    if (show_footer_notes or show_heat_scale) and footer_logo_align == "center":
+    if footer_embed_active:
+        footer_logo_align = "left"
+    elif (show_footer_notes or show_heat_scale) and footer_logo_align == "center":
         footer_logo_align = "right"
     if footer_logo_align == "center":
         footer_align_class = "footer-center"
@@ -3815,12 +3880,17 @@ def generate_table_html_from_df(
         .replace("[[TITLE_CLASS]]", title_class)
         .replace("[[HEADER_VIS_CLASS]]", header_vis)
         .replace("[[FOOTER_VIS_CLASS]]", footer_vis)
+        .replace("[[EMBED_POSITION]]", embed_position)
         .replace("[[CONTROLS_VIS_CLASS]]", controls_vis)
         .replace("[[SEARCH_VIS_CLASS]]", search_vis)
         .replace("[[PAGER_VIS_CLASS]]", pager_vis)
         .replace("[[EMBED_VIS_CLASS]]", embed_vis)
         .replace("[[PAGE_STATUS_VIS_CLASS]]", page_status_vis)
+        .replace("[[HEADER_EMBED_TARGET_VIS_CLASS]]", header_embed_target_vis)
+        .replace("[[BODY_EMBED_TARGET_VIS_CLASS]]", body_embed_target_vis)
+        .replace("[[FOOTER_EMBED_TARGET_VIS_CLASS]]", footer_embed_target_vis)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
+        .replace("[[FOOTER_EMBED_MODE_CLASS]]", "footer-with-embed" if footer_embed_active else "")
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
@@ -3876,6 +3946,7 @@ def draft_config_from_state() -> dict:
         "show_search": st.session_state.get("bt_show_search", True),
         "show_pager": st.session_state.get("bt_show_pager", True),
         "show_embed": st.session_state.get("bt_show_embed", True),
+        "embed_position": st.session_state.get("bt_embed_position", "Body"),
         "show_page_numbers": st.session_state.get("bt_show_page_numbers", True),
         "bar_columns": st.session_state.get("bt_bar_columns", []),
         "bar_max_overrides": st.session_state.get("bt_bar_max_overrides", {}),
@@ -3906,6 +3977,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         show_search=cfg["show_search"],
         show_pager=cfg["show_pager"],
         show_embed=cfg["show_embed"],
+        embed_position=cfg.get("embed_position", "Body"),
         show_page_numbers=cfg["show_page_numbers"],
         show_header=cfg["show_header"],
         show_footer=cfg["show_footer"],
@@ -4073,6 +4145,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_show_search"]         = cfg.get("show_search", True)
     st.session_state["bt_show_pager"]          = cfg.get("show_pager", True)
     st.session_state["bt_show_embed"]          = cfg.get("show_embed", True)
+    st.session_state["bt_embed_position"]      = cfg.get("embed_position", "Body")
     st.session_state["bt_show_page_numbers"]   = cfg.get("show_page_numbers", True)
 
     st.session_state["bt_bar_columns"]         = cfg.get("bar_columns", bundle.get("bar_columns", [])) or []
@@ -4251,6 +4324,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_widget_name_locked_value", "")
 
     st.session_state.setdefault("bt_show_embed", True)
+    st.session_state.setdefault("bt_embed_position", "Body")
     st.session_state.setdefault("bt_allow_swap", False)
 
     st.session_state.setdefault("bt_bar_columns", [])
@@ -4339,6 +4413,7 @@ def restore_draft_state_from_confirmed():
         "show_search": "bt_show_search",
         "show_pager": "bt_show_pager",
         "show_embed": "bt_show_embed",
+        "embed_position": "bt_embed_position",
         "show_page_numbers": "bt_show_page_numbers",
 
         "bar_columns": "bt_bar_columns",
@@ -4366,6 +4441,7 @@ def restore_draft_state_from_confirmed():
         "bt_show_footer_notes": False,
         "bt_footer_notes": "",
         "bt_show_embed": True,
+        "bt_embed_position": "Body",
         # These are set in ensure_confirm_state_exists:
         "bt_footer_logo_align": "Center",
         "bt_footer_logo_h": 36,
@@ -4531,6 +4607,8 @@ def on_footer_notes_toggle():
     # if notes turned ON, force heat scale OFF
     if st.session_state.get("bt_show_footer_notes", False):
         st.session_state["bt_show_heat_scale"] = False
+        if st.session_state.get("bt_embed_position", "Body") == "Footer":
+            st.session_state["bt_embed_position"] = "Body"
 
         # if logo was centered, push it right (since notes take room)
         if st.session_state.get("bt_footer_logo_align") == "Center":
@@ -4541,6 +4619,11 @@ def on_heat_scale_toggle():
     # if heat scale turned ON, force notes OFF
     if st.session_state.get("bt_show_heat_scale", False):
         st.session_state["bt_show_footer_notes"] = False
+
+def on_embed_position_change():
+    if st.session_state.get("bt_embed_position", "Body") == "Footer":
+        st.session_state["bt_show_footer_notes"] = False
+        st.session_state["bt_footer_logo_align"] = "Left"
 
 # =========================================================
 # Streamlit App
@@ -5891,16 +5974,21 @@ if main_tab == "Create New Table":
                                     key="bt_show_footer",
                                 )
 
+                                _footer_embed_active = st.session_state.get("bt_show_embed", True) and st.session_state.get("bt_embed_position", "Body") == "Footer"
+                                _footer_align_options = ["Left"] if _footer_embed_active else (["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"])
+                                _footer_align_value = st.session_state.get("bt_footer_logo_align", "Center")
+                                if _footer_embed_active:
+                                    _footer_align_value = "Left"
+                                    st.session_state["bt_footer_logo_align"] = "Left"
+                                elif st.session_state.get("bt_show_footer_notes", False):
+                                    _footer_align_value = _footer_align_value if _footer_align_value in ["Right", "Left"] else "Right"
+
                                 st.selectbox(
                                     "Footer Logo Alignment",
-                                    options=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]),
-                                    index=(["Right", "Left"] if st.session_state.get("bt_show_footer_notes", False) else ["Right", "Center", "Left"]).index(
-                                        st.session_state.get("bt_footer_logo_align", "Center")
-                                        if not st.session_state.get("bt_show_footer_notes", False)
-                                        else (st.session_state.get("bt_footer_logo_align", "Right") if st.session_state.get("bt_footer_logo_align") in ["Right", "Left"] else "Right")
-                                    ),
+                                    options=_footer_align_options,
+                                    index=_footer_align_options.index(_footer_align_value if _footer_align_value in _footer_align_options else _footer_align_options[0]),
                                     key="bt_footer_logo_align",
-                                    disabled=not show_footer,
+                                    disabled=(not show_footer) or _footer_embed_active,
                                 )
 
                                 st.number_input(
@@ -5920,9 +6008,9 @@ if main_tab == "Create New Table":
                                     "Show Footer Notes",
                                     value=st.session_state.get("bt_show_footer_notes", False),
                                     key="bt_show_footer_notes",
-                                    disabled=(not show_footer),
+                                    disabled=(not show_footer) or _footer_embed_active,
                                     on_change=on_footer_notes_toggle,
-                                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically.",
+                                    help="Adds a notes area in the footer. When enabled, heat scale turns OFF automatically. Disabled when the embed button is placed in the footer.",
                                 )
 
                                 st.caption("Shortcuts: **Ctrl/⌘+B** toggle bold • **Ctrl/⌘+I** toggle italic")
@@ -6125,6 +6213,16 @@ if main_tab == "Create New Table":
                                 st.checkbox(
                                     "Show Embed / Download Button",
                                     key="bt_show_embed",
+                                )
+
+                                st.selectbox(
+                                    "Embed button position",
+                                    options=["Body", "Header", "Footer"],
+                                    index=["Body", "Header", "Footer"].index(st.session_state.get("bt_embed_position", "Body") if st.session_state.get("bt_embed_position", "Body") in ["Body", "Header", "Footer"] else "Body"),
+                                    key="bt_embed_position",
+                                    disabled=not st.session_state.get("bt_show_embed", True),
+                                    on_change=on_embed_position_change,
+                                    help="Choose where the Embed / Download button appears in the widget.",
                                 )
                         
                                 st.divider()
