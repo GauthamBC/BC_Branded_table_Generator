@@ -5260,7 +5260,7 @@ if main_tab == "Create New Table":
         st.info("Select **Created by** to enable CSV upload.")
     else:
         # =========================================================
-        # ✅ Brand selector options
+        # ✅ Brand selector
         # =========================================================
         brand_options = [
             "Action Network",
@@ -5273,6 +5273,12 @@ if main_tab == "Create New Table":
 
         brand_select_options = ["Choose a brand..."] + brand_options
         st.session_state.setdefault("brand_table", "Choose a brand...")
+
+        brand_selected_global = st.selectbox(
+            "Brand",
+            options=brand_select_options,
+            key="brand_table",
+        )
 
         # ✅ Allow Create tab to work for BOTH:
         # 1) normal uploaded CSV
@@ -5351,14 +5357,6 @@ if main_tab == "Create New Table":
                         _cache_header_draft()
                         st.session_state["bt_left_view"] = "Get Embed Script"
                         st.rerun()
-
-                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-
-                brand_selected_global = st.selectbox(
-                    "Brand",
-                    options=brand_select_options,
-                    key="brand_table",
-                )
 
                 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
