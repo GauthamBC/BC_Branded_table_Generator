@@ -531,6 +531,23 @@ def apply_text_case(text: str, style: str) -> str:
 
     return s
 
+
+def compute_preview_height(row_count: int) -> int:
+    """Return a preview iframe height that keeps desktop previews unclipped.
+
+    - 10 rows (or more) get a tall preview so the full paginated page is visible.
+    - Fewer than 10 rows shrink progressively.
+    """
+    try:
+        row_count = int(row_count)
+    except Exception:
+        row_count = 0
+
+    if row_count >= 10:
+        return 920
+
+    return max(520, min(920, 300 + (row_count * 52)))
+
 # =========================================================
 # 0) Publishing Users + Secrets (GITHUB APP)
 # =========================================================
@@ -1513,7 +1530,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       --ctrl-gap: 8px;
 
       /* ✅ Table scroll height */
-      --table-max-h: 680px;
+      --table-max-h: [[TABLE_MAX_H]]px;
 
       /* ✅ FIXED bar track width (same across ALL bar columns) */
       --bar-fixed-w: [[BAR_FIXED_W]]px;
@@ -1852,8 +1869,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* scroll */
     #bt-block .dw-scroll{
-      max-height: var(--table-max-h);
-      overflow: auto;
+      max-height: none;
+      overflow-x: auto;
+      overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: auto;
@@ -1861,6 +1879,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overscroll-behavior-x: contain;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) transparent;
+    }
+
+    @media (max-width: 768px){
+      #bt-block .dw-scroll{
+        max-height: var(--table-max-h);
+        overflow: auto;
+      }
     }
 
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 8px; }
@@ -3334,7 +3359,10 @@ def generate_table_html_from_df(
 
     # Dynamic heights based on row count
     row_count = len(df.index)
-    table_max_h = 680 if row_count > 10 else 400
+    if row_count >= 10:
+        table_max_h = 680
+    else:
+        table_max_h = max(260, 130 + (row_count * 52))
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
     heat_columns_set = set(heat_columns or [])
@@ -6760,7 +6788,7 @@ if main_tab == "Create New Table":
                                 )
                 
                             preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
-                            preview_height = 820 if preview_rows > 10 else 560
+                            preview_height = compute_preview_height(preview_rows)
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=preview_height,
