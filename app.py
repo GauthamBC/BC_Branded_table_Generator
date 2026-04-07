@@ -4537,6 +4537,37 @@ def _get_user_passcodes() -> dict:
     return out
 
 
+# =========================================================
+# Main tabs
+# =========================================================
+st.session_state.setdefault("main_tab", "Create New Table")
+
+_main_tab_current = st.session_state.get("main_tab", "Create New Table")
+_main_tab_col1, _main_tab_col2 = st.columns(2, gap="small")
+
+with _main_tab_col1:
+    if st.button(
+        "Create New\nTable",
+        key="main_tab_btn_create",
+        use_container_width=True,
+        type="primary" if _main_tab_current == "Create New Table" else "secondary",
+    ):
+        st.session_state["main_tab"] = "Create New Table"
+        st.rerun()
+
+with _main_tab_col2:
+    if st.button(
+        "Published Tables",
+        key="main_tab_btn_published",
+        use_container_width=True,
+        type="primary" if _main_tab_current == "Published Tables" else "secondary",
+    ):
+        st.session_state["main_tab"] = "Published Tables"
+        st.rerun()
+
+main_tab = st.session_state.get("main_tab", "Create New Table")
+
+
 # Options shown in dropdown
 _user_passcodes = _get_user_passcodes()
 created_by_options = ["Select a user..."] + sorted(_user_passcodes.keys())
@@ -4655,36 +4686,6 @@ if st.session_state.get("bt_is_logged_in") and st.session_state.get("bt_logged_i
 # ✅ This is the ONLY identity used for tracking + permissions
 st.session_state.setdefault("bt_created_by_user", "")
 st.session_state["bt_created_by_user"] = st.session_state.get("bt_logged_in_user", "") if st.session_state.get("bt_is_logged_in", False) else ""
-
-# =========================================================
-# Main tabs
-# =========================================================
-st.session_state.setdefault("main_tab", "Create New Table")
-
-_main_tab_current = st.session_state.get("main_tab", "Create New Table")
-_main_tab_col1, _main_tab_col2 = st.columns(2, gap="small")
-
-with _main_tab_col1:
-    if st.button(
-        "Create New\nTable",
-        key="main_tab_btn_create",
-        use_container_width=True,
-        type="primary" if _main_tab_current == "Create New Table" else "secondary",
-    ):
-        st.session_state["main_tab"] = "Create New Table"
-        st.rerun()
-
-with _main_tab_col2:
-    if st.button(
-        "Published Tables",
-        key="main_tab_btn_published",
-        use_container_width=True,
-        type="primary" if _main_tab_current == "Published Tables" else "secondary",
-    ):
-        st.session_state["main_tab"] = "Published Tables"
-        st.rerun()
-
-main_tab = st.session_state.get("main_tab", "Create New Table")
 
 # =========================================================
 # ✅ TAB 2: Published Tables  (ONLY THIS VIEW)
