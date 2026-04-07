@@ -1657,9 +1657,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:flex-start;
       justify-content:space-between;
       gap:12px;
-      overflow:visible;
       position:relative;
-      z-index:25;
+      overflow:visible;
+      z-index:30;
     }
     .vi-table-embed .vi-header-main{
       min-width:0;
@@ -1677,8 +1677,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:flex-end;
       min-width:max-content;
       position:relative;
-      z-index:35;
       overflow:visible;
+      z-index:40;
     }
     .vi-table-embed .vi-header-actions.vi-hide{ display:none !important; }
     .vi-table-embed .vi-table-header .title{
@@ -1724,7 +1724,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     #bt-block .dw-pager,
-    #bt-block .dw-embed{
+    .vi-table-embed .dw-embed{
       display:flex;
       align-items:center;
       gap: var(--ctrl-gap);
@@ -1769,11 +1769,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         min-width: 85px;
       }
       #bt-block .dw-pager .dw-status{ display:none; }
-      #bt-block .dw-btn.dw-download{
+      .vi-table-embed .dw-btn.dw-download{
         font-size: 0;
         padding-inline: 10px;
       }
-      #bt-block .dw-btn.dw-download::after{
+      .vi-table-embed .dw-btn.dw-download::after{
         content:"Embed";
         font-size: 12px;
         font-weight: 600;
@@ -1832,35 +1832,18 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
     /* Embed/Download button */
-    .vi-table-embed .dw-embed,
-    .vi-table-embed .dw-embed-slot,
-    .vi-table-embed .vi-header-actions,
-    .vi-table-embed .footer-embed-wrap{
-      position:relative;
-    }
-
-    .vi-table-embed .dw-embed{
-      display:flex;
-      align-items:center;
-      gap: var(--ctrl-gap);
-      flex-wrap:nowrap;
-      white-space:nowrap;
-      position:relative;
-    }
-
     .vi-table-embed .dw-btn.dw-download{
-      background:var(--brand-500);
-      color:#ffffff;
-      border:1px solid var(--brand-500);
+      background:#ffffff;
+      color:var(--brand-700);
+      border:1px solid var(--brand-700);
       height: 34px;
       padding-inline: 10px;
-      font-weight:700;
-      box-shadow: 0 2px 8px rgba(var(--brand-500-rgb), .18);
+      font-weight:600;
     }
     .vi-table-embed .dw-btn.dw-download:hover{
-      background:var(--brand-600);
+      background:var(--brand-50);
       border-color:var(--brand-600);
-      color:#ffffff;
+      color:var(--brand-600);
     }
 
     /* Download menu */
@@ -1874,17 +1857,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       border-radius:12px;
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
-      z-index: 120;
+      z-index: 50;
 
       display:flex;
       flex-direction:column;
       align-items:stretch;
       gap:6px;
-    }
-
-    .vi-table-embed[data-embed-position="footer"] .dw-download-menu{
-      top:auto;
-      bottom:40px;
     }
 
     .vi-table-embed .dw-download-menu .dw-menu-title{
@@ -2233,10 +2211,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:flex-end;
       margin-left:auto;
       position:relative;
-      z-index:35;
       overflow:visible;
+      z-index:40;
     }
     .vi-table-embed .footer-embed-wrap.vi-hide{ display:none !important; }
+    .vi-table-embed .dw-embed-slot{
+      position:relative;
+      overflow:visible;
+      z-index:40;
+    }
     .vi-table-embed.footer-with-embed .footer-inner{
       flex-direction: row !important;
       justify-content: space-between !important;
