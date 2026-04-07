@@ -1657,6 +1657,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:flex-start;
       justify-content:space-between;
       gap:12px;
+      overflow:visible;
+      position:relative;
+      z-index:25;
     }
     .vi-table-embed .vi-header-main{
       min-width:0;
@@ -1673,6 +1676,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:flex-start;
       justify-content:flex-end;
       min-width:max-content;
+      position:relative;
+      z-index:35;
+      overflow:visible;
     }
     .vi-table-embed .vi-header-actions.vi-hide{ display:none !important; }
     .vi-table-embed .vi-table-header .title{
@@ -1826,22 +1832,39 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
     /* Embed/Download button */
-    #bt-block .dw-btn.dw-download{
-      background:#ffffff;
-      color:var(--brand-700);
-      border:1px solid var(--brand-700);
+    .vi-table-embed .dw-embed,
+    .vi-table-embed .dw-embed-slot,
+    .vi-table-embed .vi-header-actions,
+    .vi-table-embed .footer-embed-wrap{
+      position:relative;
+    }
+
+    .vi-table-embed .dw-embed{
+      display:flex;
+      align-items:center;
+      gap: var(--ctrl-gap);
+      flex-wrap:nowrap;
+      white-space:nowrap;
+      position:relative;
+    }
+
+    .vi-table-embed .dw-btn.dw-download{
+      background:var(--brand-500);
+      color:#ffffff;
+      border:1px solid var(--brand-500);
       height: 34px;
       padding-inline: 10px;
-      font-weight:600;
+      font-weight:700;
+      box-shadow: 0 2px 8px rgba(var(--brand-500-rgb), .18);
     }
-    #bt-block .dw-btn.dw-download:hover{
-      background:var(--brand-50);
+    .vi-table-embed .dw-btn.dw-download:hover{
+      background:var(--brand-600);
       border-color:var(--brand-600);
-      color:var(--brand-600);
+      color:#ffffff;
     }
 
     /* Download menu */
-    #bt-block .dw-download-menu{
+    .vi-table-embed .dw-download-menu{
       position:absolute;
       right:0;
       top:40px;
@@ -1851,7 +1874,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       border-radius:12px;
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
-      z-index: 50;
+      z-index: 120;
 
       display:flex;
       flex-direction:column;
@@ -1859,13 +1882,18 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       gap:6px;
     }
 
-    #bt-block .dw-download-menu .dw-menu-title{
+    .vi-table-embed[data-embed-position="footer"] .dw-download-menu{
+      top:auto;
+      bottom:40px;
+    }
+
+    .vi-table-embed .dw-download-menu .dw-menu-title{
       font: 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
       color:#6b7280;
       margin:0 0 8px 2px;
     }
 
-    #bt-block .dw-download-menu .dw-menu-btn{
+    .vi-table-embed .dw-download-menu .dw-menu-btn{
       width:100%;
       display:block;
       text-align:left;
@@ -1878,7 +1906,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       margin:0;
       font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     }
-    #bt-block .dw-download-menu .dw-menu-btn:hover{
+    .vi-table-embed .dw-download-menu .dw-menu-btn:hover{
       background:var(--brand-50);
       border-color: rgba(var(--brand-500-rgb), .35);
     }
@@ -2130,8 +2158,8 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       background:var(--brand-50);
       position: sticky;
       bottom: 0;
-      z-index: 20;
-      overflow:hidden;           /* keep footer height fixed even if logo is large */
+      z-index: 30;
+      overflow:visible;
     }
     .vi-table-embed .footer-inner{
       display:flex;
@@ -2204,6 +2232,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:center;
       justify-content:flex-end;
       margin-left:auto;
+      position:relative;
+      z-index:35;
+      overflow:visible;
     }
     .vi-table-embed .footer-embed-wrap.vi-hide{ display:none !important; }
     .vi-table-embed.footer-with-embed .footer-inner{
