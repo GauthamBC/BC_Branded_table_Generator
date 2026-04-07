@@ -1632,7 +1632,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .vi-table-header{
       padding:10px 16px 8px;
       border-bottom:1px solid var(--brand-100);
-      background:linear-gradient(90deg,var(--brand-50),#ffffff);
+      background:var(--brand-50);
       display:flex;
       flex-direction:column;
       align-items:flex-start;
@@ -2081,7 +2081,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
-      background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
+      background:var(--brand-50) !important;
     }
 
     /* Footer */
@@ -2091,7 +2091,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding:0 14px;            /* fixed-height footer; no vertical padding */
       height:64px;               /* ✅ fixed footer height */
       border-top:1px solid var(--footer-border);
-      background:linear-gradient(90deg,var(--brand-50),#ffffff);
+      background:var(--brand-50);
       position: sticky;
       bottom: 0;
       z-index: 20;
@@ -3412,7 +3412,7 @@ def generate_table_html_from_df(
             bar_bg = "linear-gradient(90deg, #2ecc71, #3498db, #f1c40f, #e67e22, #e74c3c)"
         else:
             # branded gradient
-            bar_bg = "linear-gradient(90deg, rgba(var(--brand-500-rgb), 0.05), rgba(var(--brand-500-rgb), 0.90))"
+            bar_bg = "rgba(var(--brand-500-rgb), 0.90)"
 
         footer_scale_html = f"""
           <div class="footer-scale" aria-label="Heatmap scale">
@@ -3564,14 +3564,10 @@ def generate_table_html_from_df(
 
             # alpha controls opacity, same slider still works
             a = max(0.0, min(1.0, float(alpha)))
-            return f"background-color: {color}; opacity: 1; background-image: linear-gradient(0deg, rgba(255,255,255, {1-a:.3f}), rgba(255,255,255, {1-a:.3f}));"
+            return f"background-color: {color}; opacity: {a:.3f};"
 
         # default branded
-        return (
-            f"background-image: linear-gradient(0deg, "
-            f"rgba(var(--brand-500-rgb), {alpha:.3f}), "
-            f"rgba(var(--brand-500-rgb), {alpha:.3f}));"
-        )
+        return f"background-color: rgba(var(--brand-500-rgb), {alpha:.3f});"
 
     # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
