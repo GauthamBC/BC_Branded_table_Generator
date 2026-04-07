@@ -1857,12 +1857,18 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       border-radius:12px;
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
-      z-index: 50;
+      z-index: 9999;
 
       display:flex;
       flex-direction:column;
       align-items:stretch;
       gap:6px;
+    }
+    .vi-table-embed .dw-download-menu.dw-menu-floating{
+      position:fixed !important;
+      right:auto !important;
+      top:auto;
+      z-index:2147483000 !important;
     }
 
     .vi-table-embed .dw-download-menu .dw-menu-title{
@@ -2469,6 +2475,44 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const menuTitle = embedWrap ? embedWrap.querySelector('#dw-menu-title') : null;
     window.__viMenuTitleEl = menuTitle;
 
+    function positionMenu(){
+      if(!menu || !downloadBtn) return;
+      const rect = downloadBtn.getBoundingClientRect();
+      const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+      const menuWidth = Math.max(menu.offsetWidth || 0, 220);
+      const menuHeight = Math.max(menu.offsetHeight || 0, 220);
+      const gap = 8;
+
+      menu.classList.add('dw-menu-floating');
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+
+      let left = rect.right - menuWidth;
+      left = Math.max(gap, Math.min(left, vw - menuWidth - gap));
+
+      const preferUp = embedPosition === 'footer';
+      let top = preferUp ? (rect.top - menuHeight - gap) : (rect.bottom + gap);
+
+      if (!preferUp && top + menuHeight > vh - gap){
+        top = Math.max(gap, rect.top - menuHeight - gap);
+      }
+      if (preferUp && top < gap){
+        top = Math.min(vh - menuHeight - gap, rect.bottom + gap);
+      }
+
+      top = Math.max(gap, Math.min(top, vh - menuHeight - gap));
+
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
+    }
+
+    function showMenu(){
+      if(!menu) return;
+      menu.classList.remove('vi-hide');
+      requestAnimationFrame(positionMenu);
+    }
+
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
@@ -2793,8 +2837,20 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
-    function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
+    function hideMenu(){
+      if(!menu) return;
+      menu.classList.add('vi-hide');
+      menu.classList.remove('dw-menu-floating');
+      menu.style.left = '';
+      menu.style.top = '';
+      menu.style.right = '';
+      menu.style.bottom = '';
+    }
+    function toggleMenu(){
+      if(!menu) return;
+      if(menu.classList.contains('vi-hide')) showMenu();
+      else hideMenu();
+    }
 
     document.addEventListener('click', (e)=>{
       if(!menu || menu.classList.contains('vi-hide')) return;
@@ -2802,6 +2858,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       const inBtn = downloadBtn && downloadBtn.contains(e.target);
       if(!inMenu && !inBtn) hideMenu();
     });
+
+    window.addEventListener('resize', ()=>{
+      if(menu && !menu.classList.contains('vi-hide')) positionMenu();
+    });
+    window.addEventListener('scroll', ()=>{
+      if(menu && !menu.classList.contains('vi-hide')) positionMenu();
+    }, true);
 
     if(hasEmbed && downloadBtn){
       downloadBtn.addEventListener('click', (e)=>{
