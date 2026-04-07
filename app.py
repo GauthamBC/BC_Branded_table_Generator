@@ -1922,16 +1922,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     #bt-block thead th.sortable[data-sort="asc"]::after{content:"▲"}
     #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
     
-    /* 3-line clamp for sortable header labels without breaking <th> layout */
+    /* Balanced 1–3 line header labels using whole words only */
     #bt-block thead th.sortable > .dw-th-label{
-      display:inline;
-      white-space:nowrap;
+      display:inline-block;
+      max-width:100%;
+      white-space:normal;
       overflow:visible;
       text-overflow:clip;
       word-break:normal;
       overflow-wrap:normal;
       hyphens:none;
       line-height:1.15;
+      text-align:inherit;
+      vertical-align:middle;
     }
         
     #bt-block thead th.sortable:hover,
@@ -2414,18 +2417,93 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
     const heads = Array.from(table.tHead.rows[0].cells);
-    // Wrap header text in span for safe 3-line clamp (without breaking table layout)
-    heads.forEach((th) => {
-      if (th.querySelector('.dw-th-label')) return;
-    
-      const txt = (th.textContent || '').trim();
-      th.textContent = '';
-    
-      const span = document.createElement('span');
-      span.className = 'dw-th-label';
-      span.textContent = txt;
-      th.appendChild(span);
-    });
+
+    function normalizeHeaderText(raw){
+      return String(raw || '')
+        .replace(/_/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function buildBalancedHeaderHTML(raw, maxLines = 3, targetLineLen = 16){
+      const txt = normalizeHeaderText(raw);
+      if (!txt) return '';
+
+      const words = txt.split(' ').filter(Boolean);
+      if (words.length <= 1) return txt;
+
+      let best = null;
+
+      function scoreLines(lines){
+        const lengths = lines.map(line => line.length);
+        const longest = Math.max(...lengths);
+        const shortest = Math.min(...lengths);
+        const total = lengths.reduce((a,b) => a + b, 0);
+        const avg = total / lengths.length;
+
+        let score = 0;
+        score += (lines.length - 1) * 6;
+        score += Math.abs(longest - targetLineLen) * 1.8;
+        score += (longest - shortest) * 2.4;
+        score += lengths.reduce((acc, len) => acc + Math.abs(len - avg) * 0.9, 0);
+        score += lengths.reduce((acc, len) => acc + (len > targetLineLen ? (len - targetLineLen) * 4.5 : 0), 0);
+        score += lengths.reduce((acc, len) => acc + (len < 4 ? 12 : 0), 0);
+        if (lines.length >= 2 && lengths[lines.length - 1] <= 4) score += 10;
+        if (lines.length === 3 && lengths[2] < lengths[1] * 0.45) score += 8;
+        return score;
+      }
+
+      function explore(startIdx, linesLeft, currentLines){
+        const remainingWords = words.length - startIdx;
+        if (remainingWords <= 0) {
+          const score = scoreLines(currentLines);
+          if (!best || score < best.score) best = {score, lines: currentLines.slice()};
+          return;
+        }
+
+        if (linesLeft <= 0) return;
+
+        const minTake = 1;
+        const maxTake = remainingWords - Math.max(0, linesLeft - 1);
+
+        for (let take = minTake; take <= maxTake; take++) {
+          const line = words.slice(startIdx, startIdx + take).join(' ');
+          currentLines.push(line);
+          explore(startIdx + take, linesLeft - 1, currentLines);
+          currentLines.pop();
+        }
+      }
+
+      for (let lines = 1; lines <= Math.min(maxLines, words.length); lines++) {
+        explore(0, lines, []);
+      }
+
+      return best && best.lines && best.lines.length ? best.lines.join('<br>') : txt;
+    }
+
+    function applyBalancedHeaderWrap(rootEl){
+      const scope = rootEl || table;
+      const ths = Array.from(scope.querySelectorAll('#bt-block thead th, thead th'));
+      ths.forEach((th) => {
+        let label = th.querySelector('.dw-th-label');
+        if (!label) {
+          const txt = (th.textContent || '').trim();
+          th.textContent = '';
+          label = document.createElement('span');
+          label.className = 'dw-th-label';
+          th.appendChild(label);
+          label.textContent = txt;
+        }
+
+        const raw = th.getAttribute('data-header-original') || label.textContent || th.textContent || '';
+        th.setAttribute('data-header-original', raw);
+        label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+      });
+    }
+
+    // Wrap header text in span, then format into balanced 1–3 lines using whole words only
+    applyBalancedHeaderWrap(table);
+
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
       const type = th.dataset.type || 'text';
@@ -2972,11 +3050,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
         stage.appendChild(clone);
         document.body.appendChild(stage);
-        function wrapExportHeaders(clone, maxLineLen = 15){
+        function wrapExportHeaders(clone){
           const ths = clone.querySelectorAll('#bt-block thead th');
         
           ths.forEach(th => {
-            // Ensure we have a label span so export clamping works without breaking table layout
             let label = th.querySelector('.dw-th-label');
             if(!label){
               label = document.createElement('span');
@@ -2986,46 +3063,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
               th.appendChild(label);
             }
         
-            const raw = (label.textContent || "").trim();
-            if (!raw) return;
-        
-            // Only wrap long headers
-            if (raw.length <= maxLineLen) return;
-        
-            const txt = raw.replace(/_/g, " ");
-            const words = txt.split(/\s+/).filter(Boolean);
-            if (words.length <= 1) return;
-        
-            // ✅ Build lines in the ORIGINAL order (no flipping)
-            const lines = [""];
-            for (const w of words) {
-              const cur = lines[lines.length - 1];
-        
-              if (!cur) {
-                lines[lines.length - 1] = w;
-                continue;
-              }
-        
-              const test = cur + " " + w;
-              if (test.length <= maxLineLen) {
-                lines[lines.length - 1] = test;
-              } else {
-                lines.push(w);
-              }
-            }
-        
-            // ✅ Optional: clamp to 3 lines max
-            if (lines.length > 3) {
-              const firstTwo = lines.slice(0, 2);
-              const rest = lines.slice(2).join(" ");
-              label.innerHTML = [...firstTwo, rest].join("<br>");
-            } else {
-              label.innerHTML = lines.join("<br>");
-            }
+            const raw = th.getAttribute('data-header-original') || label.textContent || '';
+            th.setAttribute('data-header-original', raw);
+            label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
           });
         }
         // ✅ Call before capture (export-only)
-        wrapExportHeaders(clone, 15);
+        wrapExportHeaders(clone);
 
         showRowsInClone(clone, mode);
 
