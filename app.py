@@ -1857,18 +1857,12 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       border-radius:12px;
       box-shadow:0 10px 30px rgba(0,0,0,.18);
       padding:10px;
-      z-index: 9999;
+      z-index: 50;
 
       display:flex;
       flex-direction:column;
       align-items:stretch;
       gap:6px;
-    }
-    .vi-table-embed .dw-download-menu.dw-menu-floating{
-      position:fixed !important;
-      right:auto !important;
-      top:auto;
-      z-index:2147483000 !important;
     }
 
     .vi-table-embed .dw-download-menu .dw-menu-title{
@@ -1893,6 +1887,65 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .dw-download-menu .dw-menu-btn:hover{
       background:var(--brand-50);
       border-color: rgba(var(--brand-500-rgb), .35);
+    }
+
+    /* Stable modal for header/footer embed actions */
+    .vi-table-embed .dw-embed-modal-backdrop{
+      position:fixed;
+      inset:0;
+      z-index:2000;
+      background:rgba(15,23,42,.28);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .16s ease;
+    }
+    .vi-table-embed .dw-embed-modal-backdrop.is-open{
+      opacity:1;
+      pointer-events:auto;
+    }
+    .vi-table-embed .dw-embed-modal{
+      width:min(360px, calc(100vw - 36px));
+      background:#ffffff;
+      border:1px solid rgba(0,0,0,.10);
+      border-radius:14px;
+      box-shadow:0 18px 40px rgba(0,0,0,.24);
+      padding:12px;
+    }
+    .vi-table-embed .dw-embed-modal-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .vi-table-embed .dw-embed-modal-title{
+      font:600 13px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      color:#6b7280;
+      margin:0;
+    }
+    .vi-table-embed .dw-embed-modal-close{
+      width:30px;
+      height:30px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,.10);
+      background:#fff;
+      color:#111827;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+      font-size:16px;
+      line-height:1;
+    }
+    .vi-table-embed .dw-embed-modal-actions{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
     }
 
     /* Clear button */
@@ -2475,44 +2528,6 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const menuTitle = embedWrap ? embedWrap.querySelector('#dw-menu-title') : null;
     window.__viMenuTitleEl = menuTitle;
 
-    function positionMenu(){
-      if(!menu || !downloadBtn) return;
-      const rect = downloadBtn.getBoundingClientRect();
-      const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-      const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
-      const menuWidth = Math.max(menu.offsetWidth || 0, 220);
-      const menuHeight = Math.max(menu.offsetHeight || 0, 220);
-      const gap = 8;
-
-      menu.classList.add('dw-menu-floating');
-      menu.style.right = 'auto';
-      menu.style.bottom = 'auto';
-
-      let left = rect.right - menuWidth;
-      left = Math.max(gap, Math.min(left, vw - menuWidth - gap));
-
-      const preferUp = embedPosition === 'footer';
-      let top = preferUp ? (rect.top - menuHeight - gap) : (rect.bottom + gap);
-
-      if (!preferUp && top + menuHeight > vh - gap){
-        top = Math.max(gap, rect.top - menuHeight - gap);
-      }
-      if (preferUp && top < gap){
-        top = Math.min(vh - menuHeight - gap, rect.bottom + gap);
-      }
-
-      top = Math.max(gap, Math.min(top, vh - menuHeight - gap));
-
-      menu.style.left = `${left}px`;
-      menu.style.top = `${top}px`;
-    }
-
-    function showMenu(){
-      if(!menu) return;
-      menu.classList.remove('vi-hide');
-      requestAnimationFrame(positionMenu);
-    }
-
     const emptyRow = tb.querySelector('.dw-empty');
     const pageStatus = document.getElementById('dw-page-status-text');
 
@@ -2837,40 +2852,123 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    function hideMenu(){
-      if(!menu) return;
-      menu.classList.add('vi-hide');
-      menu.classList.remove('dw-menu-floating');
-      menu.style.left = '';
-      menu.style.top = '';
-      menu.style.right = '';
-      menu.style.bottom = '';
+    const embedUsesModal = hasEmbed && embedPosition !== 'body';
+    let embedModalBackdrop = null;
+    let embedModalTitle = null;
+    let embedModalActions = {};
+
+    function hideMenu(){ if(menu) menu.classList.add('vi-hide'); }
+    function toggleMenu(){ if(menu) menu.classList.toggle('vi-hide'); }
+
+    function ensureEmbedModal(){
+      if(embedModalBackdrop || !widgetRoot) return;
+      embedModalBackdrop = document.createElement('div');
+      embedModalBackdrop.className = 'dw-embed-modal-backdrop vi-hide';
+      embedModalBackdrop.innerHTML = `
+        <div class="dw-embed-modal" role="dialog" aria-modal="true" aria-label="Embed and download actions">
+          <div class="dw-embed-modal-head">
+            <div class="dw-embed-modal-title">Choose action</div>
+            <button type="button" class="dw-embed-modal-close" aria-label="Close">×</button>
+          </div>
+          <div class="dw-embed-modal-actions">
+            <button type="button" class="dw-menu-btn" data-action="top10">Download Top 10</button>
+            <button type="button" class="dw-menu-btn" data-action="bottom10">Download Bottom 10</button>
+            <button type="button" class="dw-menu-btn" data-action="csv">Download CSV</button>
+            <button type="button" class="dw-menu-btn" data-action="embed">Copy HTML</button>
+            <button type="button" class="dw-menu-btn vi-hide" data-action="csvCurrent">Download Current View CSV</button>
+            <button type="button" class="dw-menu-btn vi-hide" data-action="imgCurrent">Download Current View Image</button>
+            <button type="button" class="dw-menu-btn vi-hide" data-action="htmlCurrent">Copy Current View HTML</button>
+          </div>
+        </div>
+      `;
+      widgetRoot.appendChild(embedModalBackdrop);
+      embedModalTitle = embedModalBackdrop.querySelector('.dw-embed-modal-title');
+      embedModalBackdrop.querySelectorAll('[data-action]').forEach((btn)=>{
+        embedModalActions[btn.dataset.action] = btn;
+      });
+
+      const closeBtn = embedModalBackdrop.querySelector('.dw-embed-modal-close');
+      closeBtn.addEventListener('click', closeEmbedModal);
+      embedModalBackdrop.addEventListener('click', (e)=>{
+        if(e.target === embedModalBackdrop) closeEmbedModal();
+      });
+      embedModalBackdrop.querySelector('.dw-embed-modal').addEventListener('click', (e)=>{
+        e.stopPropagation();
+      });
+
+      Object.entries(embedModalActions).forEach(([action, btn])=>{
+        btn.addEventListener('click', async ()=>{
+          closeEmbedModal();
+          switch(action){
+            case 'top10': downloadDomPng('top10'); break;
+            case 'bottom10': downloadDomPng('bottom10'); break;
+            case 'csv': downloadCsv(); break;
+            case 'embed': await onEmbedClick(); break;
+            case 'csvCurrent': downloadCurrentViewCsv(); break;
+            case 'imgCurrent': downloadDomPng('current'); break;
+            case 'htmlCurrent': await onEmbedCurrentClick(); break;
+          }
+        });
+      });
+
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'Escape' && embedModalBackdrop && !embedModalBackdrop.classList.contains('vi-hide')){
+          closeEmbedModal();
+        }
+      });
     }
-    function toggleMenu(){
-      if(!menu) return;
-      if(menu.classList.contains('vi-hide')) showMenu();
-      else hideMenu();
+
+    function refreshEmbedModal(){
+      if(!embedModalBackdrop) return;
+      const filtered = isFilterActive();
+      if(embedModalTitle){
+        embedModalTitle.textContent = filtered ? 'Current view actions' : 'Choose action';
+      }
+      const show = (name, val)=>{
+        if(embedModalActions[name]) embedModalActions[name].classList.toggle('vi-hide', !val);
+      };
+      show('top10', !filtered);
+      show('bottom10', !filtered);
+      show('csv', !filtered);
+      show('embed', !filtered);
+      show('csvCurrent', filtered);
+      show('imgCurrent', filtered);
+      show('htmlCurrent', filtered);
+    }
+
+    function openEmbedModal(){
+      ensureEmbedModal();
+      refreshEmbedModal();
+      if(!embedModalBackdrop) return;
+      embedModalBackdrop.classList.remove('vi-hide');
+      requestAnimationFrame(()=> embedModalBackdrop.classList.add('is-open'));
+    }
+
+    function closeEmbedModal(){
+      if(!embedModalBackdrop) return;
+      embedModalBackdrop.classList.remove('is-open');
+      setTimeout(()=>{
+        if(embedModalBackdrop) embedModalBackdrop.classList.add('vi-hide');
+      }, 160);
     }
 
     document.addEventListener('click', (e)=>{
+      if(embedUsesModal) return;
       if(!menu || menu.classList.contains('vi-hide')) return;
       const inMenu = menu.contains(e.target);
       const inBtn = downloadBtn && downloadBtn.contains(e.target);
       if(!inMenu && !inBtn) hideMenu();
     });
 
-    window.addEventListener('resize', ()=>{
-      if(menu && !menu.classList.contains('vi-hide')) positionMenu();
-    });
-    window.addEventListener('scroll', ()=>{
-      if(menu && !menu.classList.contains('vi-hide')) positionMenu();
-    }, true);
-
     if(hasEmbed && downloadBtn){
       downloadBtn.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
-        toggleMenu();
+        if(embedUsesModal){
+          openEmbedModal();
+        }else{
+          toggleMenu();
+        }
       });
     }
 
