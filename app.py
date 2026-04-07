@@ -548,6 +548,26 @@ def compute_preview_height(row_count: int) -> int:
 
     return max(520, min(920, 300 + (row_count * 52)))
 
+
+def sync_table_control_defaults_for_row_count(df) -> int:
+    """Auto-hide search/pager for compact tables by default, while allowing user override.
+
+    Defaults are re-applied only when the uploaded table shape changes.
+    """
+    row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
+    col_count = len(df.columns) if isinstance(df, pd.DataFrame) else 0
+    data_sig = f"{row_count}x{col_count}"
+
+    prev_sig = st.session_state.get("bt_table_controls_auto_sig")
+    if prev_sig != data_sig:
+        compact_defaults = row_count <= 10 and row_count > 0
+        st.session_state["bt_show_search"] = not compact_defaults
+        st.session_state["bt_show_pager"] = not compact_defaults
+        st.session_state["bt_show_page_numbers"] = not compact_defaults
+        st.session_state["bt_table_controls_auto_sig"] = data_sig
+
+    return row_count
+
 # =========================================================
 # 0) Publishing Users + Secrets (GITHUB APP)
 # =========================================================
@@ -1632,7 +1652,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .vi-table-header{
       padding:10px 16px 8px;
       border-bottom:1px solid var(--brand-100);
-      background:var(--brand-50);
+      background:linear-gradient(90deg,var(--brand-50),#ffffff);
       display:flex;
       flex-direction:column;
       align-items:flex-start;
@@ -2081,7 +2101,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     #bt-block tr.dw-empty td{
       text-align:center; color:#6b7280; font-style:italic; padding:18px 14px;
-      background:var(--brand-50) !important;
+      background:linear-gradient(0deg,#fff,var(--brand-50)) !important;
     }
 
     /* Footer */
@@ -2091,7 +2111,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding:0 14px;            /* fixed-height footer; no vertical padding */
       height:64px;               /* ✅ fixed footer height */
       border-top:1px solid var(--footer-border);
-      background:var(--brand-50);
+      background:linear-gradient(90deg,var(--brand-50),#ffffff);
       position: sticky;
       bottom: 0;
       z-index: 20;
@@ -3412,7 +3432,7 @@ def generate_table_html_from_df(
             bar_bg = "linear-gradient(90deg, #2ecc71, #3498db, #f1c40f, #e67e22, #e74c3c)"
         else:
             # branded gradient
-            bar_bg = "rgba(var(--brand-500-rgb), 0.90)"
+            bar_bg = "linear-gradient(90deg, rgba(var(--brand-500-rgb), 0.05), rgba(var(--brand-500-rgb), 0.90))"
 
         footer_scale_html = f"""
           <div class="footer-scale" aria-label="Heatmap scale">
@@ -3564,10 +3584,14 @@ def generate_table_html_from_df(
 
             # alpha controls opacity, same slider still works
             a = max(0.0, min(1.0, float(alpha)))
-            return f"background-color: {color}; opacity: {a:.3f};"
+            return f"background-color: {color}; opacity: 1; background-image: linear-gradient(0deg, rgba(255,255,255, {1-a:.3f}), rgba(255,255,255, {1-a:.3f}));"
 
         # default branded
-        return f"background-color: rgba(var(--brand-500-rgb), {alpha:.3f});"
+        return (
+            f"background-image: linear-gradient(0deg, "
+            f"rgba(var(--brand-500-rgb), {alpha:.3f}), "
+            f"rgba(var(--brand-500-rgb), {alpha:.3f}));"
+        )
 
     # ✅ Pre-compute max for each selected bar column (with optional override)
     bar_max = {}
@@ -6072,13 +6096,27 @@ if main_tab == "Create New Table":
                         
                                 st.divider()
                                 st.markdown("#### Table Controls")
-                        
-                                st.checkbox("Show Search", value=st.session_state.get("bt_show_search", True), key="bt_show_search")
-                                st.checkbox("Show Pager", value=st.session_state.get("bt_show_pager", True), key="bt_show_pager")
-                        
+
+                                df_for_controls = st.session_state.get("bt_df_uploaded")
+                                _row_count_for_controls = sync_table_control_defaults_for_row_count(df_for_controls)
+                                _compact_controls_default = _row_count_for_controls <= 10 and _row_count_for_controls > 0
+
+                                st.checkbox(
+                                    "Show Search",
+                                    value=st.session_state.get("bt_show_search", not _compact_controls_default),
+                                    key="bt_show_search",
+                                    help="Defaults to off when the table has 10 rows or fewer, but you can enable it anytime.",
+                                )
+                                st.checkbox(
+                                    "Show Pager",
+                                    value=st.session_state.get("bt_show_pager", not _compact_controls_default),
+                                    key="bt_show_pager",
+                                    help="Defaults to off when the table has 10 rows or fewer, but you can enable it anytime.",
+                                )
+
                                 st.checkbox(
                                     "Show Page Numbers",
-                                    value=st.session_state.get("bt_show_page_numbers", True),
+                                    value=st.session_state.get("bt_show_page_numbers", not _compact_controls_default),
                                     key="bt_show_page_numbers",
                                     disabled=not st.session_state.get("bt_show_pager", True),
                                     help="Only works when Pager is enabled.",
