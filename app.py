@@ -1852,8 +1852,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* scroll */
     #bt-block .dw-scroll{
+      /* Mobile-first: allow scrolling when space is tight */
       max-height: var(--table-max-h);
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: auto;
@@ -1861,6 +1863,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overscroll-behavior-x: contain;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) transparent;
+    }
+
+    /* Desktop: no vertical table scrolling. Let the table grow naturally.
+       This keeps 10 rows fully visible and lets sub-10 row tables shrink in height. */
+    @media (min-width: 900px){
+      #bt-block .dw-scroll{
+        max-height: none;
+        height: auto;
+        overflow-x: auto;
+        overflow-y: visible;
+      }
     }
 
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 8px; }
