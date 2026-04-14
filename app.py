@@ -533,20 +533,22 @@ def apply_text_case(text: str, style: str) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a preview iframe height that keeps desktop previews unclipped.
+    """Return a preview iframe height that stays close to the table's real rendered height.
 
-    - 10 rows (or more) get a tall preview so the full paginated page is visible.
-    - Fewer than 10 rows shrink progressively.
+    This avoids oversized previews that can create visible empty space between the
+    page-status line and the footer when the widget itself uses a fixed full-height layout.
     """
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
+    if row_count <= 0:
+        return 560
     if row_count >= 10:
-        return 920
+        return 760
 
-    return max(520, min(920, 300 + (row_count * 52)))
+    return max(520, min(760, 240 + (row_count * 52)))
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -1514,10 +1516,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow:hidden; background:linear-gradient(180deg,#fff7f7 0%,#fff 28%,#fff 100%);">
+<body style="margin:0; overflow:hidden; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-         color:#181a1f;background:linear-gradient(180deg,#ffffff 0%,#fffafa 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
+         color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:0 10px 24px rgba(var(--brand-500-rgb),.08), 0 18px 48px rgba(17,24,39,.10), inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
     html, body { height:100%; }
@@ -1558,6 +1560,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       /* ✅ Footer logo height */
       --footer-logo-h: [[FOOTER_LOGO_H]]px;
       --surface-shadow: 0 14px 34px rgba(17,24,39,.08);
+      --accent-start: var(--brand-500);
+      --accent-mid: var(--brand-600);
+      --accent-end: var(--brand-700);
 
       height: 100vh;
       min-height: 0;
@@ -1827,7 +1832,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* Buttons */
     #bt-block .dw-btn{
-      background:linear-gradient(180deg, #ef5350 0%, var(--brand-600) 100%);
+      background:linear-gradient(180deg, var(--accent-start) 0%, var(--accent-mid) 100%);
       color:#fff;
       border:1px solid rgba(var(--brand-500-rgb), .72);
       padding-inline: 10px;
@@ -1839,14 +1844,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       justify-content:center;
       box-shadow:0 8px 18px rgba(220,38,38,.20), inset 0 1px 0 rgba(255,255,255,.28);
     }
-    #bt-block .dw-btn:hover{background:linear-gradient(180deg,#f26461 0%, #c81e1e 100%); border-color:rgba(var(--brand-500-rgb), .9); transform:translateY(-1px)}
+    #bt-block .dw-btn:hover{background:linear-gradient(180deg,var(--accent-mid) 0%, var(--accent-end) 100%); border-color:rgba(var(--brand-500-rgb), .9); transform:translateY(-1px)}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
     /* Embed/Download button */
     .vi-table-embed .dw-btn.dw-download{
-      background:linear-gradient(180deg,#ffffff 0%,#fff3f3 100%);
+      background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .08) 100%);
       color:var(--brand-700);
       border:1px solid rgba(var(--brand-500-rgb), .24);
       height: 34px;
@@ -1855,7 +1860,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       box-shadow:0 8px 18px rgba(17,24,39,.06), inset 0 1px 0 rgba(255,255,255,.9);
     }
     .vi-table-embed .dw-btn.dw-download:hover{
-      background:linear-gradient(180deg,#fff,#ffeaea);
+      background:linear-gradient(180deg,#fff, rgba(var(--brand-500-rgb), .12));
       border-color:rgba(var(--brand-500-rgb), .42);
       color:var(--brand-600);
       transform:translateY(-1px);
@@ -1913,7 +1918,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     .vi-table-embed .dw-modal{
       width:min(92vw, 320px);
-      background:linear-gradient(180deg,#ffffff 0%, #fff5f5 100%);
+      background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .08) 100%);
       border:1px solid rgba(var(--brand-500-rgb), .22);
       border-top:2px solid var(--brand-600);
       border-radius:0;
@@ -1968,7 +1973,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       text-align:left;
       border-radius:0;
       border:1px solid rgba(var(--brand-500-rgb), .18);
-      background:linear-gradient(180deg,#fff 0%, #fff9f9 100%);
+      background:linear-gradient(180deg,#fff 0%, rgba(var(--brand-500-rgb), .05) 100%);
       color:#111827;
       padding:10px 12px;
       cursor:pointer;
@@ -1977,7 +1982,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
     }
     .vi-table-embed .dw-modal .dw-menu-btn:hover{
-      background:linear-gradient(180deg,#fff3f3 0%, #ffe7e7 100%);
+      background:linear-gradient(180deg, rgba(var(--brand-500-rgb), .10) 0%, rgba(var(--brand-500-rgb), .16) 100%);
       border-color: rgba(var(--brand-500-rgb), .42);
       color:var(--brand-700);
     }
@@ -2066,7 +2071,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* Header row */
     #bt-block thead th{
-      background:linear-gradient(180deg, #ef5350 0%, var(--header-bg) 100%);
+      background:linear-gradient(180deg, var(--accent-start) 0%, var(--header-bg) 100%);
       color:#ffffff;
       font-weight:700;
       vertical-align:middle;
@@ -2234,7 +2239,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       border-bottom: 1px solid rgba(var(--brand-500-rgb), .08);
     }
     #bt-block tbody tr:hover td{
-      background:linear-gradient(180deg, #fecaca 0%, #fca5a5 100%) !important;
+      background:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%) !important;
     }
     #bt-block tbody tr:hover{
       box-shadow:inset 4px 0 0 var(--brand-500);
@@ -2452,6 +2457,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   margin: 0;
 }
 
+#bt-block .dw-page-status{
+  margin: 0 !important;
+  min-height: 24px;
+  flex: 0 0 auto;
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
@@ -2521,7 +2532,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 </table>
 </div>
 </div>
-<div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 4px 2px; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+<div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 4px 0; margin:0; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
 <span id="dw-page-status-text"></span>
 </div>
 </div>
