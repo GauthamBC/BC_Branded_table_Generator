@@ -2168,6 +2168,22 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* ✅ Keep long text columns readable without letting them stretch the table */
+    #bt-block th.dw-text-col,
+    #bt-block td.dw-text-col{
+      width: 220px;
+      min-width: 220px;
+      max-width: 220px;
+    }
+
+    #bt-block td.dw-text-col .dw-cell,
+    #bt-block th.dw-text-col .dw-th-label{
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: normal;
+      hyphens: none;
+    }
     /* ======================================================
        ✅ FIXED BAR TRACK WIDTH + AUTO COLUMN EXPAND
        ====================================================== */
@@ -4000,6 +4016,22 @@ def generate_table_html_from_df(
 
             heat_minmax[col] = (mn, mx)
 
+    # ✅ Detect text-heavy columns that should wrap at a fixed width
+    text_wrap_columns = set()
+    keyword_hints = {"name", "city", "team", "player", "school", "market", "county", "country", "region", "title"}
+    for col in df.columns:
+        if guess_column_type(df[col]) != "text":
+            continue
+
+        series = df[col].fillna("").astype(str).str.strip()
+        lengths = series.str.len()
+        max_len = int(lengths.max()) if len(lengths) else 0
+        avg_len = float(lengths.mean()) if len(lengths) else 0.0
+        col_key = str(col).strip().lower()
+
+        if max_len > 18 or avg_len > 12 or any(hint in col_key for hint in keyword_hints):
+            text_wrap_columns.add(col)
+
     # ✅ Header
     head_cells = []
     for col in df.columns:
@@ -4012,11 +4044,14 @@ def generate_table_html_from_df(
             display_col = format_column_header(str(_base_label), header_style)
         safe_label = html_mod.escape(display_col)
 
-        # ✅ add class to bar columns so CSS can force min-width
-        is_bar_col = (col in bar_columns_set and col_type == "num")
-        bar_class = " dw-bar-col" if is_bar_col else ""
+        classes = []
+        if col in bar_columns_set and col_type == "num":
+            classes.append("dw-bar-col")
+        if col in text_wrap_columns:
+            classes.append("dw-text-col")
+        class_attr = " ".join(classes)
 
-        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{bar_class.strip()}">{safe_label}</th>')
+        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{class_attr}">{safe_label}</th>')
 
     table_head_html = "\n              ".join(head_cells)
 
@@ -4089,7 +4124,8 @@ def generate_table_html_from_df(
                 )
 
             else:
-                cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
+                td_class = ' class="dw-text-col"' if col in text_wrap_columns else ""
+                cells.append(f'<td{td_class}><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
 
         row_html_snippets.append("            <tr>" + "".join(cells) + "</tr>")
 
