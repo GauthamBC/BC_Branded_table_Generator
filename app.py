@@ -1504,24 +1504,24 @@ def get_brand_meta(brand: str) -> dict:
 # =========================================================
 # HTML Template (UPDATED)
 # =========================================================
-HTML_TEMPLATE_TABLE = r"""<!doctype html>
+HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>[[TITLE]]</title>
-
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-
-<body style="margin:0; overflow:auto;">
-
+<body style="margin:0; overflow:hidden; background:linear-gradient(180deg,#fff7f7 0%,#fff 28%,#fff 100%);">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-         color:#181a1f;background:#ffffff;border:0;border-radius:12px;
-         box-shadow:0 1px 2px rgba(0,0,0,.07),0 6px 16px rgba(0,0,0,.09);">
-
-  <style>
+         color:#181a1f;background:linear-gradient(180deg,#ffffff 0%,#fffafa 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
+         box-shadow:0 10px 24px rgba(var(--brand-500-rgb),.08), 0 18px 48px rgba(17,24,39,.10), inset 0 1px 0 rgba(255,255,255,.85);">
+<style>
+    html, body { height:100%; }
+    body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -1557,6 +1557,14 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
       /* ✅ Footer logo height */
       --footer-logo-h: [[FOOTER_LOGO_H]]px;
+      --surface-shadow: 0 14px 34px rgba(17,24,39,.08);
+
+      height: 100vh;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      isolation: isolate;
     }
 
     .vi-table-embed.align-left { --cell-align:left; }
@@ -1650,9 +1658,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Header block */
     .vi-table-embed .vi-table-header{
-      padding:10px 16px 8px;
-      border-bottom:1px solid var(--brand-100);
-      background:var(--brand-50);
+      border-bottom:1px solid var(--brand-600);
+      padding:12px 18px 10px;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .04));
+      backdrop-filter:none;
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
@@ -1682,18 +1691,21 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     .vi-table-embed .vi-header-actions.vi-hide{ display:none !important; }
     .vi-table-embed .vi-table-header .title{
-      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:750; color:#111827; display:block;
+      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:800; letter-spacing:-0.02em; color:#111827; display:block; text-shadow:0 1px 0 rgba(255,255,255,.65);
     }
     .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
-    .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#6b7280; display:block; }
+    .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#7a808d; display:block; }
 
     /* Table block */
     #bt-block, #bt-block * { box-sizing:border-box; }
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
       --gutter: 12px;
-      padding: 10px var(--gutter);
-      padding-top: 10px;
+      padding: 12px 0 10px;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     /* ✅ Controls row */
@@ -1750,10 +1762,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       max-width: 260px;
       min-width: 120px;
       padding-right: 34px;
-      background:#fff;
-      border:1px solid var(--brand-700);
+      background:linear-gradient(180deg,#fff,#fff8f8);
+      border:1px solid rgba(var(--brand-500-rgb), .24);
       color:var(--text);
-      box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
+      box-shadow:0 6px 16px rgba(17,24,39,.06), inset 0 1px 1px rgba(255,255,255,.85);
     }
 
     /* ✅ Mobile squeeze */
@@ -1807,17 +1819,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding-right: 18px;
       width: 62px;
       text-align:center;
-      background:#fff;
-      border:1px solid var(--brand-700);
+      background:linear-gradient(180deg,#fff,#fff8f8);
+      border:1px solid rgba(var(--brand-500-rgb), .24);
       color:var(--text);
-      box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
+      box-shadow:0 6px 16px rgba(17,24,39,.06), inset 0 1px 1px rgba(255,255,255,.85);
     }
 
     /* Buttons */
     #bt-block .dw-btn{
-      background:var(--brand-500);
+      background:linear-gradient(180deg, #ef5350 0%, var(--brand-600) 100%);
       color:#fff;
-      border:1px solid var(--brand-500);
+      border:1px solid rgba(var(--brand-500-rgb), .72);
       padding-inline: 10px;
       cursor:pointer;
       white-space:nowrap;
@@ -1825,25 +1837,28 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      box-shadow:0 8px 18px rgba(220,38,38,.20), inset 0 1px 0 rgba(255,255,255,.28);
     }
-    #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
+    #bt-block .dw-btn:hover{background:linear-gradient(180deg,#f26461 0%, #c81e1e 100%); border-color:rgba(var(--brand-500-rgb), .9); transform:translateY(-1px)}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
     /* Embed/Download button */
     .vi-table-embed .dw-btn.dw-download{
-      background:#ffffff;
+      background:linear-gradient(180deg,#ffffff 0%,#fff3f3 100%);
       color:var(--brand-700);
-      border:1px solid var(--brand-700);
+      border:1px solid rgba(var(--brand-500-rgb), .24);
       height: 34px;
-      padding-inline: 10px;
-      font-weight:600;
+      padding-inline: 12px;
+      font-weight:700;
+      box-shadow:0 8px 18px rgba(17,24,39,.06), inset 0 1px 0 rgba(255,255,255,.9);
     }
     .vi-table-embed .dw-btn.dw-download:hover{
-      background:var(--brand-50);
-      border-color:var(--brand-600);
+      background:linear-gradient(180deg,#fff,#ffeaea);
+      border-color:rgba(var(--brand-500-rgb), .42);
       color:var(--brand-600);
+      transform:translateY(-1px);
     }
 
     /* Download menu */
@@ -1892,21 +1907,21 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .dw-modal-backdrop{
       position:fixed;
       inset:0;
-      background:rgba(17,24,39,.26);
+      background:transparent;
       z-index:9998;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
+      padding:0;
     }
     .vi-table-embed .dw-modal{
       width:min(92vw, 320px);
-      background:#fff;
-      border:1px solid rgba(0,0,0,.10);
-      border-radius:14px;
-      box-shadow:0 18px 40px rgba(0,0,0,.24);
+      background:linear-gradient(180deg,#ffffff 0%, #fff5f5 100%);
+      border:1px solid rgba(var(--brand-500-rgb), .22);
+      border-top:2px solid var(--brand-600);
+      border-radius:0;
+      box-shadow:0 18px 40px rgba(17,24,39,.18), 0 6px 18px rgba(var(--brand-500-rgb), .10);
       padding:10px;
-      position:relative;
+      position:fixed;
+      left:0;
+      top:0;
     }
     .vi-table-embed .dw-modal-head{
       display:flex;
@@ -1914,29 +1929,56 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:space-between;
       gap:10px;
       margin-bottom:8px;
+      padding-bottom:6px;
+      border-bottom:1px solid rgba(var(--brand-500-rgb), .16);
+    }
+    .vi-table-embed .dw-modal-head .dw-menu-title{
+      color:var(--brand-700);
+      font-weight:700;
+      letter-spacing:.01em;
     }
     .vi-table-embed .dw-modal-actions{
       display:flex;
       flex-direction:column;
-      gap:6px;
+      gap:8px;
     }
     .vi-table-embed .dw-modal-close{
       width:32px;
       height:32px;
       border-radius:999px;
-      border:1px solid rgba(0,0,0,.10);
+      border:1px solid rgba(var(--brand-500-rgb), .18);
       background:#fff;
-      color:#111827;
+      color:var(--brand-700);
       cursor:pointer;
       font-size:20px;
       line-height:1;
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
     }
     .vi-table-embed .dw-modal-close:hover{
       background:var(--brand-50);
-      border-color: rgba(var(--brand-500-rgb), .35);
+      border-color: rgba(var(--brand-500-rgb), .40);
+      color:var(--brand-700);
+    }
+    .vi-table-embed .dw-modal .dw-menu-btn{
+      width:100%;
+      display:block;
+      text-align:left;
+      border-radius:0;
+      border:1px solid rgba(var(--brand-500-rgb), .18);
+      background:linear-gradient(180deg,#fff 0%, #fff9f9 100%);
+      color:#111827;
+      padding:10px 12px;
+      cursor:pointer;
+      margin:0;
+      font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+    }
+    .vi-table-embed .dw-modal .dw-menu-btn:hover{
+      background:linear-gradient(180deg,#fff3f3 0%, #ffe7e7 100%);
+      border-color: rgba(var(--brand-500-rgb), .42);
       color:var(--brand-700);
     }
 
@@ -1952,41 +1994,60 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Card wrapper */
     #bt-block .dw-card{
-      background: var(--bg);
-      border: 0;
-      box-shadow: none;
+      background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,250,250,.98));
+      border: 1px solid rgba(var(--brand-500-rgb), .12);
+      box-shadow: var(--surface-shadow), inset 0 1px 0 rgba(255,255,255,.8);
       margin: 0;
       width: 100%;
-      overflow: visible;
+      overflow: hidden;
+      border-radius:0;
+      flex: 0 0 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      position: relative;
     }
 
     /* scroll */
     #bt-block .dw-scroll{
-      max-height: none;
-      overflow-x: auto;
-      overflow-y: visible;
+      min-height: 0;
+      overflow: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
-      overscroll-behavior: auto;
+      overscroll-behavior: contain;
       scrollbar-gutter: stable;
-      overscroll-behavior-x: contain;
       scrollbar-width: thin;
-      scrollbar-color: var(--scroll-thumb) transparent;
+      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
+      position: relative;
+      background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.96));
     }
 
-    @media (max-width: 768px){
-      #bt-block .dw-scroll{
-        max-height: var(--table-max-h);
-        overflow: auto;
-      }
+    #bt-block .dw-scroll::before,
+    #bt-block .dw-scroll::after{
+      content:"";
+      position: sticky;
+      left: 0;
+      right: 0;
+      display:block;
+      pointer-events:none;
+      z-index:8;
     }
 
-    #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 8px; }
+    
+
+    #bt-block .dw-scroll::after{
+      bottom: 0;
+      height: 18px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.98));
+    }
+
+    #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
     #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background: var(--scroll-thumb);
+      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px;
       border: 2px solid transparent;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
       background-clip: content-box;
     }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
@@ -2005,7 +2066,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Header row */
     #bt-block thead th{
-      background:var(--header-bg);
+      background:linear-gradient(180deg, #ef5350 0%, var(--header-bg) 100%);
       color:#ffffff;
       font-weight:700;
       vertical-align:middle;
@@ -2063,7 +2124,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     
     #bt-block .dw-scroll.scrolled thead th{
-      box-shadow:0 6px 10px -6px rgba(0,0,0,.25);
+      box-shadow:none;
     }
     
     #bt-block thead th.is-sorted{
@@ -2075,7 +2136,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* shared cell spacing/alignment */
     #bt-block thead th,
     #bt-block tbody td {
-      padding: 16px 14px;
+      padding: 15px 14px;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
@@ -2161,13 +2222,24 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     /* zebra */
+    
+    #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
+    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--stripe); } /* striped */
     [[STRIPE_CSS]]
 
-    #bt-block tbody tr:hover td{ background:var(--hover) !important; }
+
+
+
+    #bt-block tbody td{
+      border-bottom: 1px solid rgba(var(--brand-500-rgb), .08);
+    }
+    #bt-block tbody tr:hover td{
+      background:linear-gradient(180deg, #fecaca 0%, #fca5a5 100%) !important;
+    }
     #bt-block tbody tr:hover{
-      box-shadow:inset 3px 0 0 var(--brand-500);
-      transform:translateY(-1px);
-      transition:background-color .12s ease, box-shadow .12s ease, transform .08s ease;
+      box-shadow:inset 4px 0 0 var(--brand-500);
+      transform:none;
+      transition:background-color .14s ease, box-shadow .14s ease;
     }
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
@@ -2184,9 +2256,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding:0 14px;            /* fixed-height footer; no vertical padding */
       height:64px;               /* ✅ fixed footer height */
       border-top:1px solid var(--footer-border);
-      background:var(--brand-50);
-      position: sticky;
-      bottom: 0;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .05));
+      backdrop-filter:none;
+      flex: 0 0 64px;
       z-index: 30;
       overflow:visible;
     }
@@ -2222,7 +2294,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       max-width: none;   /* ✅ THIS is the key change */
     
       padding: 10px 12px;
-      border-radius: 12px;
+      border-radius:0;
     
       background: #ffffff;
       border: 1px solid rgba(0,0,0,.10);
@@ -2306,7 +2378,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       flex-direction:column;
       gap:6px;
       padding: 8px 10px;
-      border-radius: 12px;
+      border-radius:0;
       background:#ffffff;
       border: 1px solid rgba(0,0,0,.10);
       box-shadow: 0 10px 22px rgba(0,0,0,.08);
@@ -2368,133 +2440,126 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overflow-x: visible !important;
       overflow-y: visible !important;
     }
-  </style>
+  
+#bt-block .dw-controls{
+  padding: 0 12px;
+}
+#bt-block .dw-card{
+  margin: 0;
+  border-radius: 0;
+}
+#bt-block .dw-scroll{
+  margin: 0;
+}
 
-  <!-- Header -->
-  <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
-    <div class="vi-header-main">
-      <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
-      <span class="subtitle">[[SUBTITLE]]</span>
-    </div>
-    <div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
-      <button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Embed / Download</button>
-    </div>
-  </div>
-
-  <!-- Table block -->
-  <div id="bt-block" data-dw="table">
-    <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
-      <div class="left">
-        <div class="dw-field [[SEARCH_VIS_CLASS]]">
-          <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
-          <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
-        </div>
-      </div>
-
-      <div class="right">
-        <!-- Pager -->
-        <div class="dw-pager [[PAGER_VIS_CLASS]]">
-          <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
-          <select id="bt-size" class="dw-select">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-            <option value="20">20</option>
-            <option value="25">25</option>
-            <option value="30">30</option>
-            <option value="0">All</option>
-          </select>
-
-          <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
-          <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
-        </div>
-
-        <!-- Embed/Download -->
-        <div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
-          <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
-
-          <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-              <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-            
-              <!-- Full table options -->
-              <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-              <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-              <button type="button" class="dw-menu-btn" id="dw-dl-csv">Download CSV</button>
-              <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
-            
-              <!-- Current view options (shown only when filter is active) -->
-              <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-csv-current">Download Current View CSV</button>
-              <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-image-current">Download Current View Image</button>
-              <button type="button" class="dw-menu-btn vi-hide" id="dw-copy-html-current">Copy Current View HTML</button>
-            </div>
-        </div></div>
-      </div>
-    </div>
-
-    <div class="dw-card">
-      <div class="dw-scroll">
-        <table class="dw-table">
-          <thead>
-            <tr>
-              [[TABLE_HEAD]]
-            </tr>
-          </thead>
-          <tbody>
-            [[TABLE_ROWS]]
-            <tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No Matches Found.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:6px 2px 4px; color:#6b7280; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
-      <span id="dw-page-status-text"></span>
-    </div>
-  </div>
-
-  <!-- Footer -->
-    <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
-    <div class="footer-inner">
-
-      <div class="footer-scale-wrap [[FOOTER_SCALE_VIS_CLASS]]">
-        [[FOOTER_SCALE_HTML]]
-      </div>
-
-      <div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
-        <div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
-      </div>
-
-      <div class="footer-logo">
-        <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
-      </div>
-
-      <div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
-        <button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed / Download</button>
-      </div>
-
-    </div>
-  </div>
-
-
-  <div id="dw-embed-modal" class="dw-modal-backdrop vi-hide" aria-hidden="true">
-    <div class="dw-modal" role="dialog" aria-modal="true" aria-labelledby="dw-modal-title">
-      <div class="dw-modal-head">
-        <div class="dw-menu-title" id="dw-modal-title">Choose action</div>
-        <button type="button" class="dw-modal-close" id="dw-modal-close" aria-label="Close">×</button>
-      </div>
-      <div class="dw-modal-actions">
-        <button type="button" class="dw-menu-btn" id="dw-modal-top10">Download Top 10</button>
-        <button type="button" class="dw-menu-btn" id="dw-modal-bottom10">Download Bottom 10</button>
-        <button type="button" class="dw-menu-btn" id="dw-modal-csv">Download CSV</button>
-        <button type="button" class="dw-menu-btn" id="dw-modal-embed">Copy HTML</button>
-        <button type="button" class="dw-menu-btn vi-hide" id="dw-modal-csv-current">Download Current View CSV</button>
-        <button type="button" class="dw-menu-btn vi-hide" id="dw-modal-image-current">Download Current View Image</button>
-        <button type="button" class="dw-menu-btn vi-hide" id="dw-modal-html-current">Copy Current View HTML</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
+</style>
+<!-- Header -->
+<div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
+<div class="vi-header-main">
+<span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
+<span class="subtitle">[[SUBTITLE]]</span>
+</div>
+<div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Embed / Download</button>
+</div>
+</div>
+<!-- Table block -->
+<div data-dw="table" id="bt-block">
+<div class="dw-controls [[CONTROLS_VIS_CLASS]]">
+<div class="left">
+<div class="dw-field [[SEARCH_VIS_CLASS]]">
+<input aria-label="Search Table" class="dw-input" placeholder="Search Table…" type="search"/>
+<button aria-label="Clear Search" class="dw-clear" type="button">×</button>
+</div>
+</div>
+<div class="right">
+<!-- Pager -->
+<div class="dw-pager [[PAGER_VIS_CLASS]]">
+<label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
+<select class="dw-select" id="bt-size">
+<option value="5">5</option>
+<option selected="" value="10">10</option>
+<option value="15">15</option>
+<option value="20">20</option>
+<option value="25">25</option>
+<option value="30">30</option>
+<option value="0">All</option>
+</select>
+<button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
+<button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
+</div>
+<!-- Embed/Download -->
+<div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
+<button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
+<div aria-label="Download Menu" class="dw-download-menu vi-hide" id="dw-download-menu">
+<div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+<!-- Full table options -->
+<button class="dw-menu-btn" id="dw-dl-top10" type="button">Download Top 10</button>
+<button class="dw-menu-btn" id="dw-dl-bottom10" type="button">Download Bottom 10</button>
+<button class="dw-menu-btn" id="dw-dl-csv" type="button">Download CSV</button>
+<button class="dw-menu-btn" id="dw-embed-script" type="button">Copy HTML</button>
+<!-- Current view options (shown only when filter is active) -->
+<button class="dw-menu-btn vi-hide" id="dw-dl-csv-current" type="button">Download Current View CSV</button>
+<button class="dw-menu-btn vi-hide" id="dw-dl-image-current" type="button">Download Current View Image</button>
+<button class="dw-menu-btn vi-hide" id="dw-copy-html-current" type="button">Copy Current View HTML</button>
+</div>
+</div></div>
+</div>
+</div>
+<div class="dw-card">
+<div class="dw-scroll">
+<table class="dw-table">
+<thead>
+<tr>
+[[TABLE_HEAD]]
+</tr>
+</thead>
+<tbody>
+[[TABLE_ROWS]]
+<tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No Matches Found.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 4px 2px; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+<span id="dw-page-status-text"></span>
+</div>
+</div>
+<!-- Footer -->
+<div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
+<div class="footer-inner">
+<div class="footer-scale-wrap [[FOOTER_SCALE_VIS_CLASS]]">
+[[FOOTER_SCALE_HTML]]
+</div>
+<div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
+<div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
+</div>
+<div class="footer-logo">
+<img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="140"/>
+</div>
+<div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed / Download</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="dw-modal-backdrop vi-hide" id="dw-embed-modal">
+<div aria-labelledby="dw-modal-title" aria-modal="true" class="dw-modal" role="dialog">
+<div class="dw-modal-head">
+<div class="dw-menu-title" id="dw-modal-title">Choose action</div>
+<button aria-label="Close" class="dw-modal-close" id="dw-modal-close" type="button">×</button>
+</div>
+<div class="dw-modal-actions">
+<button class="dw-menu-btn" id="dw-modal-top10" type="button">Download Top 10</button>
+<button class="dw-menu-btn" id="dw-modal-bottom10" type="button">Download Bottom 10</button>
+<button class="dw-menu-btn" id="dw-modal-csv" type="button">Download CSV</button>
+<button class="dw-menu-btn" id="dw-modal-embed" type="button">Copy HTML</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-csv-current" type="button">Download Current View CSV</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-image-current" type="button">Download Current View Image</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-html-current" type="button">Copy Current View HTML</button>
+</div>
+</div>
+</div>
+<script>
   (function(){
     const root = document.getElementById('bt-block');
     if (!root || root.dataset.dwInit === '1') return;
@@ -2596,6 +2661,70 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
+
+
+
+    function syncMeasuredScrollerHeight(){
+      if (!widgetRoot || !scroller || !table || !tb) return;
+
+      const headerEl = widgetRoot.querySelector('.vi-table-header');
+      const footerEl = widgetRoot.querySelector('.vi-footer');
+      const pageStatusWrap = root.querySelector('.dw-page-status');
+      const theadEl = table.tHead;
+      const visibleRows = Array.from(tb.rows).filter(row =>
+        !row.classList.contains('dw-empty') && row.style.display !== 'none'
+      );
+
+      const targetRows = Math.max(
+        1,
+        Math.min(
+          hasPager && pageSize > 0 ? pageSize : 10,
+          visibleRows.length || (hasPager && pageSize > 0 ? pageSize : 10),
+          10
+        )
+      );
+
+      let visibleRowsHeight = 0;
+      for (let i = 0; i < targetRows; i++) {
+        const row = visibleRows[i];
+        if (row) visibleRowsHeight += row.getBoundingClientRect().height;
+      }
+
+      const fallbackRowHeight = visibleRows[0]?.getBoundingClientRect().height || 54;
+      if (visibleRowsHeight === 0) {
+        visibleRowsHeight = fallbackRowHeight * targetRows;
+      }
+
+      const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
+      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 0;
+      const controlsHeight = controls && !controlsHidden ? controls.getBoundingClientRect().height : 0;
+      const statusHeight = pageStatusWrap ? pageStatusWrap.getBoundingClientRect().height : 0;
+      const footerHeight = footerEl ? footerEl.getBoundingClientRect().height : 0;
+      const rootStyles = window.getComputedStyle(root);
+      const rootPadTop = parseFloat(rootStyles.paddingTop) || 0;
+      const rootPadBottom = parseFloat(rootStyles.paddingBottom) || 0;
+      const buffer = 10;
+
+      const desiredScrollHeight = Math.ceil(theadHeight + visibleRowsHeight + buffer);
+      const availableScrollHeight = Math.floor(
+        window.innerHeight
+        - headerHeight
+        - controlsHeight
+        - statusHeight
+        - footerHeight
+        - rootPadTop
+        - rootPadBottom
+        - buffer
+      );
+
+      const finalScrollHeight = Math.max(
+        Math.ceil(theadHeight + Math.min(fallbackRowHeight * Math.min(targetRows, 3), 180)),
+        Math.min(desiredScrollHeight, availableScrollHeight > 0 ? availableScrollHeight : desiredScrollHeight)
+      );
+
+      scroller.style.height = `${finalScrollHeight}px`;
+      scroller.style.maxHeight = `${finalScrollHeight}px`;
+    }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
@@ -2801,6 +2930,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         setPageStatus(0, 0);
         applyVisibleZebra();
         syncMenuOptions();
+        syncMeasuredScrollerHeight();
         return;
       }
     
@@ -2833,6 +2963,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     
       applyVisibleZebra();
       syncMenuOptions();
+      syncMeasuredScrollerHeight();
     }
 
     if(hasSearch){
@@ -2871,12 +3002,51 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    function hideMenu(){ if(modal){ modal.classList.add('vi-hide'); modal.setAttribute('aria-hidden','true'); } }
-    function toggleMenu(){
+    let lastTrigger = null;
+
+    function positionMenu(anchor){
+      if(!modal || !anchor) return;
+      const panel = modal.querySelector('.dw-modal');
+      if(!panel) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(320, window.innerWidth - 16);
+      panel.style.width = `${panelWidth}px`;
+
+      const gap = 10;
+      let left = rect.right - panelWidth;
+      left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8));
+
+      let top = rect.bottom + gap;
+      const maxTop = window.innerHeight - panel.offsetHeight - 8;
+      if (top > maxTop) {
+        top = Math.max(8, rect.top - panel.offsetHeight - gap);
+      }
+
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+    }
+
+    function hideMenu(){
+      if(modal){
+        modal.classList.add('vi-hide');
+        modal.setAttribute('aria-hidden','true');
+      }
+    }
+
+    function showMenu(anchor){
+      if(!modal) return;
+      lastTrigger = anchor || lastTrigger;
+      modal.classList.remove('vi-hide');
+      modal.setAttribute('aria-hidden','false');
+      requestAnimationFrame(()=> positionMenu(lastTrigger));
+    }
+
+    function toggleMenu(anchor){
       if(!modal) return;
       const willShow = modal.classList.contains('vi-hide');
-      modal.classList.toggle('vi-hide', !willShow);
-      modal.setAttribute('aria-hidden', willShow ? 'false' : 'true');
+      if (willShow) showMenu(anchor);
+      else hideMenu();
     }
 
     if(hasEmbed){
@@ -2884,7 +3054,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         btn.addEventListener('click', (e)=>{
           e.preventDefault();
           e.stopPropagation();
-          toggleMenu();
+          toggleMenu(btn);
         });
       });
       if(modalClose){
@@ -2898,9 +3068,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           if(e.target === modal) hideMenu();
         });
       }
+      document.addEventListener('click', (e)=>{
+        if(!modal || modal.classList.contains('vi-hide')) return;
+        const panel = modal.querySelector('.dw-modal');
+        const clickedTrigger = triggerButtons.some((btn)=> btn.contains(e.target));
+        if (clickedTrigger) return;
+        if (panel && !panel.contains(e.target)) hideMenu();
+      });
       document.addEventListener('keydown', (e)=>{
         if(e.key === 'Escape') hideMenu();
       });
+      window.addEventListener('resize', ()=> {
+        if(modal && !modal.classList.contains('vi-hide')) positionMenu(lastTrigger);
+      });
+      window.addEventListener('scroll', ()=> {
+        if(modal && !modal.classList.contains('vi-hide')) positionMenu(lastTrigger);
+      }, true);
     }
 
     /* ===== PNG EXPORT (unchanged) ===== */
@@ -3394,14 +3577,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
     if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
+    window.addEventListener('resize', syncMeasuredScrollerHeight);
+    window.addEventListener('load', syncMeasuredScrollerHeight);
     renderPage();
     syncMenuOptions();
+    syncMeasuredScrollerHeight();
   })();
   </script>
-
 </section>
 </body>
 </html>
+
 """
 
 # =========================================================
