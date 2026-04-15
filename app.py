@@ -502,6 +502,29 @@ def style_radio_as_tabs(
 def apply_text_case(text: str, style: str) -> str:
     """Apply a simple text casing rule.
 
+def wrap_header_words(text: str, words_per_line: int) -> str:
+    """Wrap a header label by full words, never splitting a word itself.
+
+    Examples:
+    - 1 => one whole word per line
+    - 2 => two whole words per line
+    """
+    s = "" if text is None else str(text).strip()
+    if not s:
+        return s
+
+    try:
+        n = max(1, int(words_per_line))
+    except Exception:
+        n = 1
+
+    words = [w for w in re.split(r"\s+", s) if w]
+    if not words:
+        return s
+
+    lines = [" ".join(words[i:i + n]) for i in range(0, len(words), n)]
+    return "<br>".join(lines)
+
     Styles expected: Keep original | ALL CAPS | Title Case | Sentence case
     """
     s = "" if text is None else str(text)
@@ -1722,6 +1745,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
     .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#7a808d; display:block; }
 
+    .vi-table-embed th,
+    .vi-table-embed thead th{
+      white-space: normal !important;
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+      height: auto !important;
+      line-height: 1.2 !important;
+    }
+
+
     /* Table block */
     #bt-block, #bt-block * { box-sizing:border-box; }
     #bt-block{
@@ -1757,7 +1790,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       justify-content:flex-end;
       gap: var(--ctrl-gap);
       flex-wrap:nowrap;
-      white-space:nowrap;
+      white-space:normal; word-break:normal; overflow-wrap:break-word;
       position:relative;
     }
 
@@ -1767,7 +1800,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       align-items:center;
       gap: var(--ctrl-gap);
       flex-wrap:nowrap;
-      white-space:nowrap;
+      white-space:normal; word-break:normal; overflow-wrap:break-word;
       position:relative;
     }
 
@@ -1858,7 +1891,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       border:1px solid rgba(var(--brand-500-rgb), .72);
       padding-inline: 10px;
       cursor:pointer;
-      white-space:nowrap;
+      white-space:normal; word-break:normal; overflow-wrap:break-word;
       height: 34px;
       display:inline-flex;
       align-items:center;
