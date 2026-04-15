@@ -18,6 +18,72 @@ def inject_global_radio_button_css():
         """
         <style>
 
+/* ✅ HARD SYNC: header/footer Embed button must match body button exactly */
+.vi-table-embed .vi-header-actions .dw-btn,
+.vi-table-embed .vi-header-actions button,
+.vi-table-embed .vi-header-actions .dw-download,
+.vi-table-embed .footer-embed-wrap .dw-btn,
+.vi-table-embed .footer-embed-wrap button,
+.vi-table-embed .footer-embed-wrap .dw-download,
+.vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
+.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.28) inset, 0 8px 18px rgba(0,0,0,0.12) !important;
+  text-shadow: none !important;
+  outline: none !important;
+  opacity: 1 !important;
+}
+
+.vi-table-embed .vi-header-actions .dw-btn:hover,
+.vi-table-embed .vi-header-actions button:hover,
+.vi-table-embed .vi-header-actions .dw-download:hover,
+.vi-table-embed .footer-embed-wrap .dw-btn:hover,
+.vi-table-embed .footer-embed-wrap button:hover,
+.vi-table-embed .footer-embed-wrap .dw-download:hover {
+  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
+  background-color: var(--accent-end) !important;
+  color: #ffffff !important;
+  border-color: rgba(var(--brand-500-rgb), 0.7) !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(0,0,0,0.16) !important;
+}
+
+.vi-table-embed .vi-header-actions .dw-btn:focus,
+.vi-table-embed .vi-header-actions button:focus,
+.vi-table-embed .vi-header-actions .dw-download:focus,
+.vi-table-embed .footer-embed-wrap .dw-btn:focus,
+.vi-table-embed .footer-embed-wrap button:focus,
+.vi-table-embed .footer-embed-wrap .dw-download:focus,
+.vi-table-embed .vi-header-actions .dw-btn:active,
+.vi-table-embed .vi-header-actions button:active,
+.vi-table-embed .vi-header-actions .dw-download:active,
+.vi-table-embed .footer-embed-wrap .dw-btn:active,
+.vi-table-embed .footer-embed-wrap button:active,
+.vi-table-embed .footer-embed-wrap .dw-download:active,
+.vi-table-embed .vi-header-actions .dw-btn:visited,
+.vi-table-embed .vi-header-actions button:visited,
+.vi-table-embed .vi-header-actions .dw-download:visited,
+.vi-table-embed .footer-embed-wrap .dw-btn:visited,
+.vi-table-embed .footer-embed-wrap button:visited,
+.vi-table-embed .footer-embed-wrap .dw-download:visited {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
+  outline: none !important;
+}
+
+/* remove ghost / flat / transparent styling from wrappers */
+.vi-table-embed .vi-header-actions *,
+.vi-table-embed .footer-embed-wrap * {
+  text-decoration: none !important;
+}
+
+
+
 /* 🔥 FORCE header/footer buttons to EXACT body style */
 .vi-table-embed .vi-header-actions .dw-btn,
 .vi-table-embed .footer-embed-wrap .dw-btn {
@@ -152,7 +218,73 @@ def inject_global_radio_button_css():
                 font-size: 15px !important;
             }
         }
-        </style>
+        
+
+/* ✅ HARD SYNC: header/footer Embed button must match body button exactly */
+.vi-table-embed .vi-header-actions .dw-btn,
+.vi-table-embed .vi-header-actions button,
+.vi-table-embed .vi-header-actions .dw-download,
+.vi-table-embed .footer-embed-wrap .dw-btn,
+.vi-table-embed .footer-embed-wrap button,
+.vi-table-embed .footer-embed-wrap .dw-download,
+.vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
+.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.28) inset, 0 8px 18px rgba(0,0,0,0.12) !important;
+  text-shadow: none !important;
+  outline: none !important;
+  opacity: 1 !important;
+}
+
+.vi-table-embed .vi-header-actions .dw-btn:hover,
+.vi-table-embed .vi-header-actions button:hover,
+.vi-table-embed .vi-header-actions .dw-download:hover,
+.vi-table-embed .footer-embed-wrap .dw-btn:hover,
+.vi-table-embed .footer-embed-wrap button:hover,
+.vi-table-embed .footer-embed-wrap .dw-download:hover {
+  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
+  background-color: var(--accent-end) !important;
+  color: #ffffff !important;
+  border-color: rgba(var(--brand-500-rgb), 0.7) !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(0,0,0,0.16) !important;
+}
+
+.vi-table-embed .vi-header-actions .dw-btn:focus,
+.vi-table-embed .vi-header-actions button:focus,
+.vi-table-embed .vi-header-actions .dw-download:focus,
+.vi-table-embed .footer-embed-wrap .dw-btn:focus,
+.vi-table-embed .footer-embed-wrap button:focus,
+.vi-table-embed .footer-embed-wrap .dw-download:focus,
+.vi-table-embed .vi-header-actions .dw-btn:active,
+.vi-table-embed .vi-header-actions button:active,
+.vi-table-embed .vi-header-actions .dw-download:active,
+.vi-table-embed .footer-embed-wrap .dw-btn:active,
+.vi-table-embed .footer-embed-wrap button:active,
+.vi-table-embed .footer-embed-wrap .dw-download:active,
+.vi-table-embed .vi-header-actions .dw-btn:visited,
+.vi-table-embed .vi-header-actions button:visited,
+.vi-table-embed .vi-header-actions .dw-download:visited,
+.vi-table-embed .footer-embed-wrap .dw-btn:visited,
+.vi-table-embed .footer-embed-wrap button:visited,
+.vi-table-embed .footer-embed-wrap .dw-download:visited {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
+  outline: none !important;
+}
+
+/* remove ghost / flat / transparent styling from wrappers */
+.vi-table-embed .vi-header-actions *,
+.vi-table-embed .footer-embed-wrap * {
+  text-decoration: none !important;
+}
+
+</style>
         """,
         unsafe_allow_html=True,
     )
