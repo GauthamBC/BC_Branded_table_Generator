@@ -1721,6 +1721,22 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
     .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#7a808d; display:block; }
 
+    .vi-table-embed .dw-download,
+    .vi-table-embed .dw-embed-trigger,
+    .vi-table-embed .dw-embed-trigger-header,
+    .vi-table-embed .dw-embed-trigger-footer,
+    .vi-table-embed button.dw-btn.dw-download,
+    .vi-table-embed .vi-header-actions button,
+    .vi-table-embed .footer-embed-wrap button{
+      cursor: pointer !important;
+    }
+
+    .vi-table-embed .dw-download:disabled,
+    .vi-table-embed .dw-embed-trigger:disabled,
+    .vi-table-embed button.dw-btn.dw-download:disabled{
+      cursor: not-allowed !important;
+    }
+
     .vi-table-embed th,
     .vi-table-embed thead th{
       white-space: normal !important;
