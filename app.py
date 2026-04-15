@@ -502,29 +502,6 @@ def style_radio_as_tabs(
 def apply_text_case(text: str, style: str) -> str:
     """Apply a simple text casing rule.
 
-def wrap_header_words(text: str, words_per_line: int) -> str:
-    """Wrap a header label by full words, never splitting a word itself.
-
-    Examples:
-    - 1 => one whole word per line
-    - 2 => two whole words per line
-    """
-    s = "" if text is None else str(text).strip()
-    if not s:
-        return s
-
-    try:
-        n = max(1, int(words_per_line))
-    except Exception:
-        n = 1
-
-    words = [w for w in re.split(r"\s+", s) if w]
-    if not words:
-        return s
-
-    lines = [" ".join(words[i:i + n]) for i in range(0, len(words), n)]
-    return "<br>".join(lines)
-
     Styles expected: Keep original | ALL CAPS | Title Case | Sentence case
     """
     s = "" if text is None else str(text)
@@ -543,7 +520,6 @@ def wrap_header_words(text: str, words_per_line: int) -> str:
         if not s2:
             return s
         low = s2.lower()
-        # Uppercase the first alphabetical character
         for idx, ch in enumerate(low):
             if ch.isalpha():
                 return low[:idx] + ch.upper() + low[idx + 1 :]
@@ -2168,7 +2144,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     /* Balanced 1–3 line header labels using whole words only */
     #bt-block thead th.sortable > .dw-th-label{
       display:inline-block;
-      max-width:100%;
+      width:auto;
+      min-width:0;
+      max-width:none;
       white-space:normal;
       overflow:visible;
       text-overflow:clip;
@@ -2921,8 +2899,37 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
+    function applySmartHeaderWidths(rootEl){
+      const scope = rootEl || table;
+      const ths = Array.from(scope.querySelectorAll('#bt-block thead th, thead th'));
+      ths.forEach((th) => {
+        const label = th.querySelector('.dw-th-label');
+        if (!label) return;
+
+        const html = (label.innerHTML || '').trim();
+        const hasManualWrap = (parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0) > 0;
+        const hasLineBreaks = /<br\s*\/?>/i.test(html);
+        if (!hasManualWrap && !hasLineBreaks) {
+          th.style.minWidth = '';
+          return;
+        }
+
+        const rawLines = html
+          .split(/<br\s*\/?>/i)
+          .map(s => s.replace(/<[^>]*>/g, '').trim())
+          .filter(Boolean);
+
+        if (!rawLines.length) return;
+
+        const longest = rawLines.reduce((m, line) => Math.max(m, line.length), 0);
+        const px = Math.max(92, Math.min(260, Math.round((longest * 9) + 34)));
+        th.style.minWidth = px + 'px';
+      });
+    }
+
     // Wrap header text in span, then format into balanced 1–3 lines using whole words only
     applyBalancedHeaderWrap(table);
+    applySmartHeaderWidths(table);
 
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -3428,9 +3435,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           /* ✅ Keep export image width consistent with the on-page widget (prevents tiny-looking text)
              and still allows header wrapping via wrapExportHeaders() */
           .vi-table-embed.export-mode #bt-block table.dw-table{
-            table-layout: fixed !important;
-            width: 100% !important;
-            min-width: 0 !important;
+            table-layout: auto !important;
+            width: max-content !important;
+            min-width: 100% !important;
           }
         
          /* keep cell-level clamp rules in control */
@@ -3472,37 +3479,23 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           text-overflow: clip !important;
         }
 
-        /* ✅ Clamp the header LABEL, not the <th> (3 lines max) */
+        /* ✅ Export: keep full wrapped labels visible */
         .vi-table-embed.export-mode #bt-block thead th .dw-th-label{
-          display: -webkit-box !important;
-          -webkit-box-orient: vertical !important;
-          -webkit-line-clamp: 3 !important;
-          line-clamp: 3 !important;
-
-          overflow: hidden !important;
-          text-overflow: ellipsis !important;
-
+          display: inline-block !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
           white-space: normal !important;
           overflow-wrap: normal !important;
           word-break: normal !important;
           hyphens: none !important;
-        }
-
-
-        /* ✅ Export: force true vertical centering in header (html2canvas-safe) */
-        .vi-table-embed.export-mode #bt-block thead th{
-          padding: 0 !important;              /* move padding to label for reliable centering */
-          vertical-align: middle !important;
-        }
-        .vi-table-embed.export-mode #bt-block thead th .dw-th-label{
-          display: flex !important;
-          flex-direction: column !important;
-          justify-content: center !important;
-          align-items: center !important;
-          height: 100% !important;
           padding: 10px 14px !important;
           text-align: center !important;
           line-height: 1.15 !important;
+        }
+
+        .vi-table-embed.export-mode #bt-block thead th{
+          padding: 0 !important;
+          vertical-align: middle !important;
 
           /* override clamp props (flex can't clamp reliably) */
           -webkit-line-clamp: unset !important;
@@ -3562,8 +3555,32 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
             }
           });
         }
+        function applySmartHeaderWidthsInClone(cloneRoot){
+          const ths = cloneRoot.querySelectorAll('#bt-block thead th');
+          ths.forEach(th => {
+            const label = th.querySelector('.dw-th-label');
+            if(!label) return;
+            const html = (label.innerHTML || '').trim();
+            const hasManualWrap = (parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0) > 0;
+            const hasLineBreaks = /<br\s*\/?>/i.test(html);
+            if (!hasManualWrap && !hasLineBreaks) {
+              th.style.minWidth = '';
+              return;
+            }
+            const rawLines = html
+              .split(/<br\s*\/?>/i)
+              .map(s => s.replace(/<[^>]*>/g, '').trim())
+              .filter(Boolean);
+            if (!rawLines.length) return;
+            const longest = rawLines.reduce((m, line) => Math.max(m, line.length), 0);
+            const px = Math.max(92, Math.min(260, Math.round((longest * 9) + 34)));
+            th.style.minWidth = px + 'px';
+          });
+        }
+
         // ✅ Call before capture (export-only)
         wrapExportHeaders(clone);
+        applySmartHeaderWidthsInClone(clone);
 
         showRowsInClone(clone, mode);
 
