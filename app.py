@@ -18,267 +18,15 @@ def inject_global_radio_button_css():
         """
         <style>
 
-/* ✅ HARD SYNC: header/footer Embed button must match body button exactly */
-.vi-table-embed .vi-header-actions .dw-btn,
-.vi-table-embed .vi-header-actions button,
-.vi-table-embed .vi-header-actions .dw-download,
-.vi-table-embed .footer-embed-wrap .dw-btn,
-.vi-table-embed .footer-embed-wrap button,
-.vi-table-embed .footer-embed-wrap .dw-download,
-.vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
-.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  background-color: var(--accent-mid) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.28) inset, 0 8px 18px rgba(0,0,0,0.12) !important;
-  text-shadow: none !important;
-  outline: none !important;
+/* ✅ EMBED BUTTON STYLE SOURCE OF TRUTH
+   Keep header, body, and footer triggers visually identical in the widget itself.
+   The actual widget CSS below is the canonical source; this block only prevents
+   Streamlit wrapper styles from dimming links or buttons around it. */
+.vi-table-embed .vi-header-actions,
+.vi-table-embed .footer-embed-wrap {
   opacity: 1 !important;
 }
 
-.vi-table-embed .vi-header-actions .dw-btn:hover,
-.vi-table-embed .vi-header-actions button:hover,
-.vi-table-embed .vi-header-actions .dw-download:hover,
-.vi-table-embed .footer-embed-wrap .dw-btn:hover,
-.vi-table-embed .footer-embed-wrap button:hover,
-.vi-table-embed .footer-embed-wrap .dw-download:hover {
-  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
-  background-color: var(--accent-end) !important;
-  color: #ffffff !important;
-  border-color: rgba(var(--brand-500-rgb), 0.7) !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(0,0,0,0.16) !important;
-}
-
-.vi-table-embed .vi-header-actions .dw-btn:focus,
-.vi-table-embed .vi-header-actions button:focus,
-.vi-table-embed .vi-header-actions .dw-download:focus,
-.vi-table-embed .footer-embed-wrap .dw-btn:focus,
-.vi-table-embed .footer-embed-wrap button:focus,
-.vi-table-embed .footer-embed-wrap .dw-download:focus,
-.vi-table-embed .vi-header-actions .dw-btn:active,
-.vi-table-embed .vi-header-actions button:active,
-.vi-table-embed .vi-header-actions .dw-download:active,
-.vi-table-embed .footer-embed-wrap .dw-btn:active,
-.vi-table-embed .footer-embed-wrap button:active,
-.vi-table-embed .footer-embed-wrap .dw-download:active,
-.vi-table-embed .vi-header-actions .dw-btn:visited,
-.vi-table-embed .vi-header-actions button:visited,
-.vi-table-embed .vi-header-actions .dw-download:visited,
-.vi-table-embed .footer-embed-wrap .dw-btn:visited,
-.vi-table-embed .footer-embed-wrap button:visited,
-.vi-table-embed .footer-embed-wrap .dw-download:visited {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  background-color: var(--accent-mid) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
-  outline: none !important;
-}
-
-/* remove ghost / flat / transparent styling from wrappers */
-.vi-table-embed .vi-header-actions *,
-.vi-table-embed .footer-embed-wrap * {
-  text-decoration: none !important;
-}
-
-
-
-/* 🔥 FORCE header/footer buttons to EXACT body style */
-.vi-table-embed .vi-header-actions .dw-btn,
-.vi-table-embed .footer-embed-wrap .dw-btn {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  color: #ffffff !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12) !important;
-}
-
-/* remove any ghost/outline variants */
-.vi-table-embed .vi-header-actions .dw-btn.dw-ghost,
-.vi-table-embed .footer-embed-wrap .dw-btn.dw-ghost {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  color: #ffffff !important;
-  border: none !important;
-}
-
-
-
-/* ✅ UNIFY Embed / Download button across header, body, footer */
-.vi-table-embed .dw-btn.dw-download,
-.vi-table-embed .vi-header-actions .dw-btn,
-.vi-table-embed .footer-embed-wrap .dw-btn {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(var(--brand-500-rgb), 0.6) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12) !important;
-  font-weight: 700 !important;
-}
-
-/* hover same everywhere */
-.vi-table-embed .dw-btn.dw-download:hover,
-.vi-table-embed .vi-header-actions .dw-btn:hover,
-.vi-table-embed .footer-embed-wrap .dw-btn:hover {
-  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18) !important;
-}
-
-
-        /* ===== Global radio -> button styling ===== */
-        div[data-testid="stRadio"] {
-            width: 100% !important;
-        }
-
-        div[data-testid="stRadio"] > div {
-            width: 100% !important;
-        }
-
-        div[data-testid="stRadio"] [role="radiogroup"] {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-            width: 100% !important;
-        }
-
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] {
-            flex: 1 1 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            min-width: 0 !important;
-            display: flex !important;
-            align-items: stretch !important;
-            justify-content: stretch !important;
-            border: 0 !important;
-            background: transparent !important;
-            padding: 0 !important;
-        }
-
-        /* Hide the native radio circle / icon wrappers */
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:first-child,
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] svg,
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] input[type="radio"] {
-            position: absolute !important;
-            width: 1px !important;
-            height: 1px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-
-        /* Visible button surface */
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
-            flex: 1 1 auto !important;
-            width: 100% !important;
-            min-height: 52px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            text-align: center !important;
-            padding: 0 18px !important;
-            border-radius: 12px !important;
-            border: 1px solid rgba(0,0,0,0.14) !important;
-            background: #ffffff !important;
-            color: #2f3542 !important;
-            font-weight: 700 !important;
-            line-height: 1.15 !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-            transition: all 0.15s ease !important;
-        }
-
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {
-            border-color: rgba(0,0,0,0.24) !important;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
-        }
-
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] input[type="radio"]:checked + div,
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] > div:last-child {
-            background: #FF5A5F !important;
-            border-color: #FF5A5F !important;
-            color: #ffffff !important;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.12) !important;
-        }
-
-        div[data-testid="stRadio"] label[data-baseweb="radio"] p {
-            margin: 0 !important;
-            width: 100% !important;
-            text-align: center !important;
-            font-weight: 700 !important;
-        }
-
-        @media (max-width: 640px) {
-            div[data-testid="stRadio"] [role="radiogroup"] {
-                gap: 10px !important;
-            }
-
-            div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
-                min-height: 48px !important;
-                padding: 0 12px !important;
-                font-size: 15px !important;
-            }
-        }
-        
-
-/* ✅ HARD SYNC: header/footer Embed button must match body button exactly */
-.vi-table-embed .vi-header-actions .dw-btn,
-.vi-table-embed .vi-header-actions button,
-.vi-table-embed .vi-header-actions .dw-download,
-.vi-table-embed .footer-embed-wrap .dw-btn,
-.vi-table-embed .footer-embed-wrap button,
-.vi-table-embed .footer-embed-wrap .dw-download,
-.vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
-.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  background-color: var(--accent-mid) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.28) inset, 0 8px 18px rgba(0,0,0,0.12) !important;
-  text-shadow: none !important;
-  outline: none !important;
-  opacity: 1 !important;
-}
-
-.vi-table-embed .vi-header-actions .dw-btn:hover,
-.vi-table-embed .vi-header-actions button:hover,
-.vi-table-embed .vi-header-actions .dw-download:hover,
-.vi-table-embed .footer-embed-wrap .dw-btn:hover,
-.vi-table-embed .footer-embed-wrap button:hover,
-.vi-table-embed .footer-embed-wrap .dw-download:hover {
-  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
-  background-color: var(--accent-end) !important;
-  color: #ffffff !important;
-  border-color: rgba(var(--brand-500-rgb), 0.7) !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(0,0,0,0.16) !important;
-}
-
-.vi-table-embed .vi-header-actions .dw-btn:focus,
-.vi-table-embed .vi-header-actions button:focus,
-.vi-table-embed .vi-header-actions .dw-download:focus,
-.vi-table-embed .footer-embed-wrap .dw-btn:focus,
-.vi-table-embed .footer-embed-wrap button:focus,
-.vi-table-embed .footer-embed-wrap .dw-download:focus,
-.vi-table-embed .vi-header-actions .dw-btn:active,
-.vi-table-embed .vi-header-actions button:active,
-.vi-table-embed .vi-header-actions .dw-download:active,
-.vi-table-embed .footer-embed-wrap .dw-btn:active,
-.vi-table-embed .footer-embed-wrap button:active,
-.vi-table-embed .footer-embed-wrap .dw-download:active,
-.vi-table-embed .vi-header-actions .dw-btn:visited,
-.vi-table-embed .vi-header-actions button:visited,
-.vi-table-embed .vi-header-actions .dw-download:visited,
-.vi-table-embed .footer-embed-wrap .dw-btn:visited,
-.vi-table-embed .footer-embed-wrap button:visited,
-.vi-table-embed .footer-embed-wrap .dw-download:visited {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  background-color: var(--accent-mid) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(var(--brand-500-rgb), 0.55) !important;
-  outline: none !important;
-}
-
-/* remove ghost / flat / transparent styling from wrappers */
 .vi-table-embed .vi-header-actions *,
 .vi-table-embed .footer-embed-wrap * {
   text-decoration: none !important;
@@ -2070,21 +1818,73 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
-    /* Embed/Download button */
-    .vi-table-embed .dw-btn.dw-download{
-      background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .08) 100%);
-      color:var(--brand-700);
-      border:1px solid rgba(var(--brand-500-rgb), .24);
-      height: 34px;
-      padding-inline: 12px;
-      font-weight:700;
-      box-shadow:0 8px 18px rgba(17,24,39,.06), inset 0 1px 0 rgba(255,255,255,.9);
+
+    /* Embed/Download button — source of truth for body, header, and footer */
+    .vi-table-embed button.dw-btn.dw-download,
+    .vi-table-embed .dw-btn.dw-download,
+    .vi-table-embed .dw-download,
+    .vi-table-embed .vi-header-actions button,
+    .vi-table-embed .vi-header-actions .dw-btn,
+    .vi-table-embed .vi-header-actions .dw-download,
+    .vi-table-embed .footer-embed-wrap button,
+    .vi-table-embed .footer-embed-wrap .dw-btn,
+    .vi-table-embed .footer-embed-wrap .dw-download,
+    .vi-table-embed [data-embed-position="Header"] .vi-header-actions button,
+    .vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
+    .vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap button,
+    .vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn{
+      background:linear-gradient(180deg, var(--accent-start) 0%, var(--accent-mid) 100%) !important;
+      background-color:var(--accent-mid) !important;
+      color:#ffffff !important;
+      border:1px solid rgba(var(--brand-500-rgb), .72) !important;
+      border-radius:12px !important;
+      height:34px;
+      padding-inline:12px;
+      font-weight:700 !important;
+      box-shadow:0 8px 18px rgba(17,24,39,.12), inset 0 1px 0 rgba(255,255,255,.28) !important;
+      text-shadow:none !important;
+      outline:none !important;
+      opacity:1 !important;
+      -webkit-appearance:none !important;
+      appearance:none !important;
+      cursor:pointer !important;
+      text-decoration:none !important;
     }
-    .vi-table-embed .dw-btn.dw-download:hover{
-      background:linear-gradient(180deg,#fff, rgba(var(--brand-500-rgb), .12));
-      border-color:rgba(var(--brand-500-rgb), .42);
-      color:var(--brand-600);
+    .vi-table-embed button.dw-btn.dw-download:hover,
+    .vi-table-embed .dw-btn.dw-download:hover,
+    .vi-table-embed .dw-download:hover,
+    .vi-table-embed .vi-header-actions button:hover,
+    .vi-table-embed .vi-header-actions .dw-btn:hover,
+    .vi-table-embed .vi-header-actions .dw-download:hover,
+    .vi-table-embed .footer-embed-wrap button:hover,
+    .vi-table-embed .footer-embed-wrap .dw-btn:hover,
+    .vi-table-embed .footer-embed-wrap .dw-download:hover,
+    .vi-table-embed button.dw-btn.dw-download:focus,
+    .vi-table-embed .dw-btn.dw-download:focus,
+    .vi-table-embed .dw-download:focus,
+    .vi-table-embed .vi-header-actions button:focus,
+    .vi-table-embed .vi-header-actions .dw-btn:focus,
+    .vi-table-embed .vi-header-actions .dw-download:focus,
+    .vi-table-embed .footer-embed-wrap button:focus,
+    .vi-table-embed .footer-embed-wrap .dw-btn:focus,
+    .vi-table-embed .footer-embed-wrap .dw-download:focus,
+    .vi-table-embed button.dw-btn.dw-download:active,
+    .vi-table-embed .dw-btn.dw-download:active,
+    .vi-table-embed .dw-download:active,
+    .vi-table-embed .vi-header-actions button:active,
+    .vi-table-embed .vi-header-actions .dw-btn:active,
+    .vi-table-embed .vi-header-actions .dw-download:active,
+    .vi-table-embed .footer-embed-wrap button:active,
+    .vi-table-embed .footer-embed-wrap .dw-btn:active,
+    .vi-table-embed .footer-embed-wrap .dw-download:active{
+      background:linear-gradient(180deg, var(--accent-mid) 0%, var(--accent-end) 100%) !important;
+      background-color:var(--accent-end) !important;
+      color:#ffffff !important;
+      border-color:rgba(var(--brand-500-rgb), .9) !important;
+      box-shadow:0 10px 22px rgba(17,24,39,.16), inset 0 1px 0 rgba(255,255,255,.22) !important;
       transform:translateY(-1px);
+      outline:none !important;
+      text-decoration:none !important;
     }
 
     /* Download menu */
@@ -5726,38 +5526,6 @@ if main_tab == "Published Tables":
           /* Remove Streamlit's default underline/highlight if present */
           div[data-baseweb="tab-highlight"] { display: none !important; }
         
-
-/* ==========================================================================
-   FORCE EMBED BUTTON STYLE SYNC
-   Header + body + footer must use the exact same filled branded button style
-   ========================================================================== */
-.vi-table-embed button.dw-btn.dw-download,
-.vi-table-embed .dw-btn.dw-download,
-.vi-table-embed .dw-download,
-.vi-table-embed .vi-header-actions button,
-.vi-table-embed .vi-header-actions .dw-btn,
-.vi-table-embed .vi-header-actions .dw-download,
-.vi-table-embed .footer-embed-wrap button,
-.vi-table-embed .footer-embed-wrap .dw-btn,
-.vi-table-embed .footer-embed-wrap .dw-download,
-.vi-table-embed [data-embed-position="Header"] .vi-header-actions button,
-.vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
-.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap button,
-.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn {
-  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
-  background-color: var(--accent-mid) !important;
-  color: #ffffff !important;
-  border: none !important;
-  outline: none !important;
-  border-radius: 16px !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 8px 18px rgba(0,0,0,0.14) !important;
-  text-shadow: none !important;
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  opacity: 1 !important;
-  cursor: pointer !important;
-  text-decoration: none !important;
-}
 
 /* Explicitly kill ghost / outline / transparent variants */
 .vi-table-embed .vi-header-actions button[class*="ghost"],
