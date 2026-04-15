@@ -5725,7 +5725,106 @@ if main_tab == "Published Tables":
     
           /* Remove Streamlit's default underline/highlight if present */
           div[data-baseweb="tab-highlight"] { display: none !important; }
-        </style>
+        
+
+/* ==========================================================================
+   FORCE EMBED BUTTON STYLE SYNC
+   Header + body + footer must use the exact same filled branded button style
+   ========================================================================== */
+.vi-table-embed button.dw-btn.dw-download,
+.vi-table-embed .dw-btn.dw-download,
+.vi-table-embed .dw-download,
+.vi-table-embed .vi-header-actions button,
+.vi-table-embed .vi-header-actions .dw-btn,
+.vi-table-embed .vi-header-actions .dw-download,
+.vi-table-embed .footer-embed-wrap button,
+.vi-table-embed .footer-embed-wrap .dw-btn,
+.vi-table-embed .footer-embed-wrap .dw-download,
+.vi-table-embed [data-embed-position="Header"] .vi-header-actions button,
+.vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
+.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap button,
+.vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  border-radius: 16px !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 8px 18px rgba(0,0,0,0.14) !important;
+  text-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+}
+
+/* Explicitly kill ghost / outline / transparent variants */
+.vi-table-embed .vi-header-actions button[class*="ghost"],
+.vi-table-embed .vi-header-actions .dw-btn[class*="ghost"],
+.vi-table-embed .footer-embed-wrap button[class*="ghost"],
+.vi-table-embed .footer-embed-wrap .dw-btn[class*="ghost"],
+.vi-table-embed .vi-header-actions button[class*="outline"],
+.vi-table-embed .vi-header-actions .dw-btn[class*="outline"],
+.vi-table-embed .footer-embed-wrap button[class*="outline"],
+.vi-table-embed .footer-embed-wrap .dw-btn[class*="outline"] {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 8px 18px rgba(0,0,0,0.14) !important;
+}
+
+/* Hover / focus / active must also match body button */
+.vi-table-embed button.dw-btn.dw-download:hover,
+.vi-table-embed .dw-btn.dw-download:hover,
+.vi-table-embed .dw-download:hover,
+.vi-table-embed .vi-header-actions button:hover,
+.vi-table-embed .vi-header-actions .dw-btn:hover,
+.vi-table-embed .vi-header-actions .dw-download:hover,
+.vi-table-embed .footer-embed-wrap button:hover,
+.vi-table-embed .footer-embed-wrap .dw-btn:hover,
+.vi-table-embed .footer-embed-wrap .dw-download:hover,
+.vi-table-embed button.dw-btn.dw-download:focus,
+.vi-table-embed .dw-btn.dw-download:focus,
+.vi-table-embed .dw-download:focus,
+.vi-table-embed .vi-header-actions button:focus,
+.vi-table-embed .vi-header-actions .dw-btn:focus,
+.vi-table-embed .vi-header-actions .dw-download:focus,
+.vi-table-embed .footer-embed-wrap button:focus,
+.vi-table-embed .footer-embed-wrap .dw-btn:focus,
+.vi-table-embed .footer-embed-wrap .dw-download:focus,
+.vi-table-embed button.dw-btn.dw-download:active,
+.vi-table-embed .dw-btn.dw-download:active,
+.vi-table-embed .dw-download:active,
+.vi-table-embed .vi-header-actions button:active,
+.vi-table-embed .vi-header-actions .dw-btn:active,
+.vi-table-embed .vi-header-actions .dw-download:active,
+.vi-table-embed .footer-embed-wrap button:active,
+.vi-table-embed .footer-embed-wrap .dw-btn:active,
+.vi-table-embed .footer-embed-wrap .dw-download:active {
+  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
+  background-color: var(--accent-end) !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 2px 0 rgba(255,255,255,0.18) inset, 0 10px 22px rgba(0,0,0,0.18) !important;
+  text-decoration: none !important;
+}
+
+/* Prevent parent wrappers from dimming or flattening these buttons */
+.vi-table-embed .vi-header-actions,
+.vi-table-embed .footer-embed-wrap {
+  opacity: 1 !important;
+}
+
+.vi-table-embed .vi-header-actions *,
+.vi-table-embed .footer-embed-wrap * {
+  text-decoration: none !important;
+}
+
+</style>
         """,
         unsafe_allow_html=True,
     )
