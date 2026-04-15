@@ -2887,7 +2887,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           label.textContent = txt;
         }
 
-        const raw = th.getAttribute('data-header-original') || label.textContent || th.textContent || '';
+        const raw = th.getAttribute('data-header-original')
+          || (label.innerHTML || '').replace(/<br\s*\/?>/gi, ' ')
+          || label.textContent
+          || th.textContent
+          || '';
         th.setAttribute('data-header-original', raw);
 
         const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
@@ -3544,7 +3548,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
               th.appendChild(label);
             }
         
-            const raw = th.getAttribute('data-header-original') || label.textContent || '';
+            const raw = th.getAttribute('data-header-original')
+              || (label.innerHTML || '').replace(/<br\s*\/?>/gi, ' ')
+              || label.textContent
+              || '';
             th.setAttribute('data-header-original', raw);
 
             const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
@@ -4174,8 +4181,11 @@ def generate_table_html_from_df(
             classes.append("dw-text-col")
         class_attr = " ".join(classes)
         wrap_attr = f' data-header-wrap-words="{header_wrap_words}"' if should_wrap_header else ""
+        original_attr = html_mod.escape(display_col, quote=True)
 
-        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{class_attr}"{wrap_attr}>{safe_label}</th>')
+        head_cells.append(
+            f'<th scope="col" data-type="{col_type}" data-header-original="{original_attr}" class="{class_attr}"{wrap_attr}>{safe_label}</th>'
+        )
 
     table_head_html = "\n              ".join(head_cells)
 
