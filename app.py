@@ -17,6 +17,29 @@ def inject_global_radio_button_css():
     st.markdown(
         """
         <style>
+
+/* ✅ UNIFY Embed / Download button across header, body, footer */
+.vi-table-embed .dw-btn.dw-download,
+.vi-table-embed .vi-header-actions .dw-btn,
+.vi-table-embed .footer-embed-wrap .dw-btn {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(var(--brand-500-rgb), 0.6) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12) !important;
+  font-weight: 700 !important;
+}
+
+/* hover same everywhere */
+.vi-table-embed .dw-btn.dw-download:hover,
+.vi-table-embed .vi-header-actions .dw-btn:hover,
+.vi-table-embed .footer-embed-wrap .dw-btn:hover {
+  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18) !important;
+}
+
+
         /* ===== Global radio -> button styling ===== */
         div[data-testid="stRadio"] {
             width: 100% !important;
