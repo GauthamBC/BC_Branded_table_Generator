@@ -1912,21 +1912,26 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .dw-modal-backdrop{
       position:fixed;
       inset:0;
-      background:transparent;
+      background:rgba(17,24,39,.18);
       z-index:9998;
       padding:0;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
     }
     .vi-table-embed .dw-modal{
       width:min(92vw, 320px);
-      background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .08) 100%);
+      background:#ffffff;
+      opacity:1;
       border:1px solid rgba(var(--brand-500-rgb), .22);
       border-top:2px solid var(--brand-600);
       border-radius:0;
-      box-shadow:0 18px 40px rgba(17,24,39,.18), 0 6px 18px rgba(var(--brand-500-rgb), .10);
+      box-shadow:0 18px 40px rgba(17,24,39,.24), 0 6px 18px rgba(var(--brand-500-rgb), .10);
       padding:10px;
       position:fixed;
       left:0;
       top:0;
+      overflow:hidden;
+      isolation:isolate;
     }
     .vi-table-embed .dw-modal-head{
       display:flex;
@@ -1973,13 +1978,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       text-align:left;
       border-radius:0;
       border:1px solid rgba(var(--brand-500-rgb), .18);
-      background:linear-gradient(180deg,#fff 0%, rgba(var(--brand-500-rgb), .05) 100%);
+      background:#ffffff;
       color:#111827;
       padding:10px 12px;
       cursor:pointer;
       margin:0;
       font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+      box-shadow:none;
     }
     .vi-table-embed .dw-modal .dw-menu-btn:hover{
       background:linear-gradient(180deg, rgba(var(--brand-500-rgb), .10) 0%, rgba(var(--brand-500-rgb), .16) 100%);
