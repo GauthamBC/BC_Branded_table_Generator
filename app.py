@@ -532,6 +532,27 @@ def apply_text_case(text: str, style: str) -> str:
     return s
 
 
+def wrap_text_by_words(text: str, words_per_line: int) -> str:
+    """Wrap text into lines containing up to `words_per_line` words each."""
+    s = "" if text is None else str(text).strip()
+    try:
+        words_per_line = int(words_per_line)
+    except Exception:
+        words_per_line = 0
+
+    if not s or words_per_line <= 0:
+        return s
+
+    words = s.split()
+    if not words:
+        return s
+
+    return "\n".join(
+        " ".join(words[i:i + words_per_line])
+        for i in range(0, len(words), words_per_line)
+    )
+
+
 def compute_preview_height(row_count: int) -> int:
     """Return a preview iframe height that stays close to the table's real rendered height.
 
@@ -1506,7 +1527,7 @@ def get_brand_meta(brand: str) -> dict:
 # =========================================================
 # HTML Template (UPDATED)
 # =========================================================
-HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
+HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
 <!DOCTYPE html>
 
 <html lang="en">
@@ -2826,6 +2847,21 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       return best && best.lines && best.lines.length ? best.lines.join('<br>') : txt;
     }
 
+    function buildFixedWordsHeaderHTML(raw, wordsPerLine = 2){
+      const txt = normalizeHeaderText(raw);
+      const take = Math.max(1, parseInt(wordsPerLine || 0, 10) || 1);
+      if (!txt) return '';
+
+      const words = txt.split(' ').filter(Boolean);
+      if (!words.length) return txt;
+
+      const lines = [];
+      for (let i = 0; i < words.length; i += take) {
+        lines.push(words.slice(i, i + take).join(' '));
+      }
+      return lines.join('<br>');
+    }
+
     function applyBalancedHeaderWrap(rootEl){
       const scope = rootEl || table;
       const ths = Array.from(scope.querySelectorAll('#bt-block thead th, thead th'));
@@ -2842,7 +2878,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
         const raw = th.getAttribute('data-header-original') || label.textContent || th.textContent || '';
         th.setAttribute('data-header-original', raw);
-        label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+
+        const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
+        if (fixedWords > 0) {
+          label.innerHTML = buildFixedWordsHeaderHTML(raw, fixedWords);
+        } else {
+          label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+        }
       });
     }
 
@@ -3478,7 +3520,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         
             const raw = th.getAttribute('data-header-original') || label.textContent || '';
             th.setAttribute('data-header-original', raw);
-            label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+
+            const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
+            if (fixedWords > 0) {
+              label.innerHTML = buildFixedWordsHeaderHTML(raw, fixedWords);
+            } else {
+              label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+            }
           });
         }
         // ✅ Call before capture (export-only)
@@ -3744,6 +3792,8 @@ def generate_table_html_from_df(
     heatmap_style: str = "Branded heatmap",
     header_style: str = "Keep original",
     col_header_overrides: dict | None = None,
+    header_wrap_target: str = "Off",
+    header_wrap_words: int = 2,
     col_format_rules: dict | None = None,
 ) -> str:
 
@@ -3779,6 +3829,13 @@ def generate_table_html_from_df(
     except Exception:
         footer_logo_h = 36
     footer_logo_h = max(16, min(90, footer_logo_h))
+    try:
+        header_wrap_words = int(header_wrap_words)
+    except Exception:
+        header_wrap_words = 2
+    header_wrap_words = max(1, min(10, header_wrap_words))
+    header_wrap_target = str(header_wrap_target or "Off").strip()
+
     # Footer notes (simple markdown: **bold** and *italic*)
     show_footer_notes = bool(show_footer_notes)
     footer_notes = (footer_notes or "").strip()
@@ -4047,7 +4104,18 @@ def generate_table_html_from_df(
             display_col = str(_base_label)
         else:
             display_col = format_column_header(str(_base_label), header_style)
-        safe_label = html_mod.escape(display_col)
+
+        should_wrap_header = False
+        if header_wrap_target == "All columns":
+            should_wrap_header = True
+        elif header_wrap_target and header_wrap_target != "Off" and str(col) == header_wrap_target:
+            should_wrap_header = True
+
+        if should_wrap_header:
+            wrapped_lines = wrap_text_by_words(display_col, header_wrap_words).splitlines()
+            safe_label = "<br>".join(html_mod.escape(line) for line in wrapped_lines if line.strip())
+        else:
+            safe_label = html_mod.escape(display_col)
 
         classes = []
         if col in bar_columns_set and col_type == "num":
@@ -4055,8 +4123,9 @@ def generate_table_html_from_df(
         if col in text_wrap_columns:
             classes.append("dw-text-col")
         class_attr = " ".join(classes)
+        wrap_attr = f' data-header-wrap-words="{header_wrap_words}"' if should_wrap_header else ""
 
-        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{class_attr}">{safe_label}</th>')
+        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{class_attr}"{wrap_attr}>{safe_label}</th>')
 
     table_head_html = "\n              ".join(head_cells)
 
@@ -4301,6 +4370,8 @@ def draft_config_from_state() -> dict:
         "heatmap_style": st.session_state.get("bt_heatmap_style", "Branded heatmap"),
         "header_style": st.session_state.get("bt_header_style", "Keep original"),
         "col_header_overrides": st.session_state.get("bt_col_header_overrides", {}) or {},
+        "header_wrap_target": st.session_state.get("bt_header_wrap_target", "Off"),
+        "header_wrap_words": st.session_state.get("bt_header_wrap_words", 2),
     }
 
 
@@ -4340,6 +4411,8 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         heatmap_style=cfg.get("heatmap_style", "Branded heatmap"),
         header_style=cfg.get("header_style", "Keep original"),
         col_header_overrides=cfg.get("col_header_overrides", {}) or {},
+        header_wrap_target=cfg.get("header_wrap_target", "Off"),
+        header_wrap_words=cfg.get("header_wrap_words", 2),
 
         # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
@@ -4432,7 +4505,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
         "bt_striped_rows","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
         "bt_bar_columns","bt_bar_max_overrides","bt_bar_fixed_w",
         "bt_heat_columns","bt_heat_overrides","bt_heat_strength","bt_heatmap_style","bt_header_style",
-        "bt_col_format_rules","bt_hidden_cols"
+        "bt_header_wrap_target","bt_header_wrap_words","bt_col_format_rules","bt_hidden_cols"
     ]:
         st.session_state.pop(k, None)
 
@@ -4501,6 +4574,8 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_heat_strength"]       = float(cfg.get("heat_strength", 0.55) or 0.55)
     st.session_state["bt_heatmap_style"]       = cfg.get("heatmap_style", "Branded heatmap")
     st.session_state["bt_header_style"]        = cfg.get("header_style", "Keep original")
+    st.session_state["bt_header_wrap_target"]  = cfg.get("header_wrap_target", "Off")
+    st.session_state["bt_header_wrap_words"]   = int(cfg.get("header_wrap_words", 2) or 2)
 
     st.session_state["bt_col_format_rules"]    = bundle.get("col_format_rules", {}) or {}
     st.session_state["bt_hidden_cols"]         = bundle.get("hidden_cols", []) or []
@@ -4639,6 +4714,8 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
     st.session_state.setdefault("bt_col_header_overrides", {})
+    st.session_state.setdefault("bt_header_wrap_target", "Off")
+    st.session_state.setdefault("bt_header_wrap_words", 2)
     st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
     st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
     st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
@@ -4771,6 +4848,8 @@ def restore_draft_state_from_confirmed():
 
         "header_style": "bt_header_style",
         "col_header_overrides": "bt_col_header_overrides",
+        "header_wrap_target": "bt_header_wrap_target",
+        "header_wrap_words": "bt_header_wrap_words",
     }
 
     # Known defaults that commonly re-appear after reruns (these are the ones we
@@ -4782,6 +4861,8 @@ def restore_draft_state_from_confirmed():
         "bt_subtitle_style": "Keep original",
         "bt_header_style": "Keep original",
         "bt_col_header_overrides": {},
+        "bt_header_wrap_target": "Off",
+        "bt_header_wrap_words": 2,
         "bt_show_footer_notes": False,
         "bt_footer_notes": "",
         "bt_show_embed": True,
@@ -4942,6 +5023,8 @@ def reset_table_edits():
     # ✅ Clear header overrides
     st.session_state["bt_col_header_overrides"] = {}
     st.session_state["bt_col_header_overrides_draft"] = {}
+    st.session_state["bt_header_wrap_target"] = "Off"
+    st.session_state["bt_header_wrap_words"] = 2
 
     # ✅ Force data_editor to reset by changing its key
     st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
@@ -6308,6 +6391,36 @@ if main_tab == "Create New Table":
                                     value=st.session_state.get("bt_branded_title_color", True),
                                     key="bt_branded_title_color",
                                     disabled=not show_header,
+                                )
+
+                                _df_for_header_wrap = st.session_state.get("bt_df_uploaded")
+                                _header_wrap_column_options = ["Off", "All columns"]
+                                if isinstance(_df_for_header_wrap, pd.DataFrame) and not _df_for_header_wrap.empty:
+                                    _header_wrap_column_options.extend([str(c) for c in _df_for_header_wrap.columns])
+
+                                _header_wrap_target = st.session_state.get("bt_header_wrap_target", "Off")
+                                if _header_wrap_target not in _header_wrap_column_options:
+                                    _header_wrap_target = "Off"
+                                    st.session_state["bt_header_wrap_target"] = "Off"
+
+                                st.selectbox(
+                                    "Header wrap text",
+                                    options=_header_wrap_column_options,
+                                    index=_header_wrap_column_options.index(_header_wrap_target),
+                                    key="bt_header_wrap_target",
+                                    disabled=not show_header,
+                                    help="Choose Off, All columns, or a single column to wrap header text by words per line.",
+                                )
+
+                                st.number_input(
+                                    "Words per line",
+                                    min_value=1,
+                                    max_value=10,
+                                    value=int(st.session_state.get("bt_header_wrap_words", 2)),
+                                    step=1,
+                                    key="bt_header_wrap_words",
+                                    disabled=(not show_header) or (st.session_state.get("bt_header_wrap_target", "Off") == "Off"),
+                                    help="1 = one word per line, 2 = two words per line, and so on.",
                                 )
 
                         with sub_footer:
