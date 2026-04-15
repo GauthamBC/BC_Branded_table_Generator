@@ -18,6 +18,26 @@ def inject_global_radio_button_css():
         """
         <style>
 
+/* 🔥 FORCE header/footer buttons to EXACT body style */
+.vi-table-embed .vi-header-actions .dw-btn,
+.vi-table-embed .footer-embed-wrap .dw-btn {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12) !important;
+}
+
+/* remove any ghost/outline variants */
+.vi-table-embed .vi-header-actions .dw-btn.dw-ghost,
+.vi-table-embed .footer-embed-wrap .dw-btn.dw-ghost {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+
+
 /* ✅ UNIFY Embed / Download button across header, body, footer */
 .vi-table-embed .dw-btn.dw-download,
 .vi-table-embed .vi-header-actions .dw-btn,
