@@ -1472,7 +1472,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
-         box-shadow:0 10px 24px rgba(var(--brand-500-rgb),.08), 0 18px 48px rgba(17,24,39,.10), inset 0 1px 0 rgba(255,255,255,.85);">
+         box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
     html, body { height:100%; }
     body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
@@ -1523,6 +1523,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       flex-direction: column;
       overflow: hidden;
       isolation: isolate;
+      position: relative;
     }
 
     .vi-table-embed.align-left { --cell-align:left; }
@@ -1945,16 +1946,18 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
 
     .vi-table-embed .dw-modal-backdrop{
-      position:fixed;
+      position:absolute;
       inset:0;
-      background:rgba(17,24,39,.18);
+      background:rgba(17,24,39,.14);
       z-index:9998;
       padding:0;
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
+      overflow:hidden;
+      backdrop-filter: blur(1.5px);
+      -webkit-backdrop-filter: blur(1.5px);
     }
     .vi-table-embed .dw-modal{
       width:min(92vw, 320px);
+      max-width:calc(100% - 28px);
       background:#ffffff;
       opacity:1;
       border:1px solid rgba(var(--brand-500-rgb), .22);
@@ -1962,9 +1965,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       border-radius:0;
       box-shadow:0 18px 40px rgba(17,24,39,.24), 0 6px 18px rgba(var(--brand-500-rgb), .10);
       padding:10px;
-      position:fixed;
-      left:0;
-      top:0;
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
       overflow:hidden;
       isolation:isolate;
     }
