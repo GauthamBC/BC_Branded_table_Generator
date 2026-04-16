@@ -1685,7 +1685,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
       --gutter: 12px;
-      padding: 0;
+      padding: 12px 0 10px;
       flex: 1 1 auto;
       min-height: 0;
       display: flex;
@@ -1698,7 +1698,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       grid-template-columns: minmax(0, 1fr) auto;
       align-items:center;
       gap: var(--ctrl-gap);
-      margin: 12px 0 10px 0;
+      margin: 4px 0 10px 0;
       width:100%;
       min-width:0;
     }
@@ -7377,7 +7377,8 @@ if main_tab == "Create New Table":
                                     live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                 if live:
-                                    published_row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
+                                    published_df = st.session_state.get("bt_df_uploaded")
+                                    published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
                                     published_iframe_height = compute_preview_height(published_row_count)
                                     st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
