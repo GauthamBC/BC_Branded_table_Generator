@@ -1617,13 +1617,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     /* Header block */
     .vi-table-embed .vi-table-header{
       border-bottom:1px solid var(--brand-600);
-      padding:12px 18px 10px;
+      padding:14px 18px;
+      min-height:88px;
       background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .04));
       backdrop-filter:none;
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:space-between;
-      gap:12px;
+      gap:16px;
       position:relative;
       overflow:visible;
       z-index:30;
@@ -1633,16 +1634,19 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       flex:1 1 auto;
       display:flex;
       flex-direction:column;
+      justify-content:center;
       align-items:flex-start;
-      gap:2px;
+      gap:4px;
+      min-height:100%;
     }
     .vi-table-embed .vi-table-header.centered .vi-header-main{ align-items:center; text-align:center; }
     .vi-table-embed .vi-header-actions{
       flex:0 0 auto;
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:flex-end;
       min-width:max-content;
+      min-height:100%;
       position:relative;
       overflow:visible;
       z-index:40;
@@ -2312,22 +2316,29 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .vi-footer {
       display:flex;
       align-items:center;
-      padding:0 14px;            /* fixed-height footer; no vertical padding */
-      height:64px;               /* ✅ fixed footer height */
+      padding:10px 18px;
+      min-height:88px;
+      height:88px;
       border-top:1px solid var(--footer-border);
       background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .05));
       backdrop-filter:none;
-      flex: 0 0 64px;
+      flex: 0 0 88px;
       z-index: 30;
-      overflow:visible;
+      overflow:hidden;
+      width:100%;
+      min-width:0;
     }
     .vi-table-embed .footer-inner{
       display:flex;
       justify-content:flex-end;
       align-items:center;
-      gap:12px;
+      gap:16px;
+      min-height:100%;
       height:100%;
       width:100%;
+      min-width:0;
+      flex-wrap:nowrap;
+      overflow:hidden;
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
@@ -2382,15 +2393,21 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .footer-logo{
       flex: 0 0 auto;
       display:flex;
-      justify-content:flex-end;
+      justify-content:flex-start;
       align-items:center;
+      min-width:180px;
+      min-height:100%;
+      overflow:hidden;
     }
 
     .vi-table-embed .footer-embed-wrap{
       flex: 0 0 auto;
+      flex-shrink:0;
       display:flex;
       align-items:center;
       justify-content:flex-end;
+      min-width:max-content;
+      min-height:100%;
       margin-left:auto;
       position:relative;
       overflow:visible;
@@ -2411,7 +2428,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       margin-right:auto;
     }
     .vi-table-embed.footer-with-embed .footer-embed-wrap{
-      margin-left:12px;
+      margin-left:16px;
     }
 
     .vi-table-embed .footer-scale-wrap{
@@ -2466,7 +2483,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed.footer-left .footer-logo{ justify-content:flex-start; }
 
     /* When centered requested but notes are enabled, we treat it like RIGHT (handled in Python) */
-    .vi-table-embed .vi-footer img{height: var(--footer-logo-h); width:auto; display:inline-block; max-height:100%; width:auto; display:inline-block; }
+    .vi-table-embed .vi-footer img{
+      height: var(--footer-logo-h);
+      width: auto !important;
+      max-width: 190px;
+      max-height: 44px;
+      display:inline-block;
+      object-fit: contain;
+      vertical-align: middle;
+    }
 
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%); width: auto;
@@ -2600,7 +2625,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
 </div>
 <div class="footer-logo">
-<img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="140"/>
+<img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="160"/>
 </div>
 <div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
 <button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed / Download</button>
