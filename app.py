@@ -482,25 +482,27 @@ def compute_preview_height(row_count: int) -> int:
     except Exception:
         row_count = 0
 
-    if row_count <= 0:
-        return 560
-    if row_count >= 10:
-        return 760
-
-    return max(520, min(760, 240 + (row_count * 52)))
+    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
+    header = 88
+    controls = 50
+    row_height = 52
+    footer = 88
+    buffer = 72
+    return header + controls + (visible_rows * row_height) + footer + buffer
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return the internal scroll cap for the table region inside the widget."""
+    """Fallback internal height for the table region; JS measures the exact final height."""
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    if row_count >= 10:
-        return 680
-
-    return max(260, 130 + (row_count * 52))
+    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
+    thead = 72
+    row_height = 52
+    bottom_allowance = 40
+    return thead + (visible_rows * row_height) + bottom_allowance
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -1518,10 +1520,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
       height: auto;
       min-height: 0;
-      max-height: [[WIDGET_MAX_H]]px;
+      max-height: none;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: visible;
       isolation: isolate;
       position: relative;
     }
@@ -2060,7 +2062,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     /* scroll */
     #bt-block .dw-scroll{
       min-height: 0;
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: contain;
@@ -2769,22 +2772,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     function syncMeasuredScrollerHeight(){
       if (!widgetRoot || !scroller || !table || !tb) return;
 
-      const headerEl = widgetRoot.querySelector('.vi-table-header');
-      const footerEl = widgetRoot.querySelector('.vi-footer');
-      const pageStatusWrap = root.querySelector('.dw-page-status');
       const theadEl = table.tHead;
       const visibleRows = Array.from(tb.rows).filter(row =>
         !row.classList.contains('dw-empty') && row.style.display !== 'none'
       );
 
-      const targetRows = Math.max(
-        1,
-        Math.min(
-          hasPager && pageSize > 0 ? pageSize : 10,
-          visibleRows.length || (hasPager && pageSize > 0 ? pageSize : 10),
-          10
-        )
-      );
+      const targetRows = Math.max(1, Math.min(visibleRows.length || 1, 10));
 
       let visibleRowsHeight = 0;
       for (let i = 0; i < targetRows; i++) {
@@ -2798,45 +2791,18 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
 
       const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
-      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 0;
-      const controlsHeight = controls && !controlsHidden ? controls.getBoundingClientRect().height : 0;
-      const statusHeight = pageStatusWrap ? pageStatusWrap.getBoundingClientRect().height : 0;
-      const footerHeight = footerEl ? footerEl.getBoundingClientRect().height : 0;
-      const rootStyles = window.getComputedStyle(root);
-      const rootPadTop = parseFloat(rootStyles.paddingTop) || 0;
-      const rootPadBottom = parseFloat(rootStyles.paddingBottom) || 0;
-
-      // Extra room so the last row is always fully visible above the horizontal scrollbar/fade.
-      const compactBottomAllowance = 28;
-      const generalBuffer = 12;
-      const desiredScrollHeight = Math.ceil(
+      const compactBottomAllowance = 32;
+      const generalBuffer = 14;
+      const finalScrollHeight = Math.ceil(
         theadHeight + visibleRowsHeight + compactBottomAllowance + generalBuffer
       );
 
-      let finalScrollHeight = desiredScrollHeight;
-
-      // Only clamp against viewport for larger paged tables. Small tables should hug the last row,
-      // regardless of whether the header is visible.
-      if (targetRows > 10) {
-        const availableScrollHeight = Math.floor(
-          window.innerHeight
-          - headerHeight
-          - controlsHeight
-          - statusHeight
-          - footerHeight
-          - rootPadTop
-          - rootPadBottom
-          - generalBuffer
-        );
-
-        finalScrollHeight = Math.max(
-          Math.ceil(theadHeight + Math.min(fallbackRowHeight * Math.min(targetRows, 3), 180)),
-          Math.min(desiredScrollHeight, availableScrollHeight > 0 ? availableScrollHeight : desiredScrollHeight)
-        );
-      }
-
       scroller.style.height = `${finalScrollHeight}px`;
       scroller.style.maxHeight = `${finalScrollHeight}px`;
+      scroller.style.overflowY = 'hidden';
+      scroller.style.overflowX = 'auto';
+      widgetRoot.style.maxHeight = 'none';
+      widgetRoot.style.overflow = 'visible';
     }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
