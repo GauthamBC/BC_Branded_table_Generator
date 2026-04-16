@@ -476,47 +476,37 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a row-aware iframe height used by preview and published embeds.
+    """Return iframe height using header + controls + visible rows + footer + buffer."""
+    try:
+        row_count = int(row_count)
+    except Exception:
+        row_count = 0
 
-    Formula requested:
-        iframe_height = header + controls + (visible_rows * row_height) + footer + buffer
+    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
+    header = 88
+    controls = 50
+    row_height = 52
+    footer = 88
+    buffer = 60
+    return header + controls + (visible_rows * row_height) + footer + buffer
 
-    Notes:
-    - visible_rows is capped at 10 because paging handles additional rows.
-    - We keep a small minimum/maximum guard so the iframe does not become too tiny
-      for empty tables or too tall from accidental regressions.
+
+def compute_widget_table_max_height(row_count: int) -> int:
+    """Return the internal table viewport height for the currently visible rows.
+
+    This keeps the footer immediately below the last visible row and avoids
+    unnecessary vertical scrolling for compact tables.
     """
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    if row_count <= 0:
-        return 560
-
-    visible_rows = max(1, min(row_count, 10))
-
-    header_h = 88
-    controls_h = 50
-    row_h = 52
-    footer_h = 88
-    buffer_h = 60
-
-    iframe_height = header_h + controls_h + (visible_rows * row_h) + footer_h + buffer_h
-    return max(560, min(860, int(iframe_height)))
-
-
-def compute_widget_table_max_height(row_count: int) -> int:
-    """Return the internal scroll cap for the table region inside the widget."""
-    try:
-        row_count = int(row_count)
-    except Exception:
-        row_count = 0
-
-    if row_count >= 10:
-        return 680
-
-    return max(260, 130 + (row_count * 52))
+    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
+    thead_height = 64
+    row_height = 52
+    buffer = 2
+    return thead_height + (visible_rows * row_height) + buffer
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -2076,11 +2066,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     /* scroll */
     #bt-block .dw-scroll{
       min-height: 0;
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: contain;
-      scrollbar-gutter: stable;
+      scrollbar-gutter: stable both-edges;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
       position: relative;
@@ -2785,63 +2776,28 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     function syncMeasuredScrollerHeight(){
       if (!widgetRoot || !scroller || !table || !tb) return;
 
-      const headerEl = widgetRoot.querySelector('.vi-table-header');
-      const footerEl = widgetRoot.querySelector('.vi-footer');
-      const pageStatusWrap = root.querySelector('.dw-page-status');
       const theadEl = table.tHead;
       const visibleRows = Array.from(tb.rows).filter(row =>
         !row.classList.contains('dw-empty') && row.style.display !== 'none'
       );
 
-      const targetRows = Math.max(
-        1,
-        Math.min(
-          hasPager && pageSize > 0 ? pageSize : 10,
-          visibleRows.length || (hasPager && pageSize > 0 ? pageSize : 10),
-          10
-        )
-      );
-
-      let visibleRowsHeight = 0;
-      for (let i = 0; i < targetRows; i++) {
-        const row = visibleRows[i];
-        if (row) visibleRowsHeight += row.getBoundingClientRect().height;
-      }
-
       const fallbackRowHeight = visibleRows[0]?.getBoundingClientRect().height || 54;
+      let visibleRowsHeight = 0;
+      visibleRows.forEach((row) => {
+        visibleRowsHeight += row.getBoundingClientRect().height || fallbackRowHeight;
+      });
       if (visibleRowsHeight === 0) {
-        visibleRowsHeight = fallbackRowHeight * targetRows;
+        visibleRowsHeight = fallbackRowHeight * Math.max(visibleRows.length, 1);
       }
 
       const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
-      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 0;
-      const controlsHeight = controls && !controlsHidden ? controls.getBoundingClientRect().height : 0;
-      const statusHeight = pageStatusWrap ? pageStatusWrap.getBoundingClientRect().height : 0;
-      const footerHeight = footerEl ? footerEl.getBoundingClientRect().height : 0;
-      const rootStyles = window.getComputedStyle(root);
-      const rootPadTop = parseFloat(rootStyles.paddingTop) || 0;
-      const rootPadBottom = parseFloat(rootStyles.paddingBottom) || 0;
-      const buffer = 10;
-
+      const buffer = 2;
       const desiredScrollHeight = Math.ceil(theadHeight + visibleRowsHeight + buffer);
-      const availableScrollHeight = Math.floor(
-        window.innerHeight
-        - headerHeight
-        - controlsHeight
-        - statusHeight
-        - footerHeight
-        - rootPadTop
-        - rootPadBottom
-        - buffer
-      );
 
-      const finalScrollHeight = Math.max(
-        Math.ceil(theadHeight + Math.min(fallbackRowHeight * Math.min(targetRows, 3), 180)),
-        Math.min(desiredScrollHeight, availableScrollHeight > 0 ? availableScrollHeight : desiredScrollHeight)
-      );
-
-      scroller.style.height = `${finalScrollHeight}px`;
-      scroller.style.maxHeight = `${finalScrollHeight}px`;
+      scroller.style.height = `${desiredScrollHeight}px`;
+      scroller.style.maxHeight = `${desiredScrollHeight}px`;
+      scroller.style.overflowY = 'hidden';
+      scroller.scrollTop = 0;
     }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
