@@ -476,11 +476,7 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a preview iframe height that stays close to the table's real rendered height.
-
-    This avoids oversized previews that can create visible empty space between the
-    page-status line and the footer when the widget itself uses a fixed full-height layout.
-    """
+    """Return a row-aware iframe height used by preview and published embeds."""
     try:
         row_count = int(row_count)
     except Exception:
@@ -492,6 +488,19 @@ def compute_preview_height(row_count: int) -> int:
         return 760
 
     return max(520, min(760, 240 + (row_count * 52)))
+
+
+def compute_widget_table_max_height(row_count: int) -> int:
+    """Return the internal scroll cap for the table region inside the widget."""
+    try:
+        row_count = int(row_count)
+    except Exception:
+        row_count = 0
+
+    if row_count >= 10:
+        return 680
+
+    return max(260, 130 + (row_count * 52))
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -1507,8 +1516,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
 
-      height: 100vh;
+      height: auto;
       min-height: 0;
+      max-height: [[WIDGET_MAX_H]]px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -3849,10 +3859,7 @@ def generate_table_html_from_df(
 
     # Dynamic heights based on row count
     row_count = len(df.index)
-    if row_count >= 10:
-        table_max_h = 680
-    else:
-        table_max_h = max(260, 130 + (row_count * 52))
+    table_max_h = compute_widget_table_max_height(row_count)
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
     heat_columns_set = set(heat_columns or [])
@@ -4358,6 +4365,7 @@ def generate_table_html_from_df(
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
+        .replace("[[WIDGET_MAX_H]]", str(compute_preview_height(row_count)))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -7369,9 +7377,13 @@ if main_tab == "Create New Table":
                                     live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                 if live:
+                                    published_row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
+                                    published_iframe_height = compute_preview_height(published_row_count)
+                                    st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                         pages_url,
-                                        height=int(st.session_state.get("bt_iframe_height", 800)),
+                                        height=published_iframe_height,
+                                        brand=current_brand,
                                     )
                                 
                                     # ✅ IMPORTANT: mark the page live + stop "in progress" state
