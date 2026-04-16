@@ -2659,7 +2659,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     const triggerButtons = [downloadBtn, headerTrigger, footerTrigger].filter(Boolean);
 
     const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
-    if (menu) menu.classList.add('vi-hide');
+    if (menu) {
+      menu.classList.add('vi-hide');
+      menu.style.display = 'none';
+      menu.setAttribute('aria-hidden', 'true');
+    }
 
     const modal = widgetRoot ? widgetRoot.querySelector('#dw-embed-modal') : null;
     const modalTitle = modal ? modal.querySelector('#dw-modal-title') : null;
@@ -2688,9 +2692,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
       && !!sizeSel && !!prevBtn && !!nextBtn;
 
-    const hasEmbed = !controlsHidden
-      && !!embedWrap && !embedWrap.classList.contains('vi-hide')
-      && !!downloadBtn && !!menu;
+    const hasEmbed = triggerButtons.length > 0
+      && !!modal
+      && !!modalTitle
+      && !!btnTop10
+      && !!btnBottom10
+      && !!btnCsv
+      && !!btnEmbed;
 
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
