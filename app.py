@@ -476,7 +476,16 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a row-aware iframe height used by preview and published embeds."""
+    """Return a row-aware iframe height used by preview and published embeds.
+
+    Formula requested:
+        iframe_height = header + controls + (visible_rows * row_height) + footer + buffer
+
+    Notes:
+    - visible_rows is capped at 10 because paging handles additional rows.
+    - We keep a small minimum/maximum guard so the iframe does not become too tiny
+      for empty tables or too tall from accidental regressions.
+    """
     try:
         row_count = int(row_count)
     except Exception:
@@ -484,10 +493,17 @@ def compute_preview_height(row_count: int) -> int:
 
     if row_count <= 0:
         return 560
-    if row_count >= 10:
-        return 760
 
-    return max(520, min(760, 240 + (row_count * 52)))
+    visible_rows = max(1, min(row_count, 10))
+
+    header_h = 88
+    controls_h = 50
+    row_h = 52
+    footer_h = 88
+    buffer_h = 60
+
+    iframe_height = header_h + controls_h + (visible_rows * row_h) + footer_h + buffer_h
+    return max(560, min(860, int(iframe_height)))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
