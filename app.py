@@ -505,7 +505,7 @@ def compute_widget_table_max_height(row_count: int) -> int:
     visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
     thead_height = 64
     row_height = 52
-    buffer = 2
+    buffer = 30
     return thead_height + (visible_rows * row_height) + buffer
 
 
@@ -2791,7 +2791,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
 
       const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
-      const buffer = 2;
+      const scrollbarAllowance = Math.max(18, scroller.offsetHeight - scroller.clientHeight || 0);
+      const bottomFadeAllowance = 18;
+      const buffer = scrollbarAllowance + bottomFadeAllowance + 6;
       const desiredScrollHeight = Math.ceil(theadHeight + visibleRowsHeight + buffer);
 
       scroller.style.height = `${desiredScrollHeight}px`;
