@@ -1685,7 +1685,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
       --gutter: 12px;
-      padding: 12px 0 10px;
+      padding: 0;
       flex: 1 1 auto;
       min-height: 0;
       display: flex;
@@ -1698,7 +1698,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       grid-template-columns: minmax(0, 1fr) auto;
       align-items:center;
       gap: var(--ctrl-gap);
-      margin: 4px 0 10px 0;
+      margin: 12px 0 10px 0;
       width:100%;
       min-width:0;
     }
@@ -2688,7 +2688,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
       && !!sizeSel && !!prevBtn && !!nextBtn;
 
-    const hasEmbed = triggerButtons.length > 0 && !!modal;
+    const hasEmbed = !controlsHidden
+      && !!embedWrap && !embedWrap.classList.contains('vi-hide')
+      && !!downloadBtn && !!menu;
 
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
