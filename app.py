@@ -3161,26 +3161,46 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     let lastTrigger = null;
 
     function positionMenu(anchor){
-      if(!modal || !anchor) return;
+      if(!modal || !anchor || !widgetRoot) return;
       const panel = modal.querySelector('.dw-modal');
       if(!panel) return;
 
+      const widgetRect = widgetRoot.getBoundingClientRect();
       const rect = anchor.getBoundingClientRect();
-      const panelWidth = Math.min(320, window.innerWidth - 16);
-      panel.style.width = `${panelWidth}px`;
-
+      const sidePad = 12;
       const gap = 10;
-      let left = rect.right - panelWidth;
-      left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8));
 
-      let top = rect.bottom + gap;
-      const maxTop = window.innerHeight - panel.offsetHeight - 8;
-      if (top > maxTop) {
-        top = Math.max(8, rect.top - panel.offsetHeight - gap);
+      const availableWidth = Math.max(220, widgetRect.width - (sidePad * 2));
+      const panelWidth = Math.min(320, availableWidth);
+      panel.style.width = `${panelWidth}px`;
+      panel.style.maxWidth = `${availableWidth}px`;
+
+      const panelHeight = panel.offsetHeight || 0;
+      const anchorLeft = rect.left - widgetRect.left;
+      const anchorRight = rect.right - widgetRect.left;
+      const anchorTop = rect.top - widgetRect.top;
+      const anchorBottom = rect.bottom - widgetRect.top;
+
+      let left = anchorRight - panelWidth;
+      left = Math.max(sidePad, Math.min(left, widgetRect.width - panelWidth - sidePad));
+
+      const spaceBelow = widgetRect.height - anchorBottom - gap - sidePad;
+      const spaceAbove = anchorTop - gap - sidePad;
+
+      let top;
+      if (spaceBelow >= panelHeight || spaceBelow >= spaceAbove) {
+        top = anchorBottom + gap;
+      } else {
+        top = anchorTop - panelHeight - gap;
       }
+
+      top = Math.max(sidePad, Math.min(top, widgetRect.height - panelHeight - sidePad));
 
       panel.style.left = `${left}px`;
       panel.style.top = `${top}px`;
+      panel.style.right = 'auto';
+      panel.style.bottom = 'auto';
+      panel.style.transform = 'none';
     }
 
     function hideMenu(){
