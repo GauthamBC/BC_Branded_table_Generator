@@ -2688,9 +2688,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
       && !!sizeSel && !!prevBtn && !!nextBtn;
 
-    const hasEmbed = !controlsHidden
-      && !!embedWrap && !embedWrap.classList.contains('vi-hide')
-      && !!downloadBtn && !!menu;
+    const hasEmbed = triggerButtons.length > 0 && !!modal;
 
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
