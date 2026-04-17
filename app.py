@@ -6935,9 +6935,9 @@ if main_tab == "Create New Table":
                                     selected_modes = st.session_state.get("bt_fmt_selected_modes", []) or []
 
                                     if "prefix" in selected_modes:
-                                        st.text_input("Prefix value", key="bt_fmt_prefix_value", placeholder="$")
+                                        st.text_input("Prefix value", key="bt_fmt_prefix_value", placeholder="Enter a prefix")
                                     if "suffix" in selected_modes:
-                                        st.text_input("Suffix value", key="bt_fmt_suffix_value", placeholder="%")
+                                        st.text_input("Suffix value", key="bt_fmt_suffix_value", placeholder="Enter a suffix")
                                     if not {"prefix", "suffix"} & set(selected_modes):
                                         st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
 
