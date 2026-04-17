@@ -545,10 +545,11 @@ def _estimate_header_line_count(columns, cfg: dict | None = None) -> int:
 
 
 def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Return a conservative total widget height for preview + generated iframe usage.
+    """Estimate the total widget height from the top of the header to the bottom of the footer.
 
-    Note: this is a Python-side estimate based on the confirmed widget state. A true DOM
-    measurement from the embedded preview would require a custom Streamlit component bridge.
+    This intentionally avoids adding large safety padding because the returned value is also used
+    as the published iframe height. The goal is a tight outer height that ends at the widget,
+    not below it.
     """
     try:
         row_count = int(row_count)
@@ -565,7 +566,8 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     if row_count <= 0:
         base_header = 88 if cfg.get("show_header", True) else 0
         base_footer = 88 if cfg.get("show_footer", True) else 0
-        return max(620, min(1200, base_header + 240 + base_footer))
+        controls_h = 50 if (cfg.get("show_search", True) or cfg.get("show_pager", True) or (cfg.get("show_embed", True) and str(cfg.get("embed_position", "Body") or "Body") == "Body")) else 0
+        return max(360, min(1200, base_header + controls_h + 120 + base_footer))
 
     visible_rows = min(max(row_count, 1), 10)
 
@@ -581,26 +583,28 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
 
     title_lines = _estimate_wrapped_line_count(cfg.get("title", "Table 1"), max_chars_per_line=34)
     subtitle_lines = _estimate_wrapped_line_count(cfg.get("subtitle", ""), max_chars_per_line=46) if str(cfg.get("subtitle", "")).strip() else 0
+
     header_h = 0
     if show_header:
-        header_h = 88 + max(0, title_lines - 1) * 20 + max(0, subtitle_lines - 1) * 16
+        header_h = 88 + max(0, title_lines - 1) * 18 + max(0, subtitle_lines - 1) * 14
         if show_embed and embed_position == "Header":
             header_h = max(header_h, 88)
 
     max_header_lines = _estimate_header_line_count(columns, cfg=cfg)
-    table_head_h = 56 + max(0, max_header_lines - 1) * 18
+    table_head_h = 56 + max(0, max_header_lines - 1) * 16
 
-    row_h = 54
+    row_h = 52
     body_h = visible_rows * row_h
 
     controls_h = 0
     if show_search or show_pager or (show_embed and embed_position == "Body"):
-        controls_h = 50
+        controls_h = 46
         if (show_search and show_pager) or ((show_search or show_pager) and show_embed and embed_position == "Body"):
-            controls_h += 8
+            controls_h += 6
 
-    page_status_h = 28 if show_page_numbers else 0
-    scrollbar_h = 18 if row_count > 10 else 0
+    page_status_h = 24 if show_page_numbers else 0
+    scrollbar_h = 14 if row_count > 10 else 0
+    body_bottom_gap_h = 2 if row_count > 10 else 0
 
     footer_h = 0
     if show_footer:
@@ -608,19 +612,18 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
         except Exception:
             footer_logo_h = 36
-        footer_h = max(88, footer_logo_h + 52)
+        footer_h = max(84, footer_logo_h + 44)
         if show_footer_notes:
             notes = str(cfg.get("footer_notes", "") or "").strip()
             note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
-            footer_h += note_lines * 18 + (14 if note_lines else 0)
+            footer_h += note_lines * 18 + (10 if note_lines else 0)
         elif show_heat_scale:
-            footer_h += 26
+            footer_h += 22
         if show_embed and embed_position == "Footer":
-            footer_h = max(footer_h, 96)
+            footer_h = max(footer_h, 92)
 
-    buffer_h = 44 if row_count > 10 else 30
-    est = header_h + controls_h + table_head_h + body_h + scrollbar_h + page_status_h + footer_h + buffer_h
-    return max(660, min(1400, est))
+    est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
+    return max(420, min(1400, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -4951,6 +4954,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
     st.session_state.setdefault("bt_confirmed_total_height", 0)
+    st.session_state.setdefault("bt_preview_total_height", 0)
     st.session_state.setdefault("bt_last_published_repo", "")
     st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
@@ -7679,29 +7683,38 @@ if main_tab == "Create New Table":
                 if _left_view == "Edit table contents" and _right_view == "Preview":
                     with preview_slot:
                         st.session_state.setdefault("bt_show_preview", False)
-                        st.checkbox("Show live preview", key="bt_show_preview")
-                
+
+                        live_cfg = draft_config_from_state()
+                        live_rules = st.session_state.get("bt_col_format_rules", {})
+
+                        df_preview = st.session_state["bt_df_uploaded"].copy()
+                        hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
+                        if hidden_cols:
+                            df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
+
+                        preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
+                        preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
+                        st.session_state["bt_preview_total_height"] = int(preview_height)
+
+                        _preview_toggle_col, _preview_height_col = st.columns([1, 1])
+                        with _preview_toggle_col:
+                            st.checkbox("Show live preview", key="bt_show_preview")
+                        with _preview_height_col:
+                            st.caption(f"Estimated table height: **{int(preview_height)}px**")
+
                         if not st.session_state["bt_show_preview"]:
                             st.info("Preview hidden for performance.")
                         else:
-                            live_cfg = draft_config_from_state()
-                            live_rules = st.session_state.get("bt_col_format_rules", {})
-                
-                            df_preview = st.session_state["bt_df_uploaded"].copy()
-                            hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
-                            if hidden_cols:
-                                df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
-                
                             cfg_hash = stable_config_hash(live_cfg)
-                
+
                             try:
                                 df_hash = int(pd.util.hash_pandas_object(df_preview, index=True).sum())
                             except Exception:
                                 df_hash = hash((df_preview.shape, tuple(df_preview.columns)))
-                
+
                             rules_hash = hash(json.dumps(live_rules, sort_keys=True, default=str))
                             preview_key = f"{cfg_hash}|{df_hash}|{rules_hash}"
-                
+
                             if st.session_state.get("bt_preview_key") != preview_key:
                                 st.session_state["bt_preview_key"] = preview_key
                                 st.session_state["bt_preview_html"] = html_from_config(
@@ -7709,9 +7722,7 @@ if main_tab == "Create New Table":
                                     live_cfg,
                                     col_format_rules=live_rules,
                                 )
-                
-                            preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
-                            preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
+
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=preview_height,
