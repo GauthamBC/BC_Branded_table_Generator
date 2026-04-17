@@ -476,7 +476,10 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a row-aware iframe height used by preview and published embeds."""
+    """Return a safer iframe height so header, rows, page status, and footer remain visible.
+
+    For compact views this intentionally overestimates slightly rather than clipping the footer.
+    """
     try:
         row_count = int(row_count)
     except Exception:
@@ -484,10 +487,19 @@ def compute_preview_height(row_count: int) -> int:
 
     if row_count <= 0:
         return 560
-    if row_count >= 10:
-        return 760
 
-    return max(520, min(760, 240 + (row_count * 52)))
+    visible_rows = min(max(row_count, 1), 10)
+
+    header_h = 88
+    table_head_h = 56
+    row_h = 54
+    scrollbar_h = 12
+    page_status_h = 26
+    footer_h = 88
+    buffer_h = 24
+
+    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + buffer_h
+    return max(620, min(920, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -2091,8 +2103,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.98));
     }
 
-    #bt-block .dw-scroll.compact-tight::after{
+    #bt-block .dw-scroll.compact-fit::after{
       display:none;
+      height:0;
+      background:none;
     }
 
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
@@ -2782,24 +2796,24 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const shownCount = visibleRows.length;
       const rowHeights = visibleRows.map(row => row.getBoundingClientRect().height || 0).filter(Boolean);
       const fallbackRowHeight = rowHeights[0] || 54;
-      const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
+      const theadHeight = theadEl ? Math.ceil(theadEl.getBoundingClientRect().height || 0) : 0;
 
       const compactMode = shownCount <= 10;
       const rowsForWindow = compactMode ? Math.max(shownCount, 1) : 10;
 
       let bodyRowsHeight = 0;
       for (let i = 0; i < rowsForWindow; i++) {
-        bodyRowsHeight += rowHeights[i] || fallbackRowHeight;
+        bodyRowsHeight += Math.ceil(rowHeights[i] || fallbackRowHeight);
       }
 
-      const horizontalScrollbarAllowance = compactMode ? 2 : 14;
+      const horizontalScrollbarAllowance = compactMode ? 0 : 14;
       const bottomFadeAllowance = compactMode ? 0 : 8;
       const safetyBuffer = compactMode ? 2 : 16;
       const finalScrollHeight = Math.ceil(
         theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
       );
 
-      scroller.classList.toggle('compact-tight', compactMode);
+      scroller.classList.toggle('compact-fit', compactMode);
       scroller.style.height = `${finalScrollHeight}px`;
       scroller.style.maxHeight = `${finalScrollHeight}px`;
       scroller.style.overflowX = 'auto';
