@@ -478,8 +478,7 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 def compute_preview_height(row_count: int) -> int:
     """Return a safer iframe height so header, rows, page status, and footer remain visible.
 
-    This is intentionally generous because clipping the footer is worse UX than a little
-    extra space in the published iframe.
+    For compact views this intentionally overestimates slightly rather than clipping the footer.
     """
     try:
         row_count = int(row_count)
@@ -487,23 +486,20 @@ def compute_preview_height(row_count: int) -> int:
         row_count = 0
 
     if row_count <= 0:
-        return 680
+        return 560
 
     visible_rows = min(max(row_count, 1), 10)
 
     header_h = 88
-    table_head_h = 60
-    row_h = 58
-    scrollbar_h = 16
-    page_status_h = 34
+    table_head_h = 56
+    row_h = 54
+    scrollbar_h = 12
+    page_status_h = 26
     footer_h = 88
-    safety_h = 72
+    buffer_h = 24
 
-    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + safety_h
-    if row_count > 10:
-        est += 40
-
-    return max(760, min(1280, est))
+    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + buffer_h
+    return max(620, min(920, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -1484,7 +1480,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
+<body style="margin:0; overflow:hidden; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
@@ -1842,9 +1838,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      box-shadow:0 8px 18px rgba(220,38,38,.20), inset 0 1px 0 rgba(255,255,255,.28);
+      box-shadow:none;
     }
-    #bt-block .dw-btn:hover{background:linear-gradient(180deg,var(--accent-mid) 0%, var(--accent-end) 100%); border-color:rgba(var(--brand-500-rgb), .9); transform:translateY(-1px)}
+    #bt-block .dw-btn:hover{background:linear-gradient(180deg,var(--accent-mid) 0%, var(--accent-end) 100%); border-color:rgba(var(--brand-500-rgb), .9); transform:translateY(-1px); box-shadow:none}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
@@ -1872,7 +1868,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       height:34px;
       padding-inline:12px;
       font-weight:700 !important;
-      box-shadow:0 8px 18px rgba(17,24,39,.12), inset 0 1px 0 rgba(255,255,255,.28) !important;
+      box-shadow:none !important;
       text-shadow:none !important;
       outline:none !important;
       opacity:1 !important;
@@ -1912,7 +1908,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background-color:var(--accent-end) !important;
       color:#ffffff !important;
       border-color:rgba(var(--brand-500-rgb), .9) !important;
-      box-shadow:0 10px 22px rgba(17,24,39,.16), inset 0 1px 0 rgba(255,255,255,.22) !important;
+      box-shadow:none !important;
       transform:translateY(-1px);
       outline:none !important;
       text-decoration:none !important;
@@ -5602,7 +5598,7 @@ if main_tab == "Published Tables":
   color: #ffffff !important;
   border: none !important;
   outline: none !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.22) inset, 0 8px 18px rgba(0,0,0,0.14) !important;
+  box-shadow:none !important;
 }
 
 /* Hover / focus / active must also match body button */
@@ -5638,7 +5634,7 @@ if main_tab == "Published Tables":
   color: #ffffff !important;
   border: none !important;
   outline: none !important;
-  box-shadow: 0 2px 0 rgba(255,255,255,0.18) inset, 0 10px 22px rgba(0,0,0,0.18) !important;
+  box-shadow:none !important;
   text-decoration: none !important;
 }
 
