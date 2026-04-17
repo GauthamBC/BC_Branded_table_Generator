@@ -476,31 +476,58 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a row-aware iframe height used by preview and published embeds."""
+    """Return a safer iframe height so header, rows and footer stay visible.
+
+    We deliberately overestimate a little because the final HTML can wrap rows,
+    headers and cells differently at runtime.
+    """
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    if row_count <= 0:
-        return 560
-    if row_count >= 10:
-        return 760
+    visible_rows = max(0, min(row_count, 10))
 
-    return max(520, min(760, 240 + (row_count * 52)))
+    # Conservative sizing so footer stays visible in CMS/iframe contexts.
+    header_h = 88
+    table_head_h = 74
+    footer_h = 88
+    page_status_h = 24
+    horizontal_scroll_h = 12
+    outer_buffer = 42
+    row_h_estimate = 74
+
+    if visible_rows <= 0:
+        return 640
+
+    return int(
+        header_h
+        + table_head_h
+        + footer_h
+        + page_status_h
+        + horizontal_scroll_h
+        + outer_buffer
+        + (visible_rows * row_h_estimate)
+    )
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return the internal scroll cap for the table region inside the widget."""
+    """Return the internal scroller height placeholder.
+
+    The live HTML now re-measures the rendered rows in JavaScript, so this value
+    mainly acts as a safe initial fallback before the browser finishes measuring.
+    """
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    if row_count >= 10:
-        return 680
-
-    return max(260, 130 + (row_count * 52))
+    visible_rows = max(1, min(row_count, 10))
+    table_head_h = 74
+    row_h_estimate = 74
+    scrollbar_h = 12
+    safety = 8
+    return int(table_head_h + (visible_rows * row_h_estimate) + scrollbar_h + safety)
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -2065,11 +2092,19 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: contain;
-      scrollbar-gutter: stable;
+      scrollbar-gutter: auto;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
       position: relative;
       background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.96));
+    }
+
+    #bt-block .dw-scroll.compact-fit{
+      scrollbar-gutter: auto;
+    }
+
+    #bt-block .dw-scroll.scroll-window{
+      scrollbar-gutter: stable;
     }
 
     #bt-block .dw-scroll::before,
@@ -2089,6 +2124,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       bottom: 0;
       height: 8px;
       background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.98));
+    }
+
+    #bt-block .dw-scroll.compact-fit::after{
+      display:none;
+      height:0;
     }
 
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
@@ -2543,8 +2583,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
 #bt-block .dw-page-status{
   margin: 0 !important;
-  min-height: 16px;
+  min-height: 20px;
   flex: 0 0 auto;
+  padding-top: 2px;
 }
 
 </style>
@@ -2776,9 +2817,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       );
 
       const shownCount = visibleRows.length;
-      const rowHeights = visibleRows.map(row => row.getBoundingClientRect().height || 0).filter(Boolean);
-      const fallbackRowHeight = rowHeights[0] || 54;
-      const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
+      const rowHeights = visibleRows
+        .map(row => Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0))
+        .filter(Boolean);
+
+      const fallbackRowHeight = Math.max(54, rowHeights[0] || 54);
+      const theadHeight = Math.ceil(theadEl ? (theadEl.getBoundingClientRect().height || theadEl.offsetHeight || 0) : 0);
 
       const compactMode = shownCount <= 10;
       const rowsForWindow = compactMode ? Math.max(shownCount, 1) : 10;
@@ -2788,13 +2832,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         bodyRowsHeight += rowHeights[i] || fallbackRowHeight;
       }
 
-      const horizontalScrollbarAllowance = 14;
-      const bottomFadeAllowance = 8;
-      const safetyBuffer = compactMode ? 12 : 16;
+      // Compact mode should end immediately after the last visible row.
+      // Larger page sizes restore a 10-row-tall scroll window.
+      const horizontalScrollbarAllowance = compactMode ? 2 : 14;
+      const bottomFadeAllowance = compactMode ? 0 : 8;
+      const safetyBuffer = compactMode ? 4 : 16;
       const finalScrollHeight = Math.ceil(
         theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
       );
 
+      scroller.classList.toggle('compact-fit', compactMode);
+      scroller.classList.toggle('scroll-window', !compactMode);
       scroller.style.height = `${finalScrollHeight}px`;
       scroller.style.maxHeight = `${finalScrollHeight}px`;
       scroller.style.overflowX = 'auto';
