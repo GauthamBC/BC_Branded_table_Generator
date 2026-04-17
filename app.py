@@ -2591,7 +2591,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <div class="dw-pager [[PAGER_VIS_CLASS]]">
 <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
 <select class="dw-select" id="bt-size">
-<option value="5">5</option>
 <option selected="" value="10">10</option>
 <option value="15">15</option>
 <option value="20">20</option>
@@ -3985,7 +3984,8 @@ def generate_table_html_from_df(
             return 0.0
     def format_numeric_for_display(raw_val, max_decimals: int = 2) -> str:
         """
-        Limits numeric values to max 2 decimals (trim trailing zeros).
+        Limits numeric values to max 2 decimals (trim trailing zeros) and
+        applies comma separators by default.
         Leaves integers as integers.
         Does NOT touch values that contain currency symbols, %, words, etc.
         """
@@ -4010,12 +4010,12 @@ def generate_table_html_from_df(
         except Exception:
             return s
 
-        # If it's basically an integer → show no decimals
+        # If it's basically an integer → show no decimals, with commas
         if abs(num - round(num)) < 1e-12:
-            return str(int(round(num)))
+            return f"{int(round(num)):,}"
 
-        # Otherwise show max 2 decimals, but trim trailing zeros
-        out = f"{num:.{max_decimals}f}".rstrip("0").rstrip(".")
+        # Otherwise show max 2 decimals with commas, then trim trailing zeros
+        out = f"{num:,.{max_decimals}f}".rstrip("0").rstrip(".")
         return out
         # ✅ Column formatting rules (prefix/suffix/moneyline)
     col_format_rules = col_format_rules or {}
