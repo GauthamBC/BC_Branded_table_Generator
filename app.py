@@ -475,23 +475,66 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
     )
 
 
-def compute_preview_height(row_count: int) -> int:
-    """Return a row-aware iframe height used by preview and published embeds."""
+def estimate_visible_rows_pixel_height(df=None, visible_rows: int = 10) -> int:
+    """Estimate total pixel height of up to `visible_rows` rendered body rows."""
+    try:
+        visible_rows = max(1, int(visible_rows))
+    except Exception:
+        visible_rows = 1
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return visible_rows * 60
+
+    sample = df.head(visible_rows)
+    col_count = max(1, len(sample.columns))
+    wrap_threshold = 26 if col_count <= 4 else 22 if col_count <= 6 else 18
+
+    total = 0
+    for _, row in sample.iterrows():
+        max_lines = 1
+        for val in row.tolist():
+            s = "" if pd.isna(val) else str(val).strip()
+            if not s:
+                continue
+            explicit_lines = max(1, s.count("\n") + 1)
+            soft_lines = max(1, (len(s) + wrap_threshold - 1) // wrap_threshold)
+            max_lines = max(max_lines, explicit_lines, soft_lines)
+        max_lines = min(max_lines, 4)
+        total += 52 + ((max_lines - 1) * 28)
+
+    return total
+
+
+def compute_preview_height(
+    row_count: int,
+    df: pd.DataFrame | None = None,
+    *,
+    show_header: bool = True,
+    show_footer: bool = True,
+    show_controls: bool = False,
+) -> int:
+    """Conservative iframe height that keeps header, rows, scrollbar and footer visible."""
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
-    header = 88
-    controls = 50
-    row_height = 52
-    footer = 88
-    buffer = 72
-    return header + controls + (visible_rows * row_height) + footer + buffer
+    if row_count <= 0:
+        return 560
+
+    visible_rows = max(1, min(row_count, 10))
+    header = 88 if show_header else 0
+    controls = 50 if show_controls else 0
+    thead = 74
+    footer = 88 if show_footer else 0
+    rows_px = estimate_visible_rows_pixel_height(df, visible_rows)
+    horizontal_scroll_allowance = 24
+    borders_and_buffer = 44
+
+    return max(560, int(header + controls + thead + rows_px + footer + horizontal_scroll_allowance + borders_and_buffer))
 
 
-def compute_widget_table_max_height(row_count: int) -> int:
+def compute_widget_table_max_height(row_count: int, df: pd.DataFrame | None = None) -> int:
     """Fallback internal height for the table region; JS measures the exact final height."""
     try:
         row_count = int(row_count)
@@ -499,10 +542,11 @@ def compute_widget_table_max_height(row_count: int) -> int:
         row_count = 0
 
     visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
-    thead = 72
-    row_height = 52
-    bottom_allowance = 40
-    return thead + (visible_rows * row_height) + bottom_allowance
+    thead = 74
+    rows_px = estimate_visible_rows_pixel_height(df, visible_rows)
+    bottom_allowance = 28
+    safety = 10
+    return int(thead + rows_px + bottom_allowance + safety)
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -3893,7 +3937,7 @@ def generate_table_html_from_df(
 
     # Dynamic heights based on row count
     row_count = len(df.index)
-    table_max_h = compute_widget_table_max_height(row_count)
+    table_max_h = compute_widget_table_max_height(row_count, df)
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
     heat_columns_set = set(heat_columns or [])
@@ -4399,7 +4443,7 @@ def generate_table_html_from_df(
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
-        .replace("[[WIDGET_MAX_H]]", str(compute_preview_height(row_count)))
+        .replace("[[WIDGET_MAX_H]]", str(compute_preview_height(row_count, df, show_header=show_header, show_footer=show_footer, show_controls=(show_search or show_pager))))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -7413,7 +7457,13 @@ if main_tab == "Create New Table":
                                 if live:
                                     published_df = st.session_state.get("bt_df_uploaded")
                                     published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
-                                    published_iframe_height = compute_preview_height(published_row_count)
+                                    published_iframe_height = compute_preview_height(
+                                        published_row_count,
+                                        published_df,
+                                        show_header=bool(st.session_state.get("bt_show_header", True)),
+                                        show_footer=bool(st.session_state.get("bt_show_footer", True)),
+                                        show_controls=bool(st.session_state.get("bt_show_search", True) or st.session_state.get("bt_show_pager", True)),
+                                    )
                                     st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                         pages_url,
@@ -7542,7 +7592,13 @@ if main_tab == "Create New Table":
                                 )
                 
                             preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
-                            preview_height = compute_preview_height(preview_rows)
+                            preview_height = compute_preview_height(
+                                preview_rows,
+                                df_preview,
+                                show_header=bool(st.session_state.get("bt_show_header", True)),
+                                show_footer=bool(st.session_state.get("bt_show_footer", True)),
+                                show_controls=bool(st.session_state.get("bt_show_search", True) or st.session_state.get("bt_show_pager", True)),
+                            )
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=preview_height,
