@@ -4010,11 +4010,10 @@ def generate_table_html_from_df(
         except Exception:
             return s
 
-        # If it's basically an integer → show no decimals, with commas
+        # Default display is comma-separated
         if abs(num - round(num)) < 1e-12:
             return f"{int(round(num)):,}"
 
-        # Otherwise show max 2 decimals with commas, then trim trailing zeros
         out = f"{num:,.{max_decimals}f}".rstrip("0").rstrip(".")
         return out
         # ✅ Column formatting rules (prefix/suffix/moneyline)
@@ -4024,10 +4023,11 @@ def generate_table_html_from_df(
         """
         Applies per-column formatting rules AFTER numeric formatting.
 
+        Default numeric display uses comma separators.
         Supports combining multiple rules on the same column, e.g.:
-          - comma_separator + plus_if_positive -> +1,234
-          - comma_separator + prefix -> $1,234
-          - plus_if_positive + comma_separator + suffix -> +1,234%
+          - plus_if_positive -> +1,234
+          - prefix -> $1,234
+          - plain_number + suffix -> 1234%
         """
         rules = col_format_rules.get(col_name) or {}
 
@@ -4040,6 +4040,8 @@ def generate_table_html_from_df(
 
         # Backward compatibility for legacy aliases
         modes = ["plus_if_positive" if m == "moneyline_plus" else m for m in modes]
+        # Legacy comma_separator is now implicit default behaviour
+        modes = [m for m in modes if m != "comma_separator"]
 
         # Preserve order but remove duplicates
         seen_modes = set()
@@ -4076,12 +4078,12 @@ def generate_table_html_from_df(
         if only_nz and not (num != 0):
             return s
 
-        # Apply numeric transforms first in a stable order
-        if "comma_separator" in modes and num is not None:
+        # Default numeric display is comma-separated; allow explicit override
+        if "plain_number" in modes and num is not None:
             if abs(num - round(num)) < 1e-12:
-                s = f"{int(round(num)):,}"
+                s = str(int(round(num)))
             else:
-                s = f"{num:,.2f}".rstrip("0").rstrip(".")
+                s = f"{num:.2f}".rstrip("0").rstrip(".")
 
         if "plus_if_positive" in modes:
             if not s.startswith("+") and not s.startswith("-") and num is not None and num > 0:
@@ -6869,7 +6871,7 @@ if main_tab == "Create New Table":
                                 if not all_cols:
                                     st.info("Upload a CSV to enable column formatting.")
                                 else:
-                                    fmt_options = ["prefix", "suffix", "plus_if_positive", "comma_separator"]
+                                    fmt_options = ["prefix", "suffix", "plus_if_positive", "plain_number"]
 
                                     def _normalize_fmt_rule_for_editor(rule: dict) -> tuple[list[str], str, str]:
                                         rule = rule or {}
