@@ -3875,6 +3875,7 @@ def generate_table_html_from_df(
     title_style: str = "Keep original",
     subtitle_style: str = "Keep original",
     striped: bool = True,
+    stripe_mode: str = "Odd",
     center_titles: bool = False,
     branded_title_color: bool = True,
     show_search: bool = True,
@@ -4316,11 +4317,14 @@ def generate_table_html_from_df(
     table_rows_html = "\n".join(row_html_snippets)
     colspan = str(len(df.columns))
 
+    stripe_mode_norm = str(stripe_mode or "Odd").strip().lower()
+    stripe_target_class = "dw-zebra-even" if stripe_mode_norm == "even" else "dw-zebra-odd"
+
     stripe_css = (
-    """
-    #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
-    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--stripe); } /* striped */
-    #bt-block tbody tr.dw-zebra-even td{ background:#ffffff; }       /* plain */
+        f"""
+    #bt-block tbody tr:not(.dw-empty) td{{ background:#ffffff; }} /* base */
+    #bt-block tbody tr.{stripe_target_class} td{{ background:var(--stripe); }} /* striped */
+    #bt-block tbody tr:not(.dw-empty):not(.{stripe_target_class}) td{{ background:#ffffff; }} /* plain */
     """
         if striped
         else """
@@ -4457,6 +4461,7 @@ def draft_config_from_state() -> dict:
         "subtitle": st.session_state.get("bt_widget_subtitle", "Subheading"),
         "subtitle_style": st.session_state.get("bt_subtitle_style", "Keep original"),
         "striped": st.session_state.get("bt_striped_rows", True),
+        "stripe_mode": st.session_state.get("bt_stripe_mode", "Odd"),
         "show_header": st.session_state.get("bt_show_header", True),
         "center_titles": st.session_state.get("bt_center_titles", False),
         "branded_title_color": st.session_state.get("bt_branded_title_color", True),
@@ -4498,6 +4503,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         brand_logo_alt=meta["logo_alt"],
         brand_class=meta["brand_class"],
         striped=cfg["striped"],
+        stripe_mode=cfg.get("stripe_mode", "Odd"),
         center_titles=cfg["center_titles"],
         branded_title_color=cfg["branded_title_color"],
         show_search=cfg["show_search"],
@@ -4613,7 +4619,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     for k in [
         "bt_show_header","bt_widget_title","bt_widget_subtitle","bt_center_titles","bt_branded_title_color",
         "bt_show_footer","bt_footer_logo_align","bt_footer_logo_h","bt_show_footer_notes","bt_footer_notes","bt_show_heat_scale",
-        "bt_striped_rows","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
+        "bt_striped_rows","bt_stripe_mode","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
         "bt_bar_columns","bt_bar_max_overrides","bt_bar_fixed_w",
         "bt_heat_columns","bt_heat_overrides","bt_heat_strength","bt_heatmap_style","bt_header_style",
         "bt_header_wrap_target","bt_header_wrap_words","bt_col_format_rules","bt_hidden_cols"
@@ -4669,6 +4675,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_show_heat_scale"]     = cfg.get("show_heat_scale", False)
 
     st.session_state["bt_striped_rows"]        = cfg.get("striped", True)
+    st.session_state["bt_stripe_mode"]         = cfg.get("stripe_mode", "Odd")
     st.session_state["bt_cell_align"]          = cfg.get("cell_align", "Center")
     st.session_state["bt_show_search"]         = cfg.get("show_search", True)
     st.session_state["bt_show_pager"]          = cfg.get("show_pager", True)
@@ -4927,6 +4934,7 @@ def restore_draft_state_from_confirmed():
         "subtitle": "bt_widget_subtitle",
         "subtitle_style": "bt_subtitle_style",
         "striped": "bt_striped_rows",
+        "stripe_mode": "bt_stripe_mode",
         "show_header": "bt_show_header",
         "center_titles": "bt_center_titles",
         "branded_title_color": "bt_branded_title_color",
@@ -6800,6 +6808,15 @@ if main_tab == "Create New Table":
                                     "Striped Rows",
                                     value=st.session_state.get("bt_striped_rows", True),
                                     key="bt_striped_rows",
+                                )
+
+                                st.selectbox(
+                                    "Stripe rows",
+                                    options=["Odd", "Even"],
+                                    index=["Odd", "Even"].index(st.session_state.get("bt_stripe_mode", "Odd") if st.session_state.get("bt_stripe_mode", "Odd") in ["Odd", "Even"] else "Odd"),
+                                    key="bt_stripe_mode",
+                                    disabled=not st.session_state.get("bt_striped_rows", True),
+                                    help="Choose whether the striped background applies to odd rows or even rows.",
                                 )
                         
                                 st.selectbox(
