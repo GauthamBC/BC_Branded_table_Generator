@@ -475,32 +475,152 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
     )
 
 
-def compute_preview_height(row_count: int) -> int:
-    """Return a generous iframe height so header and footer stay fully visible.
+def _estimate_wrapped_line_count(text: str, max_chars_per_line: int = 42) -> int:
+    """Approximate rendered line count for plain text blocks.
 
-    For any dataset above 10 rows, the table viewport should still behave like a 10-row window,
-    so the outer iframe height should stay stable rather than growing unpredictably.
+    This is a Python-side heuristic used for iframe-height sizing. It is intentionally
+    conservative so the generated iframe is less likely to clip the footer.
+    """
+    s = "" if text is None else str(text)
+    s = s.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
+    parts = [p.strip() for p in s.splitlines()] or [s.strip()]
+    total = 0
+    max_chars_per_line = max(8, int(max_chars_per_line or 42))
+
+    for part in parts:
+        if not part:
+            total += 1
+            continue
+        words = part.split()
+        if not words:
+            total += 1
+            continue
+
+        current = 0
+        lines = 1
+        for word in words:
+            word_len = len(word)
+            if current == 0:
+                current = word_len
+            elif current + 1 + word_len <= max_chars_per_line:
+                current += 1 + word_len
+            else:
+                lines += 1
+                current = word_len
+        total += lines
+
+    return max(1, total)
+
+
+def _estimate_header_line_count(columns, cfg: dict | None = None) -> int:
+    cfg = cfg or {}
+    cols = list(columns or [])
+    if not cols:
+        return 1
+
+    overrides = cfg.get("col_header_overrides", {}) or {}
+    header_wrap_target = str(cfg.get("header_wrap_target", "Off") or "Off").strip()
+    try:
+        header_wrap_words = int(cfg.get("header_wrap_words", 2) or 2)
+    except Exception:
+        header_wrap_words = 2
+    header_wrap_words = max(1, min(10, header_wrap_words))
+
+    max_lines = 1
+    for col in cols:
+        display_col = str(overrides.get(col, col) or col).strip()
+        should_wrap_header = False
+        if header_wrap_target == "All columns":
+            should_wrap_header = True
+        elif header_wrap_target and header_wrap_target != "Off" and str(col) == header_wrap_target:
+            should_wrap_header = True
+
+        if should_wrap_header:
+            line_count = len(wrap_text_by_words(display_col, header_wrap_words).splitlines())
+        else:
+            line_count = _estimate_wrapped_line_count(display_col, max_chars_per_line=18)
+        max_lines = max(max_lines, line_count)
+
+    return max_lines
+
+
+def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
+    """Return a conservative total widget height for preview + generated iframe usage.
+
+    Note: this is a Python-side estimate based on the confirmed widget state. A true DOM
+    measurement from the embedded preview would require a custom Streamlit component bridge.
     """
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
+    cfg = cfg or {}
+    if df is not None and isinstance(df, pd.DataFrame):
+        row_count = len(df.index)
+        columns = list(df.columns)
+    else:
+        columns = []
+
     if row_count <= 0:
-        return 620
+        base_header = 88 if cfg.get("show_header", True) else 0
+        base_footer = 88 if cfg.get("show_footer", True) else 0
+        return max(620, min(1200, base_header + 240 + base_footer))
 
     visible_rows = min(max(row_count, 1), 10)
 
-    header_h = 88
-    table_head_h = 56
-    row_h = 54
-    scrollbar_h = 14
-    page_status_h = 28
-    footer_h = 88
-    buffer_h = 56 if row_count > 10 else 36
+    show_header = bool(cfg.get("show_header", True))
+    show_footer = bool(cfg.get("show_footer", True))
+    show_search = bool(cfg.get("show_search", True))
+    show_pager = bool(cfg.get("show_pager", True))
+    show_page_numbers = bool(cfg.get("show_page_numbers", True)) and show_pager
+    show_embed = bool(cfg.get("show_embed", True))
+    embed_position = str(cfg.get("embed_position", "Body") or "Body")
+    show_footer_notes = bool(cfg.get("show_footer_notes", False))
+    show_heat_scale = bool(cfg.get("show_heat_scale", False)) and not show_footer_notes
 
-    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + buffer_h
-    return max(660, min(1040, est))
+    title_lines = _estimate_wrapped_line_count(cfg.get("title", "Table 1"), max_chars_per_line=34)
+    subtitle_lines = _estimate_wrapped_line_count(cfg.get("subtitle", ""), max_chars_per_line=46) if str(cfg.get("subtitle", "")).strip() else 0
+    header_h = 0
+    if show_header:
+        header_h = 88 + max(0, title_lines - 1) * 20 + max(0, subtitle_lines - 1) * 16
+        if show_embed and embed_position == "Header":
+            header_h = max(header_h, 88)
+
+    max_header_lines = _estimate_header_line_count(columns, cfg=cfg)
+    table_head_h = 56 + max(0, max_header_lines - 1) * 18
+
+    row_h = 54
+    body_h = visible_rows * row_h
+
+    controls_h = 0
+    if show_search or show_pager or (show_embed and embed_position == "Body"):
+        controls_h = 50
+        if (show_search and show_pager) or ((show_search or show_pager) and show_embed and embed_position == "Body"):
+            controls_h += 8
+
+    page_status_h = 28 if show_page_numbers else 0
+    scrollbar_h = 18 if row_count > 10 else 0
+
+    footer_h = 0
+    if show_footer:
+        try:
+            footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
+        except Exception:
+            footer_logo_h = 36
+        footer_h = max(88, footer_logo_h + 52)
+        if show_footer_notes:
+            notes = str(cfg.get("footer_notes", "") or "").strip()
+            note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
+            footer_h += note_lines * 18 + (14 if note_lines else 0)
+        elif show_heat_scale:
+            footer_h += 26
+        if show_embed and embed_position == "Footer":
+            footer_h = max(footer_h, 96)
+
+    buffer_h = 44 if row_count > 10 else 30
+    est = header_h + controls_h + table_head_h + body_h + scrollbar_h + page_status_h + footer_h + buffer_h
+    return max(660, min(1400, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -4585,6 +4705,7 @@ def build_publish_bundle(widget_file_name: str) -> dict:
 
         # core state (everything needed to fully restore the editor)
         "config": cfg,
+        "confirmed_total_height": int(st.session_state.get("bt_confirmed_total_height", 0) or 0),
         "col_format_rules": rules,
         "csv": csv_text,
         "hidden_cols": st.session_state.get("bt_hidden_cols", []) or [],
@@ -4634,6 +4755,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
         st.session_state["bt_df_confirmed"] = df.copy(deep=True)
 
     st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
+    st.session_state["bt_confirmed_total_height"] = int(bundle.get("confirmed_total_height", 0) or 0)
 
     def _pick(*vals, default=None):
         for v in vals:
@@ -4828,6 +4950,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
+    st.session_state.setdefault("bt_confirmed_total_height", 0)
     st.session_state.setdefault("bt_last_published_repo", "")
     st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
@@ -5118,6 +5241,13 @@ def do_confirm_snapshot():
         st.session_state["bt_confirmed_cfg"],
         col_format_rules=live_rules,
     )
+
+    confirmed_total_height = compute_preview_height(
+        len(df_confirm_for_html.index) if isinstance(df_confirm_for_html, pd.DataFrame) else 0,
+        cfg=st.session_state["bt_confirmed_cfg"],
+        df=df_confirm_for_html,
+    )
+    st.session_state["bt_confirmed_total_height"] = int(confirmed_total_height)
 
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
@@ -7446,9 +7576,13 @@ if main_tab == "Create New Table":
                                     live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                 if live:
-                                    published_df = st.session_state.get("bt_df_uploaded")
+                                    published_df = st.session_state.get("bt_df_confirmed")
+                                    confirmed_cfg = st.session_state.get("bt_confirmed_cfg") or {}
                                     published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
-                                    published_iframe_height = compute_preview_height(published_row_count)
+                                    published_iframe_height = int(
+                                        st.session_state.get("bt_confirmed_total_height", 0)
+                                        or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
+                                    )
                                     st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                         pages_url,
@@ -7577,7 +7711,7 @@ if main_tab == "Create New Table":
                                 )
                 
                             preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
-                            preview_height = compute_preview_height(preview_rows)
+                            preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=preview_height,
