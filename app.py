@@ -476,10 +476,10 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a conservative iframe height that keeps the footer fully visible.
+    """Return a safer iframe height so header, rows, page status, and footer remain visible.
 
-    The widget can switch rows-per-page after render, so this intentionally leaves extra
-    room for the fixed header/footer and the pager/status row instead of clipping the footer.
+    This is intentionally generous because clipping the footer is worse UX than a little
+    extra space in the published iframe.
     """
     try:
         row_count = int(row_count)
@@ -487,30 +487,23 @@ def compute_preview_height(row_count: int) -> int:
         row_count = 0
 
     if row_count <= 0:
-        return 640
+        return 680
 
     visible_rows = min(max(row_count, 1), 10)
 
     header_h = 88
-    controls_h = 0
-    table_head_h = 56
-    row_h = 56
-    scrollbar_h = 14
+    table_head_h = 60
+    row_h = 58
+    scrollbar_h = 16
     page_status_h = 34
-    footer_h = 96
-    safety_buffer_h = 120
+    footer_h = 88
+    safety_h = 72
 
-    est = (
-        header_h
-        + controls_h
-        + table_head_h
-        + (visible_rows * row_h)
-        + scrollbar_h
-        + page_status_h
-        + footer_h
-        + safety_buffer_h
-    )
-    return max(760, min(1180, est))
+    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + safety_h
+    if row_count > 10:
+        est += 40
+
+    return max(760, min(1280, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -1491,7 +1484,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow:hidden; background:#ffffff;">
+<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
