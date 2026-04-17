@@ -2821,30 +2821,42 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         !row.classList.contains('dw-empty') && row.style.display !== 'none'
       );
 
-      const targetRows = Math.max(1, Math.min(visibleRows.length || 1, 10));
+      const renderedCount = visibleRows.length;
+      const measureCount = Math.max(1, Math.min(renderedCount || 1, 10));
 
-      let visibleRowsHeight = 0;
-      for (let i = 0; i < targetRows; i++) {
+      let measuredRowsHeight = 0;
+      for (let i = 0; i < measureCount; i++) {
         const row = visibleRows[i];
-        if (row) visibleRowsHeight += row.getBoundingClientRect().height;
+        if (row) measuredRowsHeight += row.getBoundingClientRect().height;
       }
 
       const fallbackRowHeight = visibleRows[0]?.getBoundingClientRect().height || 54;
-      if (visibleRowsHeight === 0) {
-        visibleRowsHeight = fallbackRowHeight * targetRows;
+      if (measuredRowsHeight === 0) {
+        measuredRowsHeight = fallbackRowHeight * measureCount;
       }
 
+      const extraRows = Math.max(0, renderedCount - measureCount);
+      const fullRowsHeight = measuredRowsHeight + (extraRows * fallbackRowHeight);
       const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 0;
-      const compactBottomAllowance = 32;
-      const generalBuffer = 14;
-      const finalScrollHeight = Math.ceil(
-        theadHeight + visibleRowsHeight + compactBottomAllowance + generalBuffer
+      const scrollbarAllowance = 32;
+      const generalBuffer = 16;
+
+      const compactScrollHeight = Math.ceil(
+        theadHeight + fullRowsHeight + scrollbarAllowance + generalBuffer
       );
+      const cappedScrollHeight = Math.ceil(
+        theadHeight + measuredRowsHeight + scrollbarAllowance + generalBuffer
+      );
+
+      const shouldScrollY = renderedCount > 10;
+      const finalScrollHeight = shouldScrollY ? cappedScrollHeight : compactScrollHeight;
 
       scroller.style.height = `${finalScrollHeight}px`;
       scroller.style.maxHeight = `${finalScrollHeight}px`;
-      scroller.style.overflowY = 'hidden';
       scroller.style.overflowX = 'auto';
+      scroller.style.overflowY = shouldScrollY ? 'auto' : 'hidden';
+      scroller.classList.toggle('has-y-scroll', shouldScrollY);
+
       widgetRoot.style.maxHeight = 'none';
       widgetRoot.style.overflow = 'visible';
     }
