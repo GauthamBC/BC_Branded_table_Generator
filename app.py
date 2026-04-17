@@ -476,9 +476,10 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a safer iframe height so header, rows, page status, and footer remain visible.
+    """Return a conservative iframe height that keeps the footer fully visible.
 
-    For compact views this intentionally overestimates slightly rather than clipping the footer.
+    The widget can switch rows-per-page after render, so this intentionally leaves extra
+    room for the fixed header/footer and the pager/status row instead of clipping the footer.
     """
     try:
         row_count = int(row_count)
@@ -486,20 +487,30 @@ def compute_preview_height(row_count: int) -> int:
         row_count = 0
 
     if row_count <= 0:
-        return 560
+        return 640
 
     visible_rows = min(max(row_count, 1), 10)
 
     header_h = 88
+    controls_h = 0
     table_head_h = 56
-    row_h = 54
-    scrollbar_h = 12
-    page_status_h = 26
-    footer_h = 88
-    buffer_h = 24
+    row_h = 56
+    scrollbar_h = 14
+    page_status_h = 34
+    footer_h = 96
+    safety_buffer_h = 120
 
-    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + buffer_h
-    return max(620, min(920, est))
+    est = (
+        header_h
+        + controls_h
+        + table_head_h
+        + (visible_rows * row_h)
+        + scrollbar_h
+        + page_status_h
+        + footer_h
+        + safety_buffer_h
+    )
+    return max(760, min(1180, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
