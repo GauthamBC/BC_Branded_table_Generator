@@ -476,9 +476,10 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a safer iframe height so header, rows, page status, and footer remain visible.
+    """Return a conservative iframe height so the footer is not clipped.
 
-    For compact views this intentionally overestimates slightly rather than clipping the footer.
+    The iframe itself cannot react after the user changes Rows/Page, so we intentionally
+    leave extra room whenever the table can enter the scrolling (>10 visible rows) state.
     """
     try:
         row_count = int(row_count)
@@ -486,20 +487,34 @@ def compute_preview_height(row_count: int) -> int:
         row_count = 0
 
     if row_count <= 0:
-        return 560
+        return 640
 
     visible_rows = min(max(row_count, 1), 10)
 
     header_h = 88
-    table_head_h = 56
-    row_h = 54
-    scrollbar_h = 12
-    page_status_h = 26
+    table_head_h = 60
+    row_h = 58
+    scrollbar_h = 14
+    page_status_h = 30
     footer_h = 88
-    buffer_h = 24
+    block_pad_h = 24
 
-    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + buffer_h
-    return max(620, min(920, est))
+    # Extra room is deliberate here: it protects the fixed-height footer from being
+    # clipped in preview / iframe mode when row heights vary or the user switches to
+    # a larger Rows/Page value such as 15, 20, 30, or All.
+    extra_footer_safety = 96 if row_count > 10 else 56
+
+    est = (
+        header_h
+        + table_head_h
+        + (visible_rows * row_h)
+        + scrollbar_h
+        + page_status_h
+        + footer_h
+        + block_pad_h
+        + extra_footer_safety
+    )
+    return max(700, min(1080, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -1480,7 +1495,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow:hidden; background:#ffffff;">
+<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
