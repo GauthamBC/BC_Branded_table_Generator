@@ -476,10 +476,10 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
 
 
 def compute_preview_height(row_count: int) -> int:
-    """Return a conservative iframe height so the footer is not clipped.
+    """Return a generous iframe height so header and footer stay fully visible.
 
-    The iframe itself cannot react after the user changes Rows/Page, so we intentionally
-    leave extra room whenever the table can enter the scrolling (>10 visible rows) state.
+    For any dataset above 10 rows, the table viewport should still behave like a 10-row window,
+    so the outer iframe height should stay stable rather than growing unpredictably.
     """
     try:
         row_count = int(row_count)
@@ -487,34 +487,20 @@ def compute_preview_height(row_count: int) -> int:
         row_count = 0
 
     if row_count <= 0:
-        return 640
+        return 620
 
     visible_rows = min(max(row_count, 1), 10)
 
     header_h = 88
-    table_head_h = 60
-    row_h = 58
+    table_head_h = 56
+    row_h = 54
     scrollbar_h = 14
-    page_status_h = 30
+    page_status_h = 28
     footer_h = 88
-    block_pad_h = 24
+    buffer_h = 56 if row_count > 10 else 36
 
-    # Extra room is deliberate here: it protects the fixed-height footer from being
-    # clipped in preview / iframe mode when row heights vary or the user switches to
-    # a larger Rows/Page value such as 15, 20, 30, or All.
-    extra_footer_safety = 96 if row_count > 10 else 56
-
-    est = (
-        header_h
-        + table_head_h
-        + (visible_rows * row_h)
-        + scrollbar_h
-        + page_status_h
-        + footer_h
-        + block_pad_h
-        + extra_footer_safety
-    )
-    return max(700, min(1080, est))
+    est = header_h + table_head_h + (visible_rows * row_h) + scrollbar_h + page_status_h + footer_h + buffer_h
+    return max(660, min(1040, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -2821,9 +2807,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         bodyRowsHeight += Math.ceil(rowHeights[i] || fallbackRowHeight);
       }
 
-      const horizontalScrollbarAllowance = compactMode ? 0 : 14;
-      const bottomFadeAllowance = compactMode ? 0 : 8;
-      const safetyBuffer = compactMode ? 2 : 16;
+      const horizontalScrollbarAllowance = compactMode ? 0 : 12;
+      const bottomFadeAllowance = 0;
+      const safetyBuffer = compactMode ? 2 : 2;
       const finalScrollHeight = Math.ceil(
         theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
       );
