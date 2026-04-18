@@ -1022,6 +1022,32 @@ def read_github_json(owner: str, repo: str, token: str, path: str, branch: str =
         return {}
 
 
+
+
+def read_github_text(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
+    """Read a text file from GitHub. If missing, return an empty string."""
+    api_base = "https://api.github.com"
+    headers = github_headers(token)
+    path = (path or "").lstrip("/").strip()
+    if not path:
+        return ""
+
+    url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
+    r = http_session().get(url, headers=headers, params={"ref": branch}, timeout=20)
+
+    if r.status_code == 404:
+        return ""
+    if r.status_code != 200:
+        raise RuntimeError(f"Error reading text: {r.status_code} {r.text}")
+
+    data = r.json() or {}
+    content_b64 = data.get("content", "")
+    if not content_b64:
+        return ""
+
+    return base64.b64decode(content_b64).decode("utf-8", errors="ignore")
+
+
 def write_github_json(owner: str, repo: str, token: str, path: str, payload: dict, message: str, branch: str = "main") -> None:
     """Write a JSON file into GitHub."""
     content = json.dumps(payload or {}, indent=2, ensure_ascii=False)
@@ -4935,6 +4961,20 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
   ></iframe>
 </div>"""
 
+
+
+def get_saved_iframe_height_for_widget(owner: str, repo: str, token: str, widget_file_name: str, fallback: int = 800) -> int:
+    """Best-effort lookup of the saved iframe height from the widget bundle."""
+    try:
+        bundle = read_github_json(owner, repo, token, f"bundles/{widget_file_name}.json", branch="main") or {}
+        h = int(bundle.get("confirmed_total_height", 0) or 0)
+        if h > 0:
+            return h
+    except Exception:
+        pass
+    return int(fallback or 800)
+
+
 def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
     """
     Returns True when the URL stops returning 404 and returns 200.
@@ -6136,7 +6176,106 @@ if main_tab == "Published Tables":
                             if notice_html:
                                 st.markdown(notice_html, unsafe_allow_html=True)
 
-                            components.iframe(url, height=650, scrolling=True)
+                            html_editor_key = f"pub_html_editor_{selected_repo}_{selected_file}"
+                            iframe_editor_key = f"pub_iframe_editor_{selected_repo}_{selected_file}"
+                            html_loaded_key = f"pub_html_loaded_{selected_repo}_{selected_file}"
+
+                            if html_loaded_key not in st.session_state:
+                                try:
+                                    st.session_state[html_editor_key] = read_github_text(
+                                        publish_owner,
+                                        selected_repo,
+                                        token_to_use,
+                                        selected_file,
+                                        branch="main",
+                                    )
+                                except Exception as e:
+                                    st.session_state[html_editor_key] = ""
+                                    st.warning(f"Could not load HTML from GitHub: {e}")
+
+                                iframe_height = get_saved_iframe_height_for_widget(
+                                    publish_owner,
+                                    selected_repo,
+                                    token_to_use,
+                                    selected_file,
+                                    fallback=800,
+                                )
+                                st.session_state[iframe_editor_key] = build_iframe_snippet(
+                                    url=url,
+                                    height=iframe_height,
+                                    brand=row.get("Brand", ""),
+                                )
+                                st.session_state[html_loaded_key] = True
+
+                            left_col, right_col = st.columns([1.2, 1.0], gap="large")
+
+                            with left_col:
+                                components.iframe(url, height=650, scrolling=True)
+
+                            with right_col:
+                                st.caption("HTML and iframe editor")
+                                style_radio_as_big_tabs("pub_preview_editor_mode", height_px=42, font_px=15, radius_px=12)
+                                editor_mode = st.radio(
+                                    "Editor mode",
+                                    ["HTML", "IFrame"],
+                                    horizontal=True,
+                                    label_visibility="collapsed",
+                                    key="pub_preview_editor_mode",
+                                )
+
+                                if editor_mode == "HTML":
+                                    st.caption("Editing the HTML here updates the real GitHub file. GitHub Pages can take a few minutes to reflect changes.")
+                                    st.text_area(
+                                        "HTML editor",
+                                        key=html_editor_key,
+                                        height=520,
+                                        label_visibility="collapsed",
+                                    )
+                                    btn_a, btn_b = st.columns(2)
+                                    with btn_a:
+                                        if st.button("💾 Save HTML to GitHub", key=f"pub_save_html_{selected_repo}_{selected_file}", use_container_width=True, disabled=not can_edit):
+                                            try:
+                                                upload_file_to_github(
+                                                    publish_owner,
+                                                    selected_repo,
+                                                    token_to_use,
+                                                    selected_file,
+                                                    st.session_state.get(html_editor_key, "") or "",
+                                                    message=f"Update {selected_file} from preview editor",
+                                                    branch="main",
+                                                )
+                                                trigger_pages_build(publish_owner, selected_repo, token_to_use)
+                                                st.success("✅ HTML saved to GitHub. GitHub Pages may take a few minutes to reflect the update.")
+                                            except Exception as e:
+                                                st.error(f"Could not save HTML to GitHub: {e}")
+                                    with btn_b:
+                                        if st.button("↻ Reload HTML", key=f"pub_reload_html_{selected_repo}_{selected_file}", use_container_width=True):
+                                            try:
+                                                st.session_state[html_editor_key] = read_github_text(
+                                                    publish_owner,
+                                                    selected_repo,
+                                                    token_to_use,
+                                                    selected_file,
+                                                    branch="main",
+                                                )
+                                                st.success("Reloaded the latest HTML from GitHub.")
+                                            except Exception as e:
+                                                st.error(f"Could not reload HTML: {e}")
+                                else:
+                                    st.caption("You can edit the iframe snippet here for copy/use. This does not change the GitHub page itself.")
+                                    st.text_area(
+                                        "IFrame editor",
+                                        key=iframe_editor_key,
+                                        height=300,
+                                        label_visibility="collapsed",
+                                    )
+                                    st.download_button(
+                                        "Download iframe snippet",
+                                        data=st.session_state.get(iframe_editor_key, "") or "",
+                                        file_name="iframe-snippet.html",
+                                        mime="text/html",
+                                        use_container_width=True,
+                                    )
             
                         preview_dialog(selected_url)
             
