@@ -4969,38 +4969,69 @@ def build_published_iframe_snippet(
     pages_url: str,
     brand: str = "",
     fallback_height: int = 800,
+    bundle_path: str = "",
 ) -> str:
-    """Rebuild iframe code for a published page from persisted metadata/bundle."""
+    """Rebuild iframe code for a published page from persisted metadata/bundle.
+
+    This deliberately regenerates the snippet from canonical published metadata so the
+    preview modal does not depend on transient session state.
+    """
+    widget_file_name = (widget_file_name or "").strip()
     pages_url = (pages_url or "").strip()
+    if not pages_url and owner and repo and widget_file_name:
+        pages_url = compute_pages_url(owner, repo, widget_file_name)
     if not pages_url:
         return ""
 
     resolved_brand = (brand or "").strip()
-    resolved_height = int(fallback_height or 800)
-
     try:
-        bundle_path = f"bundles/{(widget_file_name or '').strip()}.json"
-        bundle = read_github_json(owner, repo, token, bundle_path, branch="main")
-        if isinstance(bundle, dict) and bundle:
-            resolved_height = int(bundle.get("confirmed_total_height", 0) or resolved_height)
-            cfg = bundle.get("config") or {}
-            if not resolved_brand:
-                resolved_brand = str(cfg.get("brand", "") or "").strip()
-
-            if not bundle.get("confirmed_total_height"):
-                csv_text = bundle.get("csv") or ""
-                if csv_text:
-                    try:
-                        bundle_df = pd.read_csv(io.StringIO(csv_text))
-                    except Exception:
-                        bundle_df = None
-                    if isinstance(bundle_df, pd.DataFrame) and not bundle_df.empty:
-                        hidden_cols = bundle.get("hidden_cols", []) or []
-                        if hidden_cols:
-                            bundle_df = bundle_df.drop(columns=hidden_cols, errors="ignore")
-                        resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
+        resolved_height = int(fallback_height or 800)
     except Exception:
-        pass
+        resolved_height = 800
+
+    candidate_bundle_paths = []
+    bundle_path = (bundle_path or "").strip()
+    if bundle_path:
+        candidate_bundle_paths.append(bundle_path)
+    if widget_file_name:
+        candidate_bundle_paths.append(f"bundles/{widget_file_name}.json")
+        base_name = re.sub(r"\.html?$", "", widget_file_name, flags=re.IGNORECASE)
+        if base_name and base_name != widget_file_name:
+            candidate_bundle_paths.append(f"bundles/{base_name}.json")
+
+    seen = set()
+    candidate_bundle_paths = [p for p in candidate_bundle_paths if p and not (p in seen or seen.add(p))]
+
+    bundle = {}
+    for candidate in candidate_bundle_paths:
+        try:
+            bundle = read_github_json(owner, repo, token, candidate, branch="main")
+        except Exception:
+            bundle = {}
+        if isinstance(bundle, dict) and bundle:
+            break
+
+    if isinstance(bundle, dict) and bundle:
+        try:
+            resolved_height = int(bundle.get("confirmed_total_height", 0) or resolved_height)
+        except Exception:
+            resolved_height = max(320, resolved_height)
+        cfg = bundle.get("config") or {}
+        if not resolved_brand:
+            resolved_brand = str(bundle.get("brand", "") or cfg.get("brand", "") or "").strip()
+
+        if not int(bundle.get("confirmed_total_height", 0) or 0):
+            csv_text = bundle.get("csv") or ""
+            if csv_text:
+                try:
+                    bundle_df = pd.read_csv(io.StringIO(csv_text))
+                except Exception:
+                    bundle_df = None
+                if isinstance(bundle_df, pd.DataFrame) and not bundle_df.empty:
+                    hidden_cols = bundle.get("hidden_cols", []) or []
+                    if hidden_cols:
+                        bundle_df = bundle_df.drop(columns=hidden_cols, errors="ignore")
+                    resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
 
     resolved_height = max(320, int(resolved_height or 800))
     return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
@@ -6138,6 +6169,9 @@ if main_tab == "Published Tables":
                             if iframe_pending_key in st.session_state:
                                 st.session_state[iframe_editor_key] = st.session_state.pop(iframe_pending_key)
 
+                            selected_pages_url = (row.get("Pages URL", "") or url or "").strip()
+                            selected_bundle_path = f"bundles/{selected_file}.json"
+
                             initial_html = ""
                             try:
                                 initial_html = read_github_text(
@@ -6158,11 +6192,14 @@ if main_tab == "Published Tables":
                                 repo=selected_repo,
                                 token=token_to_use,
                                 widget_file_name=selected_file,
-                                pages_url=url,
+                                pages_url=selected_pages_url,
                                 brand=row.get("Brand", ""),
                                 fallback_height=st.session_state.get("bt_iframe_height", 800),
+                                bundle_path=selected_bundle_path,
                             )
-                            if iframe_editor_key not in st.session_state or not str(st.session_state.get(iframe_editor_key) or "").strip():
+                            if iframe_snippet and iframe_snippet != str(st.session_state.get(iframe_editor_key) or ""):
+                                st.session_state[iframe_editor_key] = iframe_snippet
+                            elif iframe_editor_key not in st.session_state:
                                 st.session_state[iframe_editor_key] = iframe_snippet or ""
 
                             c1, c2, c3 = st.columns(3)
@@ -6240,7 +6277,7 @@ if main_tab == "Published Tables":
                             left_col, right_col = st.columns([1.35, 1.0], gap="large")
 
                             with left_col:
-                                components.iframe(url, height=650, scrolling=True)
+                                components.iframe(selected_pages_url or url, height=650, scrolling=True)
 
                             with right_col:
                                 mode_key = f"pub_preview_editor_mode_{selected_repo}_{selected_file}"
@@ -6310,6 +6347,17 @@ if main_tab == "Published Tables":
                                                     trigger_pages_build(publish_owner, selected_repo, token_to_use)
                                                 except Exception:
                                                     pass
+                                                refreshed_iframe = build_published_iframe_snippet(
+                                                    owner=publish_owner,
+                                                    repo=selected_repo,
+                                                    token=token_to_use,
+                                                    widget_file_name=selected_file,
+                                                    pages_url=selected_pages_url,
+                                                    brand=row.get("Brand", ""),
+                                                    fallback_height=st.session_state.get("bt_iframe_height", 800),
+                                                    bundle_path=selected_bundle_path,
+                                                )
+                                                st.session_state[iframe_pending_key] = refreshed_iframe or ""
                                                 st.session_state[html_status_key] = "Saved HTML to GitHub. GitHub Pages may take a few minutes to reflect changes."
                                                 st.rerun()
                                             except Exception as e:
@@ -6329,12 +6377,14 @@ if main_tab == "Published Tables":
                                         repo=selected_repo,
                                         token=token_to_use,
                                         widget_file_name=selected_file,
-                                        pages_url=url,
+                                        pages_url=selected_pages_url,
                                         brand=row.get("Brand", ""),
                                         fallback_height=st.session_state.get("bt_iframe_height", 800),
+                                        bundle_path=selected_bundle_path,
                                     )
-                                    if refreshed_iframe and refreshed_iframe != st.session_state.get(iframe_editor_key, ""):
-                                        st.session_state[iframe_editor_key] = refreshed_iframe
+                                    if refreshed_iframe and refreshed_iframe != str(st.session_state.get(iframe_editor_key, "") or ""):
+                                        st.session_state[iframe_pending_key] = refreshed_iframe
+                                        st.rerun()
 
                                     st.caption("This iframe snippet is rebuilt automatically from the published metadata and bundle. Editing it here is for copy/use only and does not change the GitHub page.")
                                     st.text_area(
