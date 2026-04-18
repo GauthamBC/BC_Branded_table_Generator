@@ -475,6 +475,46 @@ def wrap_text_by_words(text: str, words_per_line: int) -> str:
     )
 
 
+def should_force_two_line_numeric_header(series, header_text: str) -> bool:
+    """Auto-wrap a 2-word numeric header as 1 word per line for compact numeric columns.
+
+    Rule:
+    - column is numeric-only after coercion
+    - every numeric value fits within 3 digits by absolute value (<= 999)
+    - header contains exactly 2 words
+    """
+    header_words = str(header_text or "").strip().split()
+    if len(header_words) != 2:
+        return False
+
+    if series is None:
+        return False
+
+    try:
+        s = pd.Series(series)
+    except Exception:
+        return False
+
+    if s.empty:
+        return False
+
+    numeric = pd.to_numeric(s, errors="coerce")
+    non_null_count = int(pd.Series(s).notna().sum())
+    numeric_count = int(numeric.notna().sum())
+    if non_null_count <= 0 or numeric_count != non_null_count:
+        return False
+
+    if numeric_count == 0:
+        return False
+
+    try:
+        max_abs = float(numeric.abs().max())
+    except Exception:
+        return False
+
+    return max_abs <= 999
+
+
 def _estimate_wrapped_line_count(text: str, max_chars_per_line: int = 42) -> int:
     """Approximate rendered line count for plain text blocks.
 
@@ -512,7 +552,7 @@ def _estimate_wrapped_line_count(text: str, max_chars_per_line: int = 42) -> int
     return max(1, total)
 
 
-def _estimate_header_line_count(columns, cfg: dict | None = None) -> int:
+def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> int:
     cfg = cfg or {}
     cols = list(columns or [])
     if not cols:
@@ -530,13 +570,18 @@ def _estimate_header_line_count(columns, cfg: dict | None = None) -> int:
     for col in cols:
         display_col = str(overrides.get(col, col) or col).strip()
         should_wrap_header = False
+        wrap_words_for_col = header_wrap_words
         if header_wrap_target == "All columns":
             should_wrap_header = True
         elif header_wrap_target and header_wrap_target != "Off" and str(col) == header_wrap_target:
             should_wrap_header = True
+        elif df is not None and hasattr(df, "columns") and col in getattr(df, "columns", []):
+            if should_force_two_line_numeric_header(df[col], display_col):
+                should_wrap_header = True
+                wrap_words_for_col = 1
 
         if should_wrap_header:
-            line_count = len(wrap_text_by_words(display_col, header_wrap_words).splitlines())
+            line_count = len(wrap_text_by_words(display_col, wrap_words_for_col).splitlines())
         else:
             line_count = _estimate_wrapped_line_count(display_col, max_chars_per_line=18)
         max_lines = max(max_lines, line_count)
@@ -590,7 +635,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
         if show_embed and embed_position == "Header":
             header_h = max(header_h, 88)
 
-    max_header_lines = _estimate_header_line_count(columns, cfg=cfg)
+    max_header_lines = _estimate_header_line_count(columns, cfg=cfg, df=df)
     table_head_h = 56 + max(0, max_header_lines - 1) * 16
 
     row_h = 52
@@ -4337,13 +4382,17 @@ def generate_table_html_from_df(
             display_col = format_column_header(str(_base_label), header_style)
 
         should_wrap_header = False
+        wrap_words_for_col = header_wrap_words
         if header_wrap_target == "All columns":
             should_wrap_header = True
         elif header_wrap_target and header_wrap_target != "Off" and str(col) == header_wrap_target:
             should_wrap_header = True
+        elif should_force_two_line_numeric_header(df[col], display_col):
+            should_wrap_header = True
+            wrap_words_for_col = 1
 
         if should_wrap_header:
-            wrapped_lines = wrap_text_by_words(display_col, header_wrap_words).splitlines()
+            wrapped_lines = wrap_text_by_words(display_col, wrap_words_for_col).splitlines()
             safe_label = "<br>".join(html_mod.escape(line) for line in wrapped_lines if line.strip())
         else:
             safe_label = html_mod.escape(display_col)
@@ -4354,7 +4403,7 @@ def generate_table_html_from_df(
         if col in text_wrap_columns:
             classes.append("dw-text-col")
         class_attr = " ".join(classes)
-        wrap_attr = f' data-header-wrap-words="{header_wrap_words}"' if should_wrap_header else ""
+        wrap_attr = f' data-header-wrap-words="{wrap_words_for_col}"' if should_wrap_header else ""
         original_attr = html_mod.escape(display_col, quote=True)
 
         head_cells.append(
