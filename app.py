@@ -6180,6 +6180,9 @@ if main_tab == "Published Tables":
                             iframe_editor_key = f"pub_iframe_editor_{selected_repo}_{selected_file}"
                             html_loaded_key = f"pub_html_loaded_{selected_repo}_{selected_file}"
 
+                            html_pending_key = f"pub_html_editor_pending_{selected_repo}_{selected_file}"
+                            iframe_pending_key = f"pub_iframe_editor_pending_{selected_repo}_{selected_file}"
+
                             if html_loaded_key not in st.session_state:
                                 try:
                                     st.session_state[html_editor_key] = read_github_text(
@@ -6207,6 +6210,12 @@ if main_tab == "Published Tables":
                                 )
                                 st.session_state[html_loaded_key] = True
 
+                            if html_pending_key in st.session_state:
+                                st.session_state[html_editor_key] = st.session_state.pop(html_pending_key)
+
+                            if iframe_pending_key in st.session_state:
+                                st.session_state[iframe_editor_key] = st.session_state.pop(iframe_pending_key)
+
                             left_col, right_col = st.columns([1.2, 1.0], gap="large")
 
                             with left_col:
@@ -6224,6 +6233,8 @@ if main_tab == "Published Tables":
                                 )
 
                                 if editor_mode == "HTML":
+                                    if st.session_state.get("pub_preview_flash_success"):
+                                        st.success(st.session_state.pop("pub_preview_flash_success"))
                                     st.caption("Editing the HTML here updates the real GitHub file. GitHub Pages can take a few minutes to reflect changes.")
                                     st.text_area(
                                         "HTML editor",
@@ -6251,14 +6262,15 @@ if main_tab == "Published Tables":
                                     with btn_b:
                                         if st.button("↻ Reload HTML", key=f"pub_reload_html_{selected_repo}_{selected_file}", use_container_width=True):
                                             try:
-                                                st.session_state[html_editor_key] = read_github_text(
+                                                st.session_state[html_pending_key] = read_github_text(
                                                     publish_owner,
                                                     selected_repo,
                                                     token_to_use,
                                                     selected_file,
                                                     branch="main",
                                                 )
-                                                st.success("Reloaded the latest HTML from GitHub.")
+                                                st.session_state["pub_preview_flash_success"] = "Reloaded the latest HTML from GitHub."
+                                                st.rerun()
                                             except Exception as e:
                                                 st.error(f"Could not reload HTML: {e}")
                                 else:
