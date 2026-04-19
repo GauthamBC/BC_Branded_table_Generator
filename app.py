@@ -4912,6 +4912,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
+    scrolling="no"
     style="border:0; border-radius:0; overflow:hidden; display:block;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
@@ -4927,6 +4928,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
+    scrolling="no"
     style="border: 0; border-radius: 0; overflow: hidden; display: block;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
@@ -5035,6 +5037,21 @@ def build_published_iframe_snippet(
 
     resolved_height = max(320, int(resolved_height or 800))
     return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
+
+
+def extract_iframe_height_from_snippet(snippet: str, fallback: int = 800) -> int:
+    """Read the numeric iframe height from an embed snippet."""
+    snippet = str(snippet or "")
+    try:
+        m = re.search(r'height="(\d+)"', snippet, flags=re.IGNORECASE)
+        if m:
+            return max(320, int(m.group(1)))
+    except Exception:
+        pass
+    try:
+        return max(320, int(fallback or 800))
+    except Exception:
+        return 800
 
 def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
     """
@@ -6197,7 +6214,12 @@ if main_tab == "Published Tables":
                                 fallback_height=st.session_state.get("bt_iframe_height", 800),
                                 bundle_path=selected_bundle_path,
                             )
-                            if iframe_snippet and iframe_snippet != str(st.session_state.get(iframe_editor_key) or ""):
+                            preview_iframe_height = extract_iframe_height_from_snippet(
+                                iframe_snippet,
+                                fallback=st.session_state.get("bt_iframe_height", 800),
+                            )
+                            current_iframe_state = str(st.session_state.get(iframe_editor_key) or "").strip()
+                            if iframe_snippet and (not current_iframe_state or current_iframe_state != iframe_snippet):
                                 st.session_state[iframe_editor_key] = iframe_snippet
                             elif iframe_editor_key not in st.session_state:
                                 st.session_state[iframe_editor_key] = iframe_snippet or ""
@@ -6277,7 +6299,7 @@ if main_tab == "Published Tables":
                             left_col, right_col = st.columns([1.35, 1.0], gap="large")
 
                             with left_col:
-                                components.iframe(selected_pages_url or url, height=650, scrolling=True)
+                                components.iframe(selected_pages_url or url, height=preview_iframe_height, scrolling=False)
 
                             with right_col:
                                 mode_key = f"pub_preview_editor_mode_{selected_repo}_{selected_file}"
@@ -6382,20 +6404,21 @@ if main_tab == "Published Tables":
                                         fallback_height=st.session_state.get("bt_iframe_height", 800),
                                         bundle_path=selected_bundle_path,
                                     )
-                                    if refreshed_iframe and refreshed_iframe != str(st.session_state.get(iframe_editor_key, "") or ""):
-                                        st.session_state[iframe_pending_key] = refreshed_iframe
-                                        st.rerun()
+                                    iframe_display_val = (refreshed_iframe or st.session_state.get(iframe_editor_key, "") or "").strip()
+                                    if iframe_display_val:
+                                        st.session_state[iframe_editor_key] = iframe_display_val
 
                                     st.caption("This iframe snippet is rebuilt automatically from the published metadata and bundle. Editing it here is for copy/use only and does not change the GitHub page.")
                                     st.text_area(
                                         "Published iframe snippet",
-                                        key=iframe_editor_key,
+                                        value=iframe_display_val,
+                                        key=f"{iframe_editor_key}__view",
                                         height=420,
                                         label_visibility="collapsed",
                                     )
                                     st.download_button(
                                         "Download iframe snippet",
-                                        data=st.session_state.get(iframe_editor_key, "") or "",
+                                        data=iframe_display_val,
                                         file_name="iframe-snippet.html",
                                         mime="text/html",
                                         use_container_width=True,
