@@ -2281,10 +2281,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* scroll */
     #bt-block .dw-scroll{
+      --table-side-pad: 18px;
       min-height: 0;
       overflow-x: auto;
       overflow-y: hidden;
-      padding: 0 18px;
+      padding: 0;
       box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
@@ -2296,29 +2297,39 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.96));
     }
 
+    /* Always-visible left/right inner gutter so the table body stays aligned
+       with the control row even while horizontally scrolling. */
     #bt-block .dw-scroll::before,
     #bt-block .dw-scroll::after{
       content:"";
       position: sticky;
-      left: 0;
-      right: 0;
+      top: 0;
+      bottom: 0;
+      width: var(--table-side-pad);
       display:block;
       pointer-events:none;
-      z-index:8;
+      z-index: 9;
     }
 
-    
+    #bt-block .dw-scroll::before{
+      left: 0;
+      float: left;
+      background: linear-gradient(to right, rgba(255,255,255,.98), rgba(255,255,255,.98));
+      box-shadow: inset -1px 0 0 rgba(var(--brand-500-rgb), .08);
+    }
 
     #bt-block .dw-scroll::after{
-      bottom: 0;
-      height: 8px;
-      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.98));
+      right: 0;
+      float: right;
+      background: linear-gradient(to left, rgba(255,255,255,.98), rgba(255,255,255,.98));
+      box-shadow: inset 1px 0 0 rgba(var(--brand-500-rgb), .08);
     }
 
+    #bt-block .dw-scroll.compact-fit::before,
     #bt-block .dw-scroll.compact-fit::after{
-      display:none;
-      height:0;
-      background:none;
+      width: var(--table-side-pad);
+      display:block;
+      background: rgba(255,255,255,.98);
     }
 
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
@@ -2334,7 +2345,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     #bt-block table.dw-table {
       width: max-content;   /* allow columns to grow so headers can fit */
-      min-width: 100%;      /* still fill container at minimum */
+      min-width: calc(100% - (var(--table-side-pad) * 2));      /* fill viewport but preserve visible side gutters */
+      margin: 0 var(--table-side-pad);
       border-collapse: separate;
       border-spacing: 0;
       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
@@ -2380,6 +2392,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     #bt-block thead th.sortable[data-sort="asc"]::after{content:"▲"}
     #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
+
+    @media (max-width: 640px){
+      #bt-block .dw-scroll{ --table-side-pad: 12px; }
+    }
     
     /* Balanced 1–3 line header labels using whole words only */
     #bt-block thead th.sortable > .dw-th-label{
