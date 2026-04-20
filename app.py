@@ -1897,7 +1897,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
       --gutter: 12px;
-      padding: 12px 0 10px;
+      padding: 12px var(--gutter) 10px;
       flex: 1 1 auto;
       min-height: 0;
       display: flex;
@@ -2351,17 +2351,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
 
     /* Header row */
-    /* Real inner spacing on the first/last columns so both edges feel aligned */
-    #bt-block thead th:first-child,
-    #bt-block tbody td:first-child{
-      padding-left: calc(var(--cell-pad-x) + var(--table-side-pad));
-    }
-
-    #bt-block thead th:last-child,
-    #bt-block tbody td:last-child{
-      padding-right: calc(var(--cell-pad-x) + var(--table-side-pad));
-    }
-
     #bt-block thead th{
       background:linear-gradient(180deg, var(--accent-start) 0%, var(--header-bg) 100%);
       color:#ffffff;
