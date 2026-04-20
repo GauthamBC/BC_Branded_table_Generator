@@ -6299,7 +6299,7 @@ if main_tab == "Published Tables":
                             left_col, right_col = st.columns([1.35, 1.0], gap="large")
 
                             with left_col:
-                                components.iframe(selected_pages_url or url, height=preview_iframe_height, scrolling=False)
+                                components.iframe(selected_pages_url or url, height=preview_iframe_height, scrolling=True)
 
                             with right_col:
                                 mode_key = f"pub_preview_editor_mode_{selected_repo}_{selected_file}"
@@ -8061,7 +8061,7 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=preview_height,
+                                height=int(preview_height) + 24,
                                 scrolling=True,
                             )
                 else:
