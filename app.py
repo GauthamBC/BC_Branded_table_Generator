@@ -1971,13 +1971,28 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
       #bt-block .dw-pager .dw-status{ display:none; }
       .vi-table-embed .dw-btn.dw-download{
-        font-size: 0;
+        position: relative;
+        font-size: 0 !important;
+        color: transparent !important;
+        letter-spacing: 0 !important;
+        text-indent: -9999px;
+        white-space: nowrap;
+        overflow: hidden;
         padding-inline: 10px;
       }
       .vi-table-embed .dw-btn.dw-download::after{
         content:"Embed";
+        position:absolute;
+        inset:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 700;
+        color:#ffffff;
+        text-indent: 0;
+        white-space: nowrap;
+        pointer-events:none;
       }
     }
 
