@@ -2284,6 +2284,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       min-height: 0;
       overflow-x: auto;
       overflow-y: hidden;
+      padding: 0 18px;
+      box-sizing: border-box;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: contain;
