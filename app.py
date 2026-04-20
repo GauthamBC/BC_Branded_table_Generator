@@ -5,6 +5,7 @@ import html as html_mod
 import json
 import re
 import time
+import tempfile
 import requests
 import io
 import json
@@ -683,7 +684,7 @@ def compute_widget_table_max_height(row_count: int) -> int:
 
 
 
-PREVIEW_IFRAME_BUFFER_PX = 140
+PREVIEW_IFRAME_BUFFER_PX = 5
 
 
 def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
@@ -4796,6 +4797,7 @@ def build_publish_bundle(widget_file_name: str) -> dict:
         # core state (everything needed to fully restore the editor)
         "config": cfg,
         "confirmed_total_height": int(st.session_state.get("bt_confirmed_total_height", 0) or 0),
+        "confirmed_height_source": str(st.session_state.get("bt_confirmed_height_source", "estimated") or "estimated"),
         "col_format_rules": rules,
         "csv": csv_text,
         "hidden_cols": st.session_state.get("bt_hidden_cols", []) or [],
@@ -4846,6 +4848,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
 
     st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
     st.session_state["bt_confirmed_total_height"] = int(bundle.get("confirmed_total_height", 0) or 0)
+    st.session_state["bt_confirmed_height_source"] = str(bundle.get("confirmed_height_source", "estimated") or "estimated")
 
     def _pick(*vals, default=None):
         for v in vals:
@@ -4925,6 +4928,109 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_confirm_flash"] = True
     st.rerun()
 
+def _safe_int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def measure_rendered_html_height_playwright(html: str, min_height: int = 320, extra_padding: int = PREVIEW_IFRAME_BUFFER_PX) -> int:
+    """Render the final HTML in a headless browser and measure its true full-document height.
+
+    Returns measured_height + extra_padding. Falls back by raising on measurement errors so
+    the caller can use the legacy estimator when needed.
+    """
+    html = str(html or '').strip()
+    if not html:
+        raise RuntimeError('Empty HTML passed for height measurement.')
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError(f'Playwright import failed: {e}')
+
+    min_height = max(1, _safe_int(min_height, 320))
+    extra_padding = max(0, _safe_int(extra_padding, PREVIEW_IFRAME_BUFFER_PX))
+
+    tmp_path = ''
+    try:
+        with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False, encoding='utf-8') as f:
+            f.write(html)
+            tmp_path = f.name
+
+        file_url = Path(tmp_path).resolve().as_uri()
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={"width": 1400, "height": 900}, device_scale_factor=1)
+            page.goto(file_url, wait_until='domcontentloaded', timeout=30000)
+
+            # Allow late layout / font settling where possible.
+            try:
+                page.wait_for_load_state('networkidle', timeout=3000)
+            except Exception:
+                pass
+
+            page.wait_for_timeout(200)
+            page.evaluate("""
+                () => new Promise((resolve) => {
+                    const done = () => requestAnimationFrame(() => requestAnimationFrame(resolve));
+                    if (document.fonts && document.fonts.ready) {
+                        document.fonts.ready.then(done).catch(done);
+                    } else {
+                        done();
+                    }
+                })
+            """)
+
+            measured_height = page.evaluate("""
+                () => {
+                    const doc = document.documentElement;
+                    const body = document.body;
+                    const widget = document.querySelector('.vi-table-embed');
+                    const values = [
+                        body ? body.scrollHeight : 0,
+                        doc ? doc.scrollHeight : 0,
+                        body ? body.offsetHeight : 0,
+                        doc ? doc.offsetHeight : 0,
+                        body ? body.clientHeight : 0,
+                        doc ? doc.clientHeight : 0,
+                        widget ? Math.ceil(widget.getBoundingClientRect().height) : 0
+                    ].filter(v => Number.isFinite(v) && v > 0);
+                    return Math.max(...values, 0);
+                }
+            """)
+            browser.close()
+
+        measured_height = max(min_height, _safe_int(measured_height, min_height))
+        return measured_height + extra_padding
+    finally:
+        if tmp_path:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
+def resolve_final_iframe_height(html: str, fallback_height: int, min_height: int = 320, extra_padding: int = PREVIEW_IFRAME_BUFFER_PX) -> tuple[int, str]:
+    """Prefer a Playwright-measured height; fall back to the legacy estimated height."""
+    fallback_height = max(min_height, _safe_int(fallback_height, min_height))
+    try:
+        measured = measure_rendered_html_height_playwright(
+            html=html,
+            min_height=min_height,
+            extra_padding=extra_padding,
+        )
+        return max(min_height, _safe_int(measured, fallback_height)), 'playwright'
+    except Exception:
+        estimated = apply_preview_height_buffer(
+            fallback_height,
+            buffer_px=extra_padding,
+            minimum_px=min_height,
+        )
+        return max(min_height, _safe_int(estimated, fallback_height)), 'estimated'
+
+
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
     try:
         r = http_session().get(url, timeout=5)
@@ -4939,7 +5045,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    h = apply_preview_height_buffer(height if height else 800)
+    h = max(320, _safe_int(height if height else 800, 800))
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
@@ -5057,7 +5163,7 @@ def build_published_iframe_snippet(
                         bundle_df = bundle_df.drop(columns=hidden_cols, errors="ignore")
                     resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
 
-    resolved_height = apply_preview_height_buffer(max(320, int(resolved_height or 800)), buffer_px=PREVIEW_IFRAME_BUFFER_PX, minimum_px=320)
+    resolved_height = max(320, int(resolved_height or 800))
     return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
 
 
@@ -5143,6 +5249,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
     st.session_state.setdefault("bt_confirmed_total_height", 0)
+    st.session_state.setdefault("bt_confirmed_height_source", "estimated")
     st.session_state.setdefault("bt_preview_total_height", 0)
     st.session_state.setdefault("bt_last_published_repo", "")
     st.session_state.setdefault("bt_last_published_file", "")
@@ -5441,6 +5548,7 @@ def do_confirm_snapshot():
         df=df_confirm_for_html,
     )
     st.session_state["bt_confirmed_total_height"] = int(confirmed_total_height)
+    st.session_state["bt_confirmed_height_source"] = "estimated"
 
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
@@ -7885,6 +7993,22 @@ if main_tab == "Create New Table":
                                     branch="main",
                                 )
                                 
+                                published_df = st.session_state.get("bt_df_confirmed")
+                                confirmed_cfg = st.session_state.get("bt_confirmed_cfg") or {}
+                                published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
+                                estimated_publish_height = int(
+                                    st.session_state.get("bt_confirmed_total_height", 0)
+                                    or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
+                                )
+                                final_publish_height, final_height_source = resolve_final_iframe_height(
+                                    html=html_final,
+                                    fallback_height=estimated_publish_height,
+                                    min_height=320,
+                                    extra_padding=PREVIEW_IFRAME_BUFFER_PX,
+                                )
+                                st.session_state["bt_confirmed_total_height"] = int(final_publish_height)
+                                st.session_state["bt_confirmed_height_source"] = str(final_height_source)
+
                                 # ✅ NEW: also publish the editable bundle (CSV + config + rules)
                                 bundle = build_publish_bundle(widget_file_name)
                                 bundle_path = f"bundles/{widget_file_name}.json"
@@ -7941,16 +8065,9 @@ if main_tab == "Create New Table":
                                     live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                 if live:
-                                    published_df = st.session_state.get("bt_df_confirmed")
-                                    confirmed_cfg = st.session_state.get("bt_confirmed_cfg") or {}
-                                    published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
-                                    published_iframe_height = apply_preview_height_buffer(
-                                        int(
-                                            st.session_state.get("bt_confirmed_total_height", 0)
-                                            or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
-                                        ),
-                                        buffer_px=PREVIEW_IFRAME_BUFFER_PX,
-                                        minimum_px=320,
+                                    published_iframe_height = max(
+                                        320,
+                                        int(st.session_state.get("bt_confirmed_total_height", 0) or 0),
                                     )
                                     st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
@@ -7962,8 +8079,11 @@ if main_tab == "Create New Table":
                                     # ✅ IMPORTANT: mark the page live + stop "in progress" state
                                     st.session_state["bt_publish_in_progress"] = False
                                     st.session_state["bt_live_confirmed"] = True
-                                
-                                    st.success("✅ Page is live. IFrame is ready.")
+
+                                    if str(st.session_state.get("bt_confirmed_height_source", "estimated") or "estimated") == "playwright":
+                                        st.success(f"✅ Page is live. IFrame is ready. Measured height: {published_iframe_height}px.")
+                                    else:
+                                        st.success(f"✅ Page is live. IFrame is ready. Using fallback estimated height: {published_iframe_height}px.")
                                 else:
                                     st.session_state["bt_iframe_code"] = ""
                                 
