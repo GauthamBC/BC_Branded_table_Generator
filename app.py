@@ -614,7 +614,8 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
         controls_h = 50 if (cfg.get("show_search", True) or cfg.get("show_pager", True) or (cfg.get("show_embed", True) and str(cfg.get("embed_position", "Body") or "Body") == "Body")) else 0
         return max(360, min(1200, base_header + controls_h + 120 + base_footer))
 
-    visible_rows = min(max(row_count, 1), 10)
+    # Show the full table height so the outer Streamlit/page scroller handles long tables.
+    visible_rows = max(row_count, 1)
 
     show_header = bool(cfg.get("show_header", True))
     show_footer = bool(cfg.get("show_footer", True))
@@ -668,18 +669,16 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_h = max(footer_h, 92)
 
     est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
-    return max(420, min(1400, est))
+    # Do not cap the iframe height for long tables; let the app/page scroll naturally.
+    return max(420, est)
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return the internal scroll cap for the table region inside the widget."""
+    """Return a generous table height so the full table can render without an internal vertical cap."""
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
-
-    if row_count >= 10:
-        return 680
 
     return max(260, 130 + (row_count * 52))
 
@@ -2760,12 +2759,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <div class="dw-pager [[PAGER_VIS_CLASS]]">
 <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
 <select class="dw-select" id="bt-size">
-<option selected="" value="10">10</option>
+<option value="10">10</option>
 <option value="15">15</option>
 <option value="20">20</option>
 <option value="25">25</option>
 <option value="30">30</option>
-<option value="0">All</option>
+<option selected="" value="0">All</option>
 </select>
 <button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
 <button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
