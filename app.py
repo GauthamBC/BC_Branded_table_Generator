@@ -649,7 +649,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
 
     page_status_h = 24 if show_page_numbers else 0
     scrollbar_h = 14
-    body_bottom_gap_h = 4
+    body_bottom_gap_h = 12
 
     footer_h = 0
     if show_footer:
@@ -657,7 +657,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
         except Exception:
             footer_logo_h = 36
-        footer_h = max(84, footer_logo_h + 44)
+        footer_h = max(104, footer_logo_h + 68)
         if show_footer_notes:
             notes = str(cfg.get("footer_notes", "") or "").strip()
             note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
@@ -683,7 +683,7 @@ def compute_widget_table_max_height(row_count: int) -> int:
 
 
 
-PREVIEW_IFRAME_BUFFER_PX = 32
+PREVIEW_IFRAME_BUFFER_PX = 72
 
 
 def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
@@ -5051,7 +5051,7 @@ def build_published_iframe_snippet(
                         bundle_df = bundle_df.drop(columns=hidden_cols, errors="ignore")
                     resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
 
-    resolved_height = max(320, int(resolved_height or 800))
+    resolved_height = apply_preview_height_buffer(max(320, int(resolved_height or 800)), buffer_px=PREVIEW_IFRAME_BUFFER_PX, minimum_px=320)
     return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
 
 
@@ -7935,9 +7935,13 @@ if main_tab == "Create New Table":
                                     published_df = st.session_state.get("bt_df_confirmed")
                                     confirmed_cfg = st.session_state.get("bt_confirmed_cfg") or {}
                                     published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
-                                    published_iframe_height = int(
-                                        st.session_state.get("bt_confirmed_total_height", 0)
-                                        or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
+                                    published_iframe_height = apply_preview_height_buffer(
+                                        int(
+                                            st.session_state.get("bt_confirmed_total_height", 0)
+                                            or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
+                                        ),
+                                        buffer_px=PREVIEW_IFRAME_BUFFER_PX,
+                                        minimum_px=320,
                                     )
                                     st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
