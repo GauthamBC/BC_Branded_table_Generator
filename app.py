@@ -614,7 +614,6 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
         controls_h = 50 if (cfg.get("show_search", True) or cfg.get("show_pager", True) or (cfg.get("show_embed", True) and str(cfg.get("embed_position", "Body") or "Body") == "Body")) else 0
         return max(360, min(1200, base_header + controls_h + 120 + base_footer))
 
-    # Show the full table height so the outer Streamlit/page scroller handles long tables.
     visible_rows = max(row_count, 1)
 
     show_header = bool(cfg.get("show_header", True))
@@ -649,8 +648,8 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             controls_h += 6
 
     page_status_h = 24 if show_page_numbers else 0
-    scrollbar_h = 14 if row_count > 10 else 0
-    body_bottom_gap_h = 2 if row_count > 10 else 0
+    scrollbar_h = 14
+    body_bottom_gap_h = 4
 
     footer_h = 0
     if show_footer:
@@ -669,18 +668,39 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_h = max(footer_h, 92)
 
     est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
-    # Do not cap the iframe height for long tables; let the app/page scroll naturally.
-    return max(420, est)
+    return max(180, min(6000, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return a generous table height so the full table can render without an internal vertical cap."""
+    """Return a generous table height so the full table can render without an internal vertical scrollbar."""
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    return max(260, 130 + (row_count * 52))
+    row_count = max(row_count, 1)
+    return max(260, 56 + (row_count * 52) + 18)
+
+
+
+PREVIEW_IFRAME_BUFFER_PX = 32
+
+
+def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
+    """Add a small bottom buffer so footers do not clip in preview iframes."""
+    try:
+        height = int(height or 0)
+    except Exception:
+        height = 0
+    try:
+        buffer_px = int(buffer_px or 0)
+    except Exception:
+        buffer_px = 0
+    try:
+        minimum_px = int(minimum_px or 0)
+    except Exception:
+        minimum_px = 0
+    return max(minimum_px, height + buffer_px)
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
@@ -2277,11 +2297,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background:none;
     }
 
-    /* ✅ Branded scrollbar across all brands */
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
     #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background: var(--scroll-thumb);
+      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px;
       border: 2px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
@@ -2759,12 +2778,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <div class="dw-pager [[PAGER_VIS_CLASS]]">
 <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
 <select class="dw-select" id="bt-size">
-<option value="10">10</option>
+<option selected="" value="10">10</option>
 <option value="15">15</option>
 <option value="20">20</option>
 <option value="25">25</option>
 <option value="30">30</option>
-<option selected="" value="0">All</option>
+<option value="0">All</option>
 </select>
 <button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
 <button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
@@ -2966,26 +2985,23 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fallbackRowHeight = rowHeights[0] || 54;
       const theadHeight = theadEl ? Math.ceil(theadEl.getBoundingClientRect().height || 0) : 0;
 
-      const compactMode = shownCount <= 10;
-      const rowsForWindow = compactMode ? Math.max(shownCount, 1) : 10;
-
       let bodyRowsHeight = 0;
-      for (let i = 0; i < rowsForWindow; i++) {
+      for (let i = 0; i < Math.max(shownCount, 1); i++) {
         bodyRowsHeight += Math.ceil(rowHeights[i] || fallbackRowHeight);
       }
 
-      const horizontalScrollbarAllowance = compactMode ? 0 : 12;
+      const horizontalScrollbarAllowance = 14;
       const bottomFadeAllowance = 0;
-      const safetyBuffer = compactMode ? 2 : 2;
+      const safetyBuffer = 4;
       const finalScrollHeight = Math.ceil(
         theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
       );
 
-      scroller.classList.toggle('compact-fit', compactMode);
+      scroller.classList.add('compact-fit');
       scroller.style.height = `${finalScrollHeight}px`;
       scroller.style.maxHeight = `${finalScrollHeight}px`;
       scroller.style.overflowX = 'auto';
-      scroller.style.overflowY = compactMode ? 'hidden' : 'auto';
+      scroller.style.overflowY = 'hidden';
     }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
@@ -4901,7 +4917,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    h = int(height) if height else 800
+    h = apply_preview_height_buffer(height if height else 800)
     brand_clean = (brand or "").strip().lower()
 
     # ✅ Canada Sports Betting → FULL width (no max-width wrapper)
@@ -6299,7 +6315,7 @@ if main_tab == "Published Tables":
                             left_col, right_col = st.columns([1.35, 1.0], gap="large")
 
                             with left_col:
-                                components.iframe(selected_pages_url or url, height=preview_iframe_height, scrolling=True)
+                                components.iframe(selected_pages_url or url, height=preview_iframe_height, scrolling=False)
 
                             with right_col:
                                 mode_key = f"pub_preview_editor_mode_{selected_repo}_{selected_file}"
@@ -8061,8 +8077,8 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=int(preview_height) + 24,
-                                scrolling=True,
+                                height=apply_preview_height_buffer(preview_height),
+                                scrolling=False,
                             )
                 else:
                     # Clear any previously mounted preview so it does NOT persist visually
