@@ -649,7 +649,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
 
     page_status_h = 24 if show_page_numbers else 0
     scrollbar_h = 14
-    body_bottom_gap_h = 12
+    body_bottom_gap_h = 36
 
     footer_h = 0
     if show_footer:
@@ -657,7 +657,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
         except Exception:
             footer_logo_h = 36
-        footer_h = max(104, footer_logo_h + 68)
+        footer_h = max(132, footer_logo_h + 96)
         if show_footer_notes:
             notes = str(cfg.get("footer_notes", "") or "").strip()
             note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
@@ -668,7 +668,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_h = max(footer_h, 92)
 
     est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
-    return max(180, min(6000, est))
+    return max(220, min(7000, est))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -683,7 +683,7 @@ def compute_widget_table_max_height(row_count: int) -> int:
 
 
 
-PREVIEW_IFRAME_BUFFER_PX = 72
+PREVIEW_IFRAME_BUFFER_PX = 140
 
 
 def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
