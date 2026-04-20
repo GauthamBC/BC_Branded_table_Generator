@@ -17,99 +17,22 @@ def inject_global_radio_button_css():
     st.markdown(
         """
         <style>
-        /* ===== Global radio -> button styling ===== */
-        div[data-testid="stRadio"] {
-            width: 100% !important;
-        }
 
-        div[data-testid="stRadio"] > div {
-            width: 100% !important;
-        }
+/* ✅ EMBED BUTTON STYLE SOURCE OF TRUTH
+   Keep header, body, and footer triggers visually identical in the widget itself.
+   The actual widget CSS below is the canonical source; this block only prevents
+   Streamlit wrapper styles from dimming links or buttons around it. */
+.vi-table-embed .vi-header-actions,
+.vi-table-embed .footer-embed-wrap {
+  opacity: 1 !important;
+}
 
-        div[data-testid="stRadio"] [role="radiogroup"] {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-            width: 100% !important;
-        }
+.vi-table-embed .vi-header-actions *,
+.vi-table-embed .footer-embed-wrap * {
+  text-decoration: none !important;
+}
 
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] {
-            flex: 1 1 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            min-width: 0 !important;
-            display: flex !important;
-            align-items: stretch !important;
-            justify-content: stretch !important;
-            border: 0 !important;
-            background: transparent !important;
-            padding: 0 !important;
-        }
-
-        /* Hide the native radio circle / icon wrappers */
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:first-child,
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] svg,
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] input[type="radio"] {
-            position: absolute !important;
-            width: 1px !important;
-            height: 1px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-
-        /* Visible button surface */
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
-            flex: 1 1 auto !important;
-            width: 100% !important;
-            min-height: 52px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            text-align: center !important;
-            padding: 0 18px !important;
-            border-radius: 12px !important;
-            border: 1px solid rgba(0,0,0,0.14) !important;
-            background: #ffffff !important;
-            color: #2f3542 !important;
-            font-weight: 700 !important;
-            line-height: 1.15 !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-            transition: all 0.15s ease !important;
-        }
-
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"]:hover > div:last-child {
-            border-color: rgba(0,0,0,0.24) !important;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
-        }
-
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] input[type="radio"]:checked + div,
-        div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"][aria-checked="true"] > div:last-child {
-            background: #FF5A5F !important;
-            border-color: #FF5A5F !important;
-            color: #ffffff !important;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.12) !important;
-        }
-
-        div[data-testid="stRadio"] label[data-baseweb="radio"] p {
-            margin: 0 !important;
-            width: 100% !important;
-            text-align: center !important;
-            font-weight: 700 !important;
-        }
-
-        @media (max-width: 640px) {
-            div[data-testid="stRadio"] [role="radiogroup"] {
-                gap: 10px !important;
-            }
-
-            div[data-testid="stRadio"] [role="radiogroup"] > label[data-baseweb="radio"] > div:last-child {
-                min-height: 48px !important;
-                padding: 0 12px !important;
-                font-size: 15px !important;
-            }
-        }
-        </style>
+</style>
         """,
         unsafe_allow_html=True,
     )
@@ -520,7 +443,6 @@ def apply_text_case(text: str, style: str) -> str:
         if not s2:
             return s
         low = s2.lower()
-        # Uppercase the first alphabetical character
         for idx, ch in enumerate(low):
             if ch.isalpha():
                 return low[:idx] + ch.upper() + low[idx + 1 :]
@@ -532,27 +454,265 @@ def apply_text_case(text: str, style: str) -> str:
     return s
 
 
-def compute_preview_height(row_count: int) -> int:
-    """Return a preview iframe height that keeps desktop previews unclipped.
+def wrap_text_by_words(text: str, words_per_line: int) -> str:
+    """Wrap text into lines containing up to `words_per_line` words each."""
+    s = "" if text is None else str(text).strip()
+    try:
+        words_per_line = int(words_per_line)
+    except Exception:
+        words_per_line = 0
 
-    - 10 rows (or more) get a tall preview so the full paginated page is visible.
-    - Fewer than 10 rows shrink progressively.
+    if not s or words_per_line <= 0:
+        return s
+
+    words = s.split()
+    if not words:
+        return s
+
+    return "\n".join(
+        " ".join(words[i:i + words_per_line])
+        for i in range(0, len(words), words_per_line)
+    )
+
+
+def should_force_two_line_numeric_header(series, header_text: str) -> bool:
+    """Auto-wrap a 2-word numeric header as 1 word per line for compact numeric columns.
+
+    Rule:
+    - column is numeric-only after coercion
+    - every numeric value fits within 3 digits by absolute value (<= 999)
+    - header contains exactly 2 words
+    """
+    header_words = str(header_text or "").strip().split()
+    if len(header_words) != 2:
+        return False
+
+    if series is None:
+        return False
+
+    try:
+        s = pd.Series(series)
+    except Exception:
+        return False
+
+    if s.empty:
+        return False
+
+    numeric = pd.to_numeric(s, errors="coerce")
+    non_null_count = int(pd.Series(s).notna().sum())
+    numeric_count = int(numeric.notna().sum())
+    if non_null_count <= 0 or numeric_count != non_null_count:
+        return False
+
+    if numeric_count == 0:
+        return False
+
+    try:
+        max_abs = float(numeric.abs().max())
+    except Exception:
+        return False
+
+    return max_abs <= 999
+
+
+def _estimate_wrapped_line_count(text: str, max_chars_per_line: int = 42) -> int:
+    """Approximate rendered line count for plain text blocks.
+
+    This is a Python-side heuristic used for iframe-height sizing. It is intentionally
+    conservative so the generated iframe is less likely to clip the footer.
+    """
+    s = "" if text is None else str(text)
+    s = s.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
+    parts = [p.strip() for p in s.splitlines()] or [s.strip()]
+    total = 0
+    max_chars_per_line = max(8, int(max_chars_per_line or 42))
+
+    for part in parts:
+        if not part:
+            total += 1
+            continue
+        words = part.split()
+        if not words:
+            total += 1
+            continue
+
+        current = 0
+        lines = 1
+        for word in words:
+            word_len = len(word)
+            if current == 0:
+                current = word_len
+            elif current + 1 + word_len <= max_chars_per_line:
+                current += 1 + word_len
+            else:
+                lines += 1
+                current = word_len
+        total += lines
+
+    return max(1, total)
+
+
+def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> int:
+    cfg = cfg or {}
+    cols = list(columns or [])
+    if not cols:
+        return 1
+
+    overrides = cfg.get("col_header_overrides", {}) or {}
+    header_wrap_target = str(cfg.get("header_wrap_target", "Off") or "Off").strip()
+    try:
+        header_wrap_words = int(cfg.get("header_wrap_words", 2) or 2)
+    except Exception:
+        header_wrap_words = 2
+    header_wrap_words = max(1, min(10, header_wrap_words))
+
+    max_lines = 1
+    for col in cols:
+        display_col = str(overrides.get(col, col) or col).strip()
+        should_wrap_header = False
+        wrap_words_for_col = header_wrap_words
+        if header_wrap_target == "All columns":
+            should_wrap_header = True
+        elif header_wrap_target and header_wrap_target != "Off" and str(col) == header_wrap_target:
+            should_wrap_header = True
+        elif df is not None and hasattr(df, "columns") and col in getattr(df, "columns", []):
+            if should_force_two_line_numeric_header(df[col], display_col):
+                should_wrap_header = True
+                wrap_words_for_col = 1
+
+        if should_wrap_header:
+            line_count = len(wrap_text_by_words(display_col, wrap_words_for_col).splitlines())
+        else:
+            line_count = _estimate_wrapped_line_count(display_col, max_chars_per_line=18)
+        max_lines = max(max_lines, line_count)
+
+    return max_lines
+
+
+def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
+    """Estimate the total widget height from the top of the header to the bottom of the footer.
+
+    This intentionally avoids adding large safety padding because the returned value is also used
+    as the published iframe height. The goal is a tight outer height that ends at the widget,
+    not below it.
     """
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    if row_count >= 10:
-        return 920
+    cfg = cfg or {}
+    if df is not None and isinstance(df, pd.DataFrame):
+        row_count = len(df.index)
+        columns = list(df.columns)
+    else:
+        columns = []
 
-    return max(520, min(920, 300 + (row_count * 52)))
+    if row_count <= 0:
+        base_header = 88 if cfg.get("show_header", True) else 0
+        base_footer = 88 if cfg.get("show_footer", True) else 0
+        controls_h = 50 if (cfg.get("show_search", True) or cfg.get("show_pager", True) or (cfg.get("show_embed", True) and str(cfg.get("embed_position", "Body") or "Body") == "Body")) else 0
+        return max(360, min(1200, base_header + controls_h + 120 + base_footer))
+
+    visible_rows = max(row_count, 1)
+
+    show_header = bool(cfg.get("show_header", True))
+    show_footer = bool(cfg.get("show_footer", True))
+    show_search = bool(cfg.get("show_search", True))
+    show_pager = bool(cfg.get("show_pager", True))
+    show_page_numbers = bool(cfg.get("show_page_numbers", True)) and show_pager
+    show_embed = bool(cfg.get("show_embed", True))
+    embed_position = str(cfg.get("embed_position", "Body") or "Body")
+    show_footer_notes = bool(cfg.get("show_footer_notes", False))
+    show_heat_scale = bool(cfg.get("show_heat_scale", False)) and not show_footer_notes
+
+    title_lines = _estimate_wrapped_line_count(cfg.get("title", "Table 1"), max_chars_per_line=34)
+    subtitle_lines = _estimate_wrapped_line_count(cfg.get("subtitle", ""), max_chars_per_line=46) if str(cfg.get("subtitle", "")).strip() else 0
+
+    header_h = 0
+    if show_header:
+        header_h = 88 + max(0, title_lines - 1) * 18 + max(0, subtitle_lines - 1) * 14
+        if show_embed and embed_position == "Header":
+            header_h = max(header_h, 88)
+
+    max_header_lines = _estimate_header_line_count(columns, cfg=cfg, df=df)
+    table_head_h = 56 + max(0, max_header_lines - 1) * 16
+
+    row_h = 52
+    body_h = visible_rows * row_h
+
+    controls_h = 0
+    if show_search or show_pager or (show_embed and embed_position == "Body"):
+        controls_h = 46
+        if (show_search and show_pager) or ((show_search or show_pager) and show_embed and embed_position == "Body"):
+            controls_h += 6
+
+    page_status_h = 24 if show_page_numbers else 0
+    scrollbar_h = 14
+    body_bottom_gap_h = 36
+
+    footer_h = 0
+    if show_footer:
+        try:
+            footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
+        except Exception:
+            footer_logo_h = 36
+        footer_h = max(132, footer_logo_h + 96)
+        if show_footer_notes:
+            notes = str(cfg.get("footer_notes", "") or "").strip()
+            note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
+            footer_h += note_lines * 18 + (10 if note_lines else 0)
+        elif show_heat_scale:
+            footer_h += 22
+        if show_embed and embed_position == "Footer":
+            footer_h = max(footer_h, 92)
+
+    est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
+    return max(220, min(7000, est))
+
+
+def compute_widget_table_max_height(row_count: int) -> int:
+    """Return a generous table height so the full table can render without an internal vertical scrollbar."""
+    try:
+        row_count = int(row_count)
+    except Exception:
+        row_count = 0
+
+    row_count = max(row_count, 1)
+    return max(260, 56 + (row_count * 52) + 18)
+
+
+
+PREVIEW_IFRAME_BUFFER_PX = 140
+
+
+def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
+    """Add a small bottom buffer so footers do not clip in preview iframes."""
+    try:
+        height = int(height or 0)
+    except Exception:
+        height = 0
+    try:
+        buffer_px = int(buffer_px or 0)
+    except Exception:
+        buffer_px = 0
+    try:
+        minimum_px = int(minimum_px or 0)
+    except Exception:
+        minimum_px = 0
+    return max(minimum_px, height + buffer_px)
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
-    """Auto-hide search/pager for compact tables by default, while allowing user override.
+    """Apply compact-table defaults when the uploaded table shape changes.
 
-    Defaults are re-applied only when the uploaded table shape changes.
+    For tables with 10 rows or fewer, default the widget to a cleaner compact layout:
+    - hide Search
+    - hide Pager
+    - hide Page Numbers
+    - place the Embed / Download button in the Header
+
+    Users can still override these after the defaults are applied.
     """
     row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
     col_count = len(df.columns) if isinstance(df, pd.DataFrame) else 0
@@ -564,6 +724,7 @@ def sync_table_control_defaults_for_row_count(df) -> int:
         st.session_state["bt_show_search"] = not compact_defaults
         st.session_state["bt_show_pager"] = not compact_defaults
         st.session_state["bt_show_page_numbers"] = not compact_defaults
+        st.session_state["bt_embed_position"] = "Header" if compact_defaults else "Body"
         st.session_state["bt_table_controls_auto_sig"] = data_sig
 
     return row_count
@@ -1504,24 +1665,24 @@ def get_brand_meta(brand: str) -> dict:
 # =========================================================
 # HTML Template (UPDATED)
 # =========================================================
-HTML_TEMPLATE_TABLE = r"""<!doctype html>
+HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>[[TITLE]]</title>
-
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-
-<body style="margin:0; overflow:auto;">
-
+<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-         color:#181a1f;background:#ffffff;border:0;border-radius:12px;
-         box-shadow:0 1px 2px rgba(0,0,0,.07),0 6px 16px rgba(0,0,0,.09);">
-
-  <style>
+         color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
+         box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
+<style>
+    html, body { height:100%; }
+    body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -1557,6 +1718,19 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
       /* ✅ Footer logo height */
       --footer-logo-h: [[FOOTER_LOGO_H]]px;
+      --surface-shadow: 0 14px 34px rgba(17,24,39,.08);
+      --accent-start: var(--brand-500);
+      --accent-mid: var(--brand-600);
+      --accent-end: var(--brand-700);
+
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      isolation: isolate;
+      position: relative;
     }
 
     .vi-table-embed.align-left { --cell-align:left; }
@@ -1650,13 +1824,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Header block */
     .vi-table-embed .vi-table-header{
-      padding:10px 16px 8px;
-      border-bottom:1px solid var(--brand-100);
-      background:var(--brand-50);
+      border-bottom:1px solid var(--brand-600);
+      padding:14px 18px;
+      min-height:88px;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .04));
+      backdrop-filter:none;
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:space-between;
-      gap:12px;
+      gap:16px;
       position:relative;
       overflow:visible;
       z-index:30;
@@ -1666,34 +1842,66 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       flex:1 1 auto;
       display:flex;
       flex-direction:column;
+      justify-content:center;
       align-items:flex-start;
-      gap:2px;
+      gap:4px;
+      min-height:100%;
     }
     .vi-table-embed .vi-table-header.centered .vi-header-main{ align-items:center; text-align:center; }
     .vi-table-embed .vi-header-actions{
       flex:0 0 auto;
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:flex-end;
       min-width:max-content;
+      min-height:100%;
       position:relative;
       overflow:visible;
       z-index:40;
     }
     .vi-table-embed .vi-header-actions.vi-hide{ display:none !important; }
     .vi-table-embed .vi-table-header .title{
-      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:750; color:#111827; display:block;
+      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:800; letter-spacing:-0.02em; color:#111827; display:block; text-shadow:0 1px 0 rgba(255,255,255,.65);
     }
     .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
-    .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#6b7280; display:block; }
+    .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#7a808d; display:block; }
+
+    .vi-table-embed .dw-download,
+    .vi-table-embed .dw-embed-trigger,
+    .vi-table-embed .dw-embed-trigger-header,
+    .vi-table-embed .dw-embed-trigger-footer,
+    .vi-table-embed button.dw-btn.dw-download,
+    .vi-table-embed .vi-header-actions button,
+    .vi-table-embed .footer-embed-wrap button{
+      cursor: pointer !important;
+    }
+
+    .vi-table-embed .dw-download:disabled,
+    .vi-table-embed .dw-embed-trigger:disabled,
+    .vi-table-embed button.dw-btn.dw-download:disabled{
+      cursor: not-allowed !important;
+    }
+
+    .vi-table-embed th,
+    .vi-table-embed thead th{
+      white-space: normal !important;
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+      height: auto !important;
+      line-height: 1.2 !important;
+    }
+
 
     /* Table block */
     #bt-block, #bt-block * { box-sizing:border-box; }
     #bt-block{
       --bg:#ffffff; --text:#1f2937;
       --gutter: 12px;
-      padding: 10px var(--gutter);
-      padding-top: 10px;
+      padding: 12px 0 10px;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     /* ✅ Controls row */
@@ -1719,7 +1927,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:flex-end;
       gap: var(--ctrl-gap);
       flex-wrap:nowrap;
-      white-space:nowrap;
+      white-space:normal; word-break:normal; overflow-wrap:break-word;
       position:relative;
     }
 
@@ -1729,7 +1937,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       align-items:center;
       gap: var(--ctrl-gap);
       flex-wrap:nowrap;
-      white-space:nowrap;
+      white-space:normal; word-break:normal; overflow-wrap:break-word;
       position:relative;
     }
 
@@ -1750,10 +1958,10 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       max-width: 260px;
       min-width: 120px;
       padding-right: 34px;
-      background:#fff;
-      border:1px solid var(--brand-700);
+      background:linear-gradient(180deg,#fff,#fff8f8);
+      border:1px solid rgba(var(--brand-500-rgb), .24);
       color:var(--text);
-      box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
+      box-shadow:0 6px 16px rgba(17,24,39,.06), inset 0 1px 1px rgba(255,255,255,.85);
     }
 
     /* ✅ Mobile squeeze */
@@ -1770,13 +1978,28 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
       #bt-block .dw-pager .dw-status{ display:none; }
       .vi-table-embed .dw-btn.dw-download{
-        font-size: 0;
+        position: relative;
+        font-size: 0 !important;
+        color: transparent !important;
+        letter-spacing: 0 !important;
+        text-indent: -9999px;
+        white-space: nowrap;
+        overflow: hidden;
         padding-inline: 10px;
       }
       .vi-table-embed .dw-btn.dw-download::after{
         content:"Embed";
+        position:absolute;
+        inset:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 700;
+        color:#ffffff;
+        text-indent: 0;
+        white-space: nowrap;
+        pointer-events:none;
       }
     }
 
@@ -1807,43 +2030,98 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       padding-right: 18px;
       width: 62px;
       text-align:center;
-      background:#fff;
-      border:1px solid var(--brand-700);
+      background:linear-gradient(180deg,#fff,#fff8f8);
+      border:1px solid rgba(var(--brand-500-rgb), .24);
       color:var(--text);
-      box-shadow:inset 0 1px 2px rgba(16,24,40,.04);
+      box-shadow:0 6px 16px rgba(17,24,39,.06), inset 0 1px 1px rgba(255,255,255,.85);
     }
 
     /* Buttons */
     #bt-block .dw-btn{
-      background:var(--brand-500);
+      background:linear-gradient(180deg, var(--accent-start) 0%, var(--accent-mid) 100%);
       color:#fff;
-      border:1px solid var(--brand-500);
+      border:1px solid rgba(var(--brand-500-rgb), .72);
       padding-inline: 10px;
       cursor:pointer;
-      white-space:nowrap;
+      white-space:normal; word-break:normal; overflow-wrap:break-word;
       height: 34px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      box-shadow:none;
     }
-    #bt-block .dw-btn:hover{background:var(--brand-600); border-color:var(--brand-600)}
+    #bt-block .dw-btn:hover{background:linear-gradient(180deg,var(--accent-mid) 0%, var(--accent-end) 100%); border-color:rgba(var(--brand-500-rgb), .9); transform:translateY(-1px); box-shadow:none}
     #bt-block .dw-btn:active{transform:translateY(1px)}
     #bt-block .dw-btn[disabled]{background:#fafafa; border-color:#d1d5db; color:#6b7280; opacity:1; cursor:not-allowed; transform:none}
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
-    /* Embed/Download button */
-    .vi-table-embed .dw-btn.dw-download{
-      background:#ffffff;
-      color:var(--brand-700);
-      border:1px solid var(--brand-700);
-      height: 34px;
-      padding-inline: 10px;
-      font-weight:600;
+
+    /* Embed/Download button — source of truth for body, header, and footer */
+    .vi-table-embed button.dw-btn.dw-download,
+    .vi-table-embed .dw-btn.dw-download,
+    .vi-table-embed .dw-download,
+    .vi-table-embed .vi-header-actions button,
+    .vi-table-embed .vi-header-actions .dw-btn,
+    .vi-table-embed .vi-header-actions .dw-download,
+    .vi-table-embed .footer-embed-wrap button,
+    .vi-table-embed .footer-embed-wrap .dw-btn,
+    .vi-table-embed .footer-embed-wrap .dw-download,
+    .vi-table-embed [data-embed-position="Header"] .vi-header-actions button,
+    .vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
+    .vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap button,
+    .vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn{
+      background:linear-gradient(180deg, var(--accent-start) 0%, var(--accent-mid) 100%) !important;
+      background-color:var(--accent-mid) !important;
+      color:#ffffff !important;
+      border:1px solid rgba(var(--brand-500-rgb), .72) !important;
+      border-radius:12px !important;
+      height:34px;
+      padding-inline:12px;
+      font-weight:700 !important;
+      box-shadow:none !important;
+      text-shadow:none !important;
+      outline:none !important;
+      opacity:1 !important;
+      -webkit-appearance:none !important;
+      appearance:none !important;
+      cursor:pointer !important;
+      text-decoration:none !important;
     }
-    .vi-table-embed .dw-btn.dw-download:hover{
-      background:var(--brand-50);
-      border-color:var(--brand-600);
-      color:var(--brand-600);
+    .vi-table-embed button.dw-btn.dw-download:hover,
+    .vi-table-embed .dw-btn.dw-download:hover,
+    .vi-table-embed .dw-download:hover,
+    .vi-table-embed .vi-header-actions button:hover,
+    .vi-table-embed .vi-header-actions .dw-btn:hover,
+    .vi-table-embed .vi-header-actions .dw-download:hover,
+    .vi-table-embed .footer-embed-wrap button:hover,
+    .vi-table-embed .footer-embed-wrap .dw-btn:hover,
+    .vi-table-embed .footer-embed-wrap .dw-download:hover,
+    .vi-table-embed button.dw-btn.dw-download:focus,
+    .vi-table-embed .dw-btn.dw-download:focus,
+    .vi-table-embed .dw-download:focus,
+    .vi-table-embed .vi-header-actions button:focus,
+    .vi-table-embed .vi-header-actions .dw-btn:focus,
+    .vi-table-embed .vi-header-actions .dw-download:focus,
+    .vi-table-embed .footer-embed-wrap button:focus,
+    .vi-table-embed .footer-embed-wrap .dw-btn:focus,
+    .vi-table-embed .footer-embed-wrap .dw-download:focus,
+    .vi-table-embed button.dw-btn.dw-download:active,
+    .vi-table-embed .dw-btn.dw-download:active,
+    .vi-table-embed .dw-download:active,
+    .vi-table-embed .vi-header-actions button:active,
+    .vi-table-embed .vi-header-actions .dw-btn:active,
+    .vi-table-embed .vi-header-actions .dw-download:active,
+    .vi-table-embed .footer-embed-wrap button:active,
+    .vi-table-embed .footer-embed-wrap .dw-btn:active,
+    .vi-table-embed .footer-embed-wrap .dw-download:active{
+      background:linear-gradient(180deg, var(--accent-mid) 0%, var(--accent-end) 100%) !important;
+      background-color:var(--accent-end) !important;
+      color:#ffffff !important;
+      border-color:rgba(var(--brand-500-rgb), .9) !important;
+      box-shadow:none !important;
+      transform:translateY(-1px);
+      outline:none !important;
+      text-decoration:none !important;
     }
 
     /* Download menu */
@@ -1890,23 +2168,31 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     .vi-table-embed .dw-modal-backdrop{
-      position:fixed;
+      position:absolute;
       inset:0;
-      background:rgba(17,24,39,.26);
+      background:rgba(17,24,39,.14);
       z-index:9998;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
+      padding:0;
+      overflow:hidden;
+      backdrop-filter: blur(1.5px);
+      -webkit-backdrop-filter: blur(1.5px);
     }
     .vi-table-embed .dw-modal{
       width:min(92vw, 320px);
-      background:#fff;
-      border:1px solid rgba(0,0,0,.10);
-      border-radius:14px;
-      box-shadow:0 18px 40px rgba(0,0,0,.24);
+      max-width:calc(100% - 28px);
+      background:#ffffff;
+      opacity:1;
+      border:1px solid rgba(var(--brand-500-rgb), .22);
+      border-top:2px solid var(--brand-600);
+      border-radius:0;
+      box-shadow:0 18px 40px rgba(17,24,39,.24), 0 6px 18px rgba(var(--brand-500-rgb), .10);
       padding:10px;
-      position:relative;
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
+      overflow:hidden;
+      isolation:isolate;
     }
     .vi-table-embed .dw-modal-head{
       display:flex;
@@ -1914,29 +2200,56 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       justify-content:space-between;
       gap:10px;
       margin-bottom:8px;
+      padding-bottom:6px;
+      border-bottom:1px solid rgba(var(--brand-500-rgb), .16);
+    }
+    .vi-table-embed .dw-modal-head .dw-menu-title{
+      color:var(--brand-700);
+      font-weight:700;
+      letter-spacing:.01em;
     }
     .vi-table-embed .dw-modal-actions{
       display:flex;
       flex-direction:column;
-      gap:6px;
+      gap:8px;
     }
     .vi-table-embed .dw-modal-close{
       width:32px;
       height:32px;
       border-radius:999px;
-      border:1px solid rgba(0,0,0,.10);
+      border:1px solid rgba(var(--brand-500-rgb), .18);
       background:#fff;
-      color:#111827;
+      color:var(--brand-700);
       cursor:pointer;
       font-size:20px;
       line-height:1;
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
     }
     .vi-table-embed .dw-modal-close:hover{
       background:var(--brand-50);
-      border-color: rgba(var(--brand-500-rgb), .35);
+      border-color: rgba(var(--brand-500-rgb), .40);
+      color:var(--brand-700);
+    }
+    .vi-table-embed .dw-modal .dw-menu-btn{
+      width:100%;
+      display:block;
+      text-align:left;
+      border-radius:0;
+      border:1px solid rgba(var(--brand-500-rgb), .18);
+      background:#ffffff;
+      color:#111827;
+      padding:10px 12px;
+      cursor:pointer;
+      margin:0;
+      font: 14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      box-shadow:none;
+    }
+    .vi-table-embed .dw-modal .dw-menu-btn:hover{
+      background:linear-gradient(180deg, rgba(var(--brand-500-rgb), .10) 0%, rgba(var(--brand-500-rgb), .16) 100%);
+      border-color: rgba(var(--brand-500-rgb), .42);
       color:var(--brand-700);
     }
 
@@ -1952,41 +2265,67 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Card wrapper */
     #bt-block .dw-card{
-      background: var(--bg);
-      border: 0;
-      box-shadow: none;
+      background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,250,250,.98));
+      border: 1px solid rgba(var(--brand-500-rgb), .12);
+      box-shadow: var(--surface-shadow), inset 0 1px 0 rgba(255,255,255,.8);
       margin: 0;
       width: 100%;
-      overflow: visible;
+      overflow: hidden;
+      border-radius:0;
+      flex: 0 0 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      position: relative;
     }
 
     /* scroll */
     #bt-block .dw-scroll{
-      max-height: none;
+      min-height: 0;
       overflow-x: auto;
-      overflow-y: visible;
+      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
-      overscroll-behavior: auto;
+      overscroll-behavior: contain;
       scrollbar-gutter: stable;
-      overscroll-behavior-x: contain;
       scrollbar-width: thin;
-      scrollbar-color: var(--scroll-thumb) transparent;
+      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
+      position: relative;
+      background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.96));
     }
 
-    @media (max-width: 768px){
-      #bt-block .dw-scroll{
-        max-height: var(--table-max-h);
-        overflow: auto;
-      }
+    #bt-block .dw-scroll::before,
+    #bt-block .dw-scroll::after{
+      content:"";
+      position: sticky;
+      left: 0;
+      right: 0;
+      display:block;
+      pointer-events:none;
+      z-index:8;
     }
 
-    #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 8px; }
+    
+
+    #bt-block .dw-scroll::after{
+      bottom: 0;
+      height: 8px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.98));
+    }
+
+    #bt-block .dw-scroll.compact-fit::after{
+      display:none;
+      height:0;
+      background:none;
+    }
+
+    #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
     #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background: var(--scroll-thumb);
+      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px;
       border: 2px solid transparent;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
       background-clip: content-box;
     }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
@@ -2005,7 +2344,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
 
     /* Header row */
     #bt-block thead th{
-      background:var(--header-bg);
+      background:linear-gradient(180deg, var(--accent-start) 0%, var(--header-bg) 100%);
       color:#ffffff;
       font-weight:700;
       vertical-align:middle;
@@ -2043,7 +2382,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* Balanced 1–3 line header labels using whole words only */
     #bt-block thead th.sortable > .dw-th-label{
       display:inline-block;
-      max-width:100%;
+      width:auto;
+      min-width:0;
+      max-width:none;
       white-space:normal;
       overflow:visible;
       text-overflow:clip;
@@ -2063,7 +2404,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
     
     #bt-block .dw-scroll.scrolled thead th{
-      box-shadow:0 6px 10px -6px rgba(0,0,0,.25);
+      box-shadow:none;
     }
     
     #bt-block thead th.is-sorted{
@@ -2075,7 +2416,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     /* shared cell spacing/alignment */
     #bt-block thead th,
     #bt-block tbody td {
-      padding: 16px 14px;
+      padding: 15px 14px;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
@@ -2101,6 +2442,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    /* ✅ Keep long text columns readable without letting them stretch the table */
+    #bt-block th.dw-text-col,
+    #bt-block td.dw-text-col{
+      width: 220px;
+      min-width: 220px;
+      max-width: 220px;
+    }
+
+    #bt-block td.dw-text-col .dw-cell,
+    #bt-block th.dw-text-col .dw-th-label{
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: normal;
+      hyphens: none;
     }
     /* ======================================================
        ✅ FIXED BAR TRACK WIDTH + AUTO COLUMN EXPAND
@@ -2161,13 +2518,24 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     }
 
     /* zebra */
+    
+    #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
+    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--stripe); } /* striped */
     [[STRIPE_CSS]]
 
-    #bt-block tbody tr:hover td{ background:var(--hover) !important; }
+
+
+
+    #bt-block tbody td{
+      border-bottom: 1px solid rgba(var(--brand-500-rgb), .08);
+    }
+    #bt-block tbody tr:hover td{
+      background:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%) !important;
+    }
     #bt-block tbody tr:hover{
-      box-shadow:inset 3px 0 0 var(--brand-500);
-      transform:translateY(-1px);
-      transition:background-color .12s ease, box-shadow .12s ease, transform .08s ease;
+      box-shadow:inset 4px 0 0 var(--brand-500);
+      transform:none;
+      transition:background-color .14s ease, box-shadow .14s ease;
     }
 
     #bt-block thead th{position:sticky; top:0; z-index:5}
@@ -2181,22 +2549,29 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .vi-footer {
       display:flex;
       align-items:center;
-      padding:0 14px;            /* fixed-height footer; no vertical padding */
-      height:64px;               /* ✅ fixed footer height */
+      padding:10px 18px;
+      min-height:88px;
+      height:88px;
       border-top:1px solid var(--footer-border);
-      background:var(--brand-50);
-      position: sticky;
-      bottom: 0;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .05));
+      backdrop-filter:none;
+      flex: 0 0 88px;
       z-index: 30;
-      overflow:visible;
+      overflow:hidden;
+      width:100%;
+      min-width:0;
     }
     .vi-table-embed .footer-inner{
       display:flex;
       justify-content:flex-end;
       align-items:center;
-      gap:12px;
+      gap:16px;
+      min-height:100%;
       height:100%;
       width:100%;
+      min-width:0;
+      flex-wrap:nowrap;
+      overflow:hidden;
     }
     .vi-table-embed.footer-center .footer-inner{ justify-content:center; }
     .vi-table-embed.footer-left .footer-inner{ justify-content:flex-start; }
@@ -2222,7 +2597,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       max-width: none;   /* ✅ THIS is the key change */
     
       padding: 10px 12px;
-      border-radius: 12px;
+      border-radius:0;
     
       background: #ffffff;
       border: 1px solid rgba(0,0,0,.10);
@@ -2251,15 +2626,21 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed .footer-logo{
       flex: 0 0 auto;
       display:flex;
-      justify-content:flex-end;
+      justify-content:flex-start;
       align-items:center;
+      min-width:180px;
+      min-height:100%;
+      overflow:hidden;
     }
 
     .vi-table-embed .footer-embed-wrap{
       flex: 0 0 auto;
+      flex-shrink:0;
       display:flex;
       align-items:center;
       justify-content:flex-end;
+      min-width:max-content;
+      min-height:100%;
       margin-left:auto;
       position:relative;
       overflow:visible;
@@ -2280,7 +2661,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       margin-right:auto;
     }
     .vi-table-embed.footer-with-embed .footer-embed-wrap{
-      margin-left:12px;
+      margin-left:16px;
     }
 
     .vi-table-embed .footer-scale-wrap{
@@ -2306,7 +2687,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       flex-direction:column;
       gap:6px;
       padding: 8px 10px;
-      border-radius: 12px;
+      border-radius:0;
       background:#ffffff;
       border: 1px solid rgba(0,0,0,.10);
       box-shadow: 0 10px 22px rgba(0,0,0,.08);
@@ -2335,7 +2716,15 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     .vi-table-embed.footer-left .footer-logo{ justify-content:flex-start; }
 
     /* When centered requested but notes are enabled, we treat it like RIGHT (handled in Python) */
-    .vi-table-embed .vi-footer img{height: var(--footer-logo-h); width:auto; display:inline-block; max-height:100%; width:auto; display:inline-block; }
+    .vi-table-embed .vi-footer img{
+      height: var(--footer-logo-h);
+      width: auto !important;
+      max-width: 190px;
+      max-height: 44px;
+      display:inline-block;
+      object-fit: contain;
+      vertical-align: middle;
+    }
 
     .vi-table-embed.brand-actionnetwork .vi-footer img{
       filter: brightness(0) saturate(100%) invert(62%) sepia(23%) saturate(1250%) hue-rotate(78deg) brightness(96%) contrast(92%); width: auto;
@@ -2368,133 +2757,131 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       overflow-x: visible !important;
       overflow-y: visible !important;
     }
-  </style>
+  
+#bt-block .dw-controls{
+  padding: 0 12px;
+}
+#bt-block .dw-card{
+  margin: 0;
+  border-radius: 0;
+}
+#bt-block .dw-scroll{
+  margin: 0;
+}
 
-  <!-- Header -->
-  <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
-    <div class="vi-header-main">
-      <span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
-      <span class="subtitle">[[SUBTITLE]]</span>
-    </div>
-    <div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
-      <button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Embed / Download</button>
-    </div>
-  </div>
+#bt-block .dw-page-status{
+  margin: 0 !important;
+  min-height: 16px;
+  flex: 0 0 auto;
+}
 
-  <!-- Table block -->
-  <div id="bt-block" data-dw="table">
-    <div class="dw-controls [[CONTROLS_VIS_CLASS]]">
-      <div class="left">
-        <div class="dw-field [[SEARCH_VIS_CLASS]]">
-          <input type="search" class="dw-input" placeholder="Search Table…" aria-label="Search Table">
-          <button type="button" class="dw-clear" aria-label="Clear Search">×</button>
-        </div>
-      </div>
-
-      <div class="right">
-        <!-- Pager -->
-        <div class="dw-pager [[PAGER_VIS_CLASS]]">
-          <label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
-          <select id="bt-size" class="dw-select">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-            <option value="20">20</option>
-            <option value="25">25</option>
-            <option value="30">30</option>
-            <option value="0">All</option>
-          </select>
-
-          <button class="dw-btn" data-page="prev" aria-label="Previous Page">‹</button>
-          <button class="dw-btn" data-page="next" aria-label="Next Page">›</button>
-        </div>
-
-        <!-- Embed/Download -->
-        <div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
-          <button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
-
-          <div id="dw-download-menu" class="dw-download-menu vi-hide" aria-label="Download Menu">
-              <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-            
-              <!-- Full table options -->
-              <button type="button" class="dw-menu-btn" id="dw-dl-top10">Download Top 10</button>
-              <button type="button" class="dw-menu-btn" id="dw-dl-bottom10">Download Bottom 10</button>
-              <button type="button" class="dw-menu-btn" id="dw-dl-csv">Download CSV</button>
-              <button type="button" class="dw-menu-btn" id="dw-embed-script">Copy HTML</button>
-            
-              <!-- Current view options (shown only when filter is active) -->
-              <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-csv-current">Download Current View CSV</button>
-              <button type="button" class="dw-menu-btn vi-hide" id="dw-dl-image-current">Download Current View Image</button>
-              <button type="button" class="dw-menu-btn vi-hide" id="dw-copy-html-current">Copy Current View HTML</button>
-            </div>
-        </div></div>
-      </div>
-    </div>
-
-    <div class="dw-card">
-      <div class="dw-scroll">
-        <table class="dw-table">
-          <thead>
-            <tr>
-              [[TABLE_HEAD]]
-            </tr>
-          </thead>
-          <tbody>
-            [[TABLE_ROWS]]
-            <tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No Matches Found.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:6px 2px 4px; color:#6b7280; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
-      <span id="dw-page-status-text"></span>
-    </div>
-  </div>
-
-  <!-- Footer -->
-    <div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
-    <div class="footer-inner">
-
-      <div class="footer-scale-wrap [[FOOTER_SCALE_VIS_CLASS]]">
-        [[FOOTER_SCALE_HTML]]
-      </div>
-
-      <div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
-        <div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
-      </div>
-
-      <div class="footer-logo">
-        <img src="[[BRAND_LOGO_URL]]" alt="[[BRAND_LOGO_ALT]]" width="140" height="auto" loading="lazy" decoding="async" />
-      </div>
-
-      <div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
-        <button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed / Download</button>
-      </div>
-
-    </div>
-  </div>
-
-
-  <div id="dw-embed-modal" class="dw-modal-backdrop vi-hide" aria-hidden="true">
-    <div class="dw-modal" role="dialog" aria-modal="true" aria-labelledby="dw-modal-title">
-      <div class="dw-modal-head">
-        <div class="dw-menu-title" id="dw-modal-title">Choose action</div>
-        <button type="button" class="dw-modal-close" id="dw-modal-close" aria-label="Close">×</button>
-      </div>
-      <div class="dw-modal-actions">
-        <button type="button" class="dw-menu-btn" id="dw-modal-top10">Download Top 10</button>
-        <button type="button" class="dw-menu-btn" id="dw-modal-bottom10">Download Bottom 10</button>
-        <button type="button" class="dw-menu-btn" id="dw-modal-csv">Download CSV</button>
-        <button type="button" class="dw-menu-btn" id="dw-modal-embed">Copy HTML</button>
-        <button type="button" class="dw-menu-btn vi-hide" id="dw-modal-csv-current">Download Current View CSV</button>
-        <button type="button" class="dw-menu-btn vi-hide" id="dw-modal-image-current">Download Current View Image</button>
-        <button type="button" class="dw-menu-btn vi-hide" id="dw-modal-html-current">Copy Current View HTML</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
+</style>
+<!-- Header -->
+<div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
+<div class="vi-header-main">
+<span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
+<span class="subtitle">[[SUBTITLE]]</span>
+</div>
+<div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Embed / Download</button>
+</div>
+</div>
+<!-- Table block -->
+<div data-dw="table" id="bt-block">
+<div class="dw-controls [[CONTROLS_VIS_CLASS]]">
+<div class="left">
+<div class="dw-field [[SEARCH_VIS_CLASS]]">
+<input aria-label="Search Table" class="dw-input" placeholder="Search Table…" type="search"/>
+<button aria-label="Clear Search" class="dw-clear" type="button">×</button>
+</div>
+</div>
+<div class="right">
+<!-- Pager -->
+<div class="dw-pager [[PAGER_VIS_CLASS]]">
+<label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
+<select class="dw-select" id="bt-size">
+<option selected="" value="10">10</option>
+<option value="15">15</option>
+<option value="20">20</option>
+<option value="25">25</option>
+<option value="30">30</option>
+<option value="0">All</option>
+</select>
+<button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
+<button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
+</div>
+<!-- Embed/Download -->
+<div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
+<button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
+<div aria-label="Download Menu" class="dw-download-menu vi-hide" id="dw-download-menu">
+<div class="dw-menu-title" id="dw-menu-title">Choose action</div>
+<!-- Full table options -->
+<button class="dw-menu-btn" id="dw-dl-top10" type="button">Download Top 10</button>
+<button class="dw-menu-btn" id="dw-dl-bottom10" type="button">Download Bottom 10</button>
+<button class="dw-menu-btn" id="dw-dl-csv" type="button">Download CSV</button>
+<button class="dw-menu-btn" id="dw-embed-script" type="button">Copy HTML</button>
+<!-- Current view options (shown only when filter is active) -->
+<button class="dw-menu-btn vi-hide" id="dw-dl-csv-current" type="button">Download Current View CSV</button>
+<button class="dw-menu-btn vi-hide" id="dw-dl-image-current" type="button">Download Current View Image</button>
+<button class="dw-menu-btn vi-hide" id="dw-copy-html-current" type="button">Copy Current View HTML</button>
+</div>
+</div></div>
+</div>
+</div>
+<div class="dw-card">
+<div class="dw-scroll">
+<table class="dw-table">
+<thead>
+<tr>
+[[TABLE_HEAD]]
+</tr>
+</thead>
+<tbody>
+[[TABLE_ROWS]]
+<tr class="dw-empty" style="display:none;"><td colspan="[[COLSPAN]]">No Matches Found.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 4px 0; margin:0; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+<span id="dw-page-status-text"></span>
+</div>
+</div>
+<!-- Footer -->
+<div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
+<div class="footer-inner">
+<div class="footer-scale-wrap [[FOOTER_SCALE_VIS_CLASS]]">
+[[FOOTER_SCALE_HTML]]
+</div>
+<div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
+<div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
+</div>
+<div class="footer-logo">
+<img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="160"/>
+</div>
+<div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed / Download</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="dw-modal-backdrop vi-hide" id="dw-embed-modal">
+<div aria-labelledby="dw-modal-title" aria-modal="true" class="dw-modal" role="dialog">
+<div class="dw-modal-head">
+<div class="dw-menu-title" id="dw-modal-title">Choose action</div>
+<button aria-label="Close" class="dw-modal-close" id="dw-modal-close" type="button">×</button>
+</div>
+<div class="dw-modal-actions">
+<button class="dw-menu-btn" id="dw-modal-top10" type="button">Download Top 10</button>
+<button class="dw-menu-btn" id="dw-modal-bottom10" type="button">Download Bottom 10</button>
+<button class="dw-menu-btn" id="dw-modal-csv" type="button">Download CSV</button>
+<button class="dw-menu-btn" id="dw-modal-embed" type="button">Copy HTML</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-csv-current" type="button">Download Current View CSV</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-image-current" type="button">Download Current View Image</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-html-current" type="button">Copy Current View HTML</button>
+</div>
+</div>
+</div>
+<script>
   (function(){
     const root = document.getElementById('bt-block');
     if (!root || root.dataset.dwInit === '1') return;
@@ -2529,7 +2916,11 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     const triggerButtons = [downloadBtn, headerTrigger, footerTrigger].filter(Boolean);
 
     const menu = embedWrap ? embedWrap.querySelector('#dw-download-menu') : null;
-    if (menu) menu.classList.add('vi-hide');
+    if (menu) {
+      menu.classList.add('vi-hide');
+      menu.style.display = 'none';
+      menu.setAttribute('aria-hidden', 'true');
+    }
 
     const modal = widgetRoot ? widgetRoot.querySelector('#dw-embed-modal') : null;
     const modalTitle = modal ? modal.querySelector('#dw-modal-title') : null;
@@ -2558,9 +2949,13 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       && !!pagerWrap && !pagerWrap.classList.contains('vi-hide')
       && !!sizeSel && !!prevBtn && !!nextBtn;
 
-    const hasEmbed = !controlsHidden
-      && !!embedWrap && !embedWrap.classList.contains('vi-hide')
-      && !!downloadBtn && !!menu;
+    const hasEmbed = triggerButtons.length > 0
+      && !!modal
+      && !!modalTitle
+      && !!btnTop10
+      && !!btnBottom10
+      && !!btnCsv
+      && !!btnEmbed;
 
     let pageSize = hasPager ? (parseInt(sizeSel.value,10) || 10) : 0;
     let page = 1;
@@ -2596,6 +2991,40 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       }
     }
 
+
+
+
+    function syncMeasuredScrollerHeight(){
+      if (!widgetRoot || !scroller || !table || !tb) return;
+
+      const theadEl = table.tHead;
+      const visibleRows = Array.from(tb.rows).filter(row =>
+        !row.classList.contains('dw-empty') && row.style.display !== 'none'
+      );
+
+      const shownCount = visibleRows.length;
+      const rowHeights = visibleRows.map(row => row.getBoundingClientRect().height || 0).filter(Boolean);
+      const fallbackRowHeight = rowHeights[0] || 54;
+      const theadHeight = theadEl ? Math.ceil(theadEl.getBoundingClientRect().height || 0) : 0;
+
+      let bodyRowsHeight = 0;
+      for (let i = 0; i < Math.max(shownCount, 1); i++) {
+        bodyRowsHeight += Math.ceil(rowHeights[i] || fallbackRowHeight);
+      }
+
+      const horizontalScrollbarAllowance = 14;
+      const bottomFadeAllowance = 0;
+      const safetyBuffer = 4;
+      const finalScrollHeight = Math.ceil(
+        theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
+      );
+
+      scroller.classList.add('compact-fit');
+      scroller.style.height = `${finalScrollHeight}px`;
+      scroller.style.maxHeight = `${finalScrollHeight}px`;
+      scroller.style.overflowX = 'auto';
+      scroller.style.overflowY = 'hidden';
+    }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
@@ -2665,6 +3094,21 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       return best && best.lines && best.lines.length ? best.lines.join('<br>') : txt;
     }
 
+    function buildFixedWordsHeaderHTML(raw, wordsPerLine = 2){
+      const txt = normalizeHeaderText(raw);
+      const take = Math.max(1, parseInt(wordsPerLine || 0, 10) || 1);
+      if (!txt) return '';
+
+      const words = txt.split(' ').filter(Boolean);
+      if (!words.length) return txt;
+
+      const lines = [];
+      for (let i = 0; i < words.length; i += take) {
+        lines.push(words.slice(i, i + take).join(' '));
+      }
+      return lines.join('<br>');
+    }
+
     function applyBalancedHeaderWrap(rootEl){
       const scope = rootEl || table;
       const ths = Array.from(scope.querySelectorAll('#bt-block thead th, thead th'));
@@ -2679,14 +3123,53 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           label.textContent = txt;
         }
 
-        const raw = th.getAttribute('data-header-original') || label.textContent || th.textContent || '';
+        const raw = th.getAttribute('data-header-original')
+          || (label.innerHTML || '').replace(/<br\s*\/?>/gi, ' ')
+          || label.textContent
+          || th.textContent
+          || '';
         th.setAttribute('data-header-original', raw);
-        label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+
+        const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
+        if (fixedWords > 0) {
+          label.innerHTML = buildFixedWordsHeaderHTML(raw, fixedWords);
+        } else {
+          label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+        }
+      });
+    }
+
+    function applySmartHeaderWidths(rootEl){
+      const scope = rootEl || table;
+      const ths = Array.from(scope.querySelectorAll('#bt-block thead th, thead th'));
+      ths.forEach((th) => {
+        const label = th.querySelector('.dw-th-label');
+        if (!label) return;
+
+        const html = (label.innerHTML || '').trim();
+        const hasManualWrap = (parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0) > 0;
+        const hasLineBreaks = /<br\s*\/?>/i.test(html);
+        if (!hasManualWrap && !hasLineBreaks) {
+          th.style.minWidth = '';
+          return;
+        }
+
+        const rawLines = html
+          .split(/<br\s*\/?>/i)
+          .map(s => s.replace(/<[^>]*>/g, '').trim())
+          .filter(Boolean);
+
+        if (!rawLines.length) return;
+
+        const longest = rawLines.reduce((m, line) => Math.max(m, line.length), 0);
+        const px = Math.max(92, Math.min(260, Math.round((longest * 9) + 34)));
+        th.style.minWidth = px + 'px';
       });
     }
 
     // Wrap header text in span, then format into balanced 1–3 lines using whole words only
     applyBalancedHeaderWrap(table);
+    applySmartHeaderWidths(table);
 
     heads.forEach((th,i)=>{
       th.classList.add('sortable'); th.setAttribute('aria-sort','none'); th.dataset.sort='none'; th.tabIndex=0;
@@ -2801,6 +3284,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         setPageStatus(0, 0);
         applyVisibleZebra();
         syncMenuOptions();
+        syncMeasuredScrollerHeight();
         return;
       }
     
@@ -2833,6 +3317,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     
       applyVisibleZebra();
       syncMenuOptions();
+      syncMeasuredScrollerHeight();
     }
 
     if(hasSearch){
@@ -2871,12 +3356,71 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
       nextBtn.addEventListener('click', ()=>{ page++; renderPage(); });
     }
 
-    function hideMenu(){ if(modal){ modal.classList.add('vi-hide'); modal.setAttribute('aria-hidden','true'); } }
-    function toggleMenu(){
+    let lastTrigger = null;
+
+    function positionMenu(anchor){
+      if(!modal || !anchor || !widgetRoot) return;
+      const panel = modal.querySelector('.dw-modal');
+      if(!panel) return;
+
+      const widgetRect = widgetRoot.getBoundingClientRect();
+      const rect = anchor.getBoundingClientRect();
+      const sidePad = 12;
+      const gap = 10;
+
+      const availableWidth = Math.max(220, widgetRect.width - (sidePad * 2));
+      const panelWidth = Math.min(320, availableWidth);
+      panel.style.width = `${panelWidth}px`;
+      panel.style.maxWidth = `${availableWidth}px`;
+
+      const panelHeight = panel.offsetHeight || 0;
+      const anchorLeft = rect.left - widgetRect.left;
+      const anchorRight = rect.right - widgetRect.left;
+      const anchorTop = rect.top - widgetRect.top;
+      const anchorBottom = rect.bottom - widgetRect.top;
+
+      let left = anchorRight - panelWidth;
+      left = Math.max(sidePad, Math.min(left, widgetRect.width - panelWidth - sidePad));
+
+      const spaceBelow = widgetRect.height - anchorBottom - gap - sidePad;
+      const spaceAbove = anchorTop - gap - sidePad;
+
+      let top;
+      if (spaceBelow >= panelHeight || spaceBelow >= spaceAbove) {
+        top = anchorBottom + gap;
+      } else {
+        top = anchorTop - panelHeight - gap;
+      }
+
+      top = Math.max(sidePad, Math.min(top, widgetRect.height - panelHeight - sidePad));
+
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+      panel.style.right = 'auto';
+      panel.style.bottom = 'auto';
+      panel.style.transform = 'none';
+    }
+
+    function hideMenu(){
+      if(modal){
+        modal.classList.add('vi-hide');
+        modal.setAttribute('aria-hidden','true');
+      }
+    }
+
+    function showMenu(anchor){
+      if(!modal) return;
+      lastTrigger = anchor || lastTrigger;
+      modal.classList.remove('vi-hide');
+      modal.setAttribute('aria-hidden','false');
+      requestAnimationFrame(()=> positionMenu(lastTrigger));
+    }
+
+    function toggleMenu(anchor){
       if(!modal) return;
       const willShow = modal.classList.contains('vi-hide');
-      modal.classList.toggle('vi-hide', !willShow);
-      modal.setAttribute('aria-hidden', willShow ? 'false' : 'true');
+      if (willShow) showMenu(anchor);
+      else hideMenu();
     }
 
     if(hasEmbed){
@@ -2884,7 +3428,7 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
         btn.addEventListener('click', (e)=>{
           e.preventDefault();
           e.stopPropagation();
-          toggleMenu();
+          toggleMenu(btn);
         });
       });
       if(modalClose){
@@ -2898,9 +3442,22 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           if(e.target === modal) hideMenu();
         });
       }
+      document.addEventListener('click', (e)=>{
+        if(!modal || modal.classList.contains('vi-hide')) return;
+        const panel = modal.querySelector('.dw-modal');
+        const clickedTrigger = triggerButtons.some((btn)=> btn.contains(e.target));
+        if (clickedTrigger) return;
+        if (panel && !panel.contains(e.target)) hideMenu();
+      });
       document.addEventListener('keydown', (e)=>{
         if(e.key === 'Escape') hideMenu();
       });
+      window.addEventListener('resize', ()=> {
+        if(modal && !modal.classList.contains('vi-hide')) positionMenu(lastTrigger);
+      });
+      window.addEventListener('scroll', ()=> {
+        if(modal && !modal.classList.contains('vi-hide')) positionMenu(lastTrigger);
+      }, true);
     }
 
     /* ===== PNG EXPORT (unchanged) ===== */
@@ -3138,9 +3695,9 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           /* ✅ Keep export image width consistent with the on-page widget (prevents tiny-looking text)
              and still allows header wrapping via wrapExportHeaders() */
           .vi-table-embed.export-mode #bt-block table.dw-table{
-            table-layout: fixed !important;
-            width: 100% !important;
-            min-width: 0 !important;
+            table-layout: auto !important;
+            width: max-content !important;
+            min-width: 100% !important;
           }
         
          /* keep cell-level clamp rules in control */
@@ -3182,37 +3739,23 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
           text-overflow: clip !important;
         }
 
-        /* ✅ Clamp the header LABEL, not the <th> (3 lines max) */
+        /* ✅ Export: keep full wrapped labels visible */
         .vi-table-embed.export-mode #bt-block thead th .dw-th-label{
-          display: -webkit-box !important;
-          -webkit-box-orient: vertical !important;
-          -webkit-line-clamp: 3 !important;
-          line-clamp: 3 !important;
-
-          overflow: hidden !important;
-          text-overflow: ellipsis !important;
-
+          display: inline-block !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
           white-space: normal !important;
           overflow-wrap: normal !important;
           word-break: normal !important;
           hyphens: none !important;
-        }
-
-
-        /* ✅ Export: force true vertical centering in header (html2canvas-safe) */
-        .vi-table-embed.export-mode #bt-block thead th{
-          padding: 0 !important;              /* move padding to label for reliable centering */
-          vertical-align: middle !important;
-        }
-        .vi-table-embed.export-mode #bt-block thead th .dw-th-label{
-          display: flex !important;
-          flex-direction: column !important;
-          justify-content: center !important;
-          align-items: center !important;
-          height: 100% !important;
           padding: 10px 14px !important;
           text-align: center !important;
           line-height: 1.15 !important;
+        }
+
+        .vi-table-embed.export-mode #bt-block thead th{
+          padding: 0 !important;
+          vertical-align: middle !important;
 
           /* override clamp props (flex can't clamp reliably) */
           -webkit-line-clamp: unset !important;
@@ -3261,13 +3804,46 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
               th.appendChild(label);
             }
         
-            const raw = th.getAttribute('data-header-original') || label.textContent || '';
+            const raw = th.getAttribute('data-header-original')
+              || (label.innerHTML || '').replace(/<br\s*\/?>/gi, ' ')
+              || label.textContent
+              || '';
             th.setAttribute('data-header-original', raw);
-            label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+
+            const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
+            if (fixedWords > 0) {
+              label.innerHTML = buildFixedWordsHeaderHTML(raw, fixedWords);
+            } else {
+              label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
+            }
           });
         }
+        function applySmartHeaderWidthsInClone(cloneRoot){
+          const ths = cloneRoot.querySelectorAll('#bt-block thead th');
+          ths.forEach(th => {
+            const label = th.querySelector('.dw-th-label');
+            if(!label) return;
+            const html = (label.innerHTML || '').trim();
+            const hasManualWrap = (parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0) > 0;
+            const hasLineBreaks = /<br\s*\/?>/i.test(html);
+            if (!hasManualWrap && !hasLineBreaks) {
+              th.style.minWidth = '';
+              return;
+            }
+            const rawLines = html
+              .split(/<br\s*\/?>/i)
+              .map(s => s.replace(/<[^>]*>/g, '').trim())
+              .filter(Boolean);
+            if (!rawLines.length) return;
+            const longest = rawLines.reduce((m, line) => Math.max(m, line.length), 0);
+            const px = Math.max(92, Math.min(260, Math.round((longest * 9) + 34)));
+            th.style.minWidth = px + 'px';
+          });
+        }
+
         // ✅ Call before capture (export-only)
         wrapExportHeaders(clone);
+        applySmartHeaderWidthsInClone(clone);
 
         showRowsInClone(clone, mode);
 
@@ -3394,14 +3970,17 @@ HTML_TEMPLATE_TABLE = r"""<!doctype html>
     if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
     if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
+    window.addEventListener('resize', syncMeasuredScrollerHeight);
+    window.addEventListener('load', syncMeasuredScrollerHeight);
     renderPage();
     syncMenuOptions();
+    syncMeasuredScrollerHeight();
   })();
   </script>
-
 </section>
 </body>
 </html>
+
 """
 
 # =========================================================
@@ -3502,6 +4081,7 @@ def generate_table_html_from_df(
     title_style: str = "Keep original",
     subtitle_style: str = "Keep original",
     striped: bool = True,
+    stripe_mode: str = "Odd",
     center_titles: bool = False,
     branded_title_color: bool = True,
     show_search: bool = True,
@@ -3526,6 +4106,8 @@ def generate_table_html_from_df(
     heatmap_style: str = "Branded heatmap",
     header_style: str = "Keep original",
     col_header_overrides: dict | None = None,
+    header_wrap_target: str = "Off",
+    header_wrap_words: int = 2,
     col_format_rules: dict | None = None,
 ) -> str:
 
@@ -3533,10 +4115,7 @@ def generate_table_html_from_df(
 
     # Dynamic heights based on row count
     row_count = len(df.index)
-    if row_count >= 10:
-        table_max_h = 680
-    else:
-        table_max_h = max(260, 130 + (row_count * 52))
+    table_max_h = compute_widget_table_max_height(row_count)
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
     heat_columns_set = set(heat_columns or [])
@@ -3561,6 +4140,13 @@ def generate_table_html_from_df(
     except Exception:
         footer_logo_h = 36
     footer_logo_h = max(16, min(90, footer_logo_h))
+    try:
+        header_wrap_words = int(header_wrap_words)
+    except Exception:
+        header_wrap_words = 2
+    header_wrap_words = max(1, min(10, header_wrap_words))
+    header_wrap_target = str(header_wrap_target or "Off").strip()
+
     # Footer notes (simple markdown: **bold** and *italic*)
     show_footer_notes = bool(show_footer_notes)
     footer_notes = (footer_notes or "").strip()
@@ -3605,7 +4191,8 @@ def generate_table_html_from_df(
             return 0.0
     def format_numeric_for_display(raw_val, max_decimals: int = 2) -> str:
         """
-        Limits numeric values to max 2 decimals (trim trailing zeros).
+        Limits numeric values to max 2 decimals (trim trailing zeros) and
+        applies comma separators by default.
         Leaves integers as integers.
         Does NOT touch values that contain currency symbols, %, words, etc.
         """
@@ -3630,12 +4217,11 @@ def generate_table_html_from_df(
         except Exception:
             return s
 
-        # If it's basically an integer → show no decimals
+        # Default display is comma-separated
         if abs(num - round(num)) < 1e-12:
-            return str(int(round(num)))
+            return f"{int(round(num)):,}"
 
-        # Otherwise show max 2 decimals, but trim trailing zeros
-        out = f"{num:.{max_decimals}f}".rstrip("0").rstrip(".")
+        out = f"{num:,.{max_decimals}f}".rstrip("0").rstrip(".")
         return out
         # ✅ Column formatting rules (prefix/suffix/moneyline)
     col_format_rules = col_format_rules or {}
@@ -3644,10 +4230,11 @@ def generate_table_html_from_df(
         """
         Applies per-column formatting rules AFTER numeric formatting.
 
+        Default numeric display uses comma separators.
         Supports combining multiple rules on the same column, e.g.:
-          - comma_separator + plus_if_positive -> +1,234
-          - comma_separator + prefix -> $1,234
-          - plus_if_positive + comma_separator + suffix -> +1,234%
+          - plus_if_positive -> +1,234
+          - prefix -> $1,234
+          - plain_number + suffix -> 1234%
         """
         rules = col_format_rules.get(col_name) or {}
 
@@ -3660,6 +4247,8 @@ def generate_table_html_from_df(
 
         # Backward compatibility for legacy aliases
         modes = ["plus_if_positive" if m == "moneyline_plus" else m for m in modes]
+        # Legacy comma_separator is now implicit default behaviour
+        modes = [m for m in modes if m != "comma_separator"]
 
         # Preserve order but remove duplicates
         seen_modes = set()
@@ -3696,12 +4285,12 @@ def generate_table_html_from_df(
         if only_nz and not (num != 0):
             return s
 
-        # Apply numeric transforms first in a stable order
-        if "comma_separator" in modes and num is not None:
+        # Default numeric display is comma-separated; allow explicit override
+        if "plain_number" in modes and num is not None:
             if abs(num - round(num)) < 1e-12:
-                s = f"{int(round(num)):,}"
+                s = str(int(round(num)))
             else:
-                s = f"{num:,.2f}".rstrip("0").rstrip(".")
+                s = f"{num:.2f}".rstrip("0").rstrip(".")
 
         if "plus_if_positive" in modes:
             if not s.startswith("+") and not s.startswith("-") and num is not None and num > 0:
@@ -3803,6 +4392,22 @@ def generate_table_html_from_df(
 
             heat_minmax[col] = (mn, mx)
 
+    # ✅ Detect text-heavy columns that should wrap at a fixed width
+    text_wrap_columns = set()
+    keyword_hints = {"name", "city", "team", "player", "school", "market", "county", "country", "region", "title"}
+    for col in df.columns:
+        if guess_column_type(df[col]) != "text":
+            continue
+
+        series = df[col].fillna("").astype(str).str.strip()
+        lengths = series.str.len()
+        max_len = int(lengths.max()) if len(lengths) else 0
+        avg_len = float(lengths.mean()) if len(lengths) else 0.0
+        col_key = str(col).strip().lower()
+
+        if max_len > 18 or avg_len > 12 or any(hint in col_key for hint in keyword_hints):
+            text_wrap_columns.add(col)
+
     # ✅ Header
     head_cells = []
     for col in df.columns:
@@ -3813,13 +4418,35 @@ def generate_table_html_from_df(
             display_col = str(_base_label)
         else:
             display_col = format_column_header(str(_base_label), header_style)
-        safe_label = html_mod.escape(display_col)
 
-        # ✅ add class to bar columns so CSS can force min-width
-        is_bar_col = (col in bar_columns_set and col_type == "num")
-        bar_class = " dw-bar-col" if is_bar_col else ""
+        should_wrap_header = False
+        wrap_words_for_col = header_wrap_words
+        if header_wrap_target == "All columns":
+            should_wrap_header = True
+        elif header_wrap_target and header_wrap_target != "Off" and str(col) == header_wrap_target:
+            should_wrap_header = True
+        elif should_force_two_line_numeric_header(df[col], display_col):
+            should_wrap_header = True
+            wrap_words_for_col = 1
 
-        head_cells.append(f'<th scope="col" data-type="{col_type}" class="{bar_class.strip()}">{safe_label}</th>')
+        if should_wrap_header:
+            wrapped_lines = wrap_text_by_words(display_col, wrap_words_for_col).splitlines()
+            safe_label = "<br>".join(html_mod.escape(line) for line in wrapped_lines if line.strip())
+        else:
+            safe_label = html_mod.escape(display_col)
+
+        classes = []
+        if col in bar_columns_set and col_type == "num":
+            classes.append("dw-bar-col")
+        if col in text_wrap_columns:
+            classes.append("dw-text-col")
+        class_attr = " ".join(classes)
+        wrap_attr = f' data-header-wrap-words="{wrap_words_for_col}"' if should_wrap_header else ""
+        original_attr = html_mod.escape(display_col, quote=True)
+
+        head_cells.append(
+            f'<th scope="col" data-type="{col_type}" data-header-original="{original_attr}" class="{class_attr}"{wrap_attr}>{safe_label}</th>'
+        )
 
     table_head_html = "\n              ".join(head_cells)
 
@@ -3892,18 +4519,22 @@ def generate_table_html_from_df(
                 )
 
             else:
-                cells.append(f'<td><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
+                td_class = ' class="dw-text-col"' if col in text_wrap_columns else ""
+                cells.append(f'<td{td_class}><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
 
         row_html_snippets.append("            <tr>" + "".join(cells) + "</tr>")
 
     table_rows_html = "\n".join(row_html_snippets)
     colspan = str(len(df.columns))
 
+    stripe_mode_norm = str(stripe_mode or "Odd").strip().lower()
+    stripe_target_class = "dw-zebra-even" if stripe_mode_norm == "even" else "dw-zebra-odd"
+
     stripe_css = (
-    """
-    #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
-    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--stripe); } /* striped */
-    #bt-block tbody tr.dw-zebra-even td{ background:#ffffff; }       /* plain */
+        f"""
+    #bt-block tbody tr:not(.dw-empty) td{{ background:#ffffff; }} /* base */
+    #bt-block tbody tr.{stripe_target_class} td{{ background:var(--stripe); }} /* striped */
+    #bt-block tbody tr:not(.dw-empty):not(.{stripe_target_class}) td{{ background:#ffffff; }} /* plain */
     """
         if striped
         else """
@@ -4000,6 +4631,7 @@ def generate_table_html_from_df(
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
+        .replace("[[WIDGET_MAX_H]]", str(compute_preview_height(row_count)))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -4039,6 +4671,7 @@ def draft_config_from_state() -> dict:
         "subtitle": st.session_state.get("bt_widget_subtitle", "Subheading"),
         "subtitle_style": st.session_state.get("bt_subtitle_style", "Keep original"),
         "striped": st.session_state.get("bt_striped_rows", True),
+        "stripe_mode": st.session_state.get("bt_stripe_mode", "Odd"),
         "show_header": st.session_state.get("bt_show_header", True),
         "center_titles": st.session_state.get("bt_center_titles", False),
         "branded_title_color": st.session_state.get("bt_branded_title_color", True),
@@ -4063,6 +4696,8 @@ def draft_config_from_state() -> dict:
         "heatmap_style": st.session_state.get("bt_heatmap_style", "Branded heatmap"),
         "header_style": st.session_state.get("bt_header_style", "Keep original"),
         "col_header_overrides": st.session_state.get("bt_col_header_overrides", {}) or {},
+        "header_wrap_target": st.session_state.get("bt_header_wrap_target", "Off"),
+        "header_wrap_words": st.session_state.get("bt_header_wrap_words", 2),
     }
 
 
@@ -4078,6 +4713,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         brand_logo_alt=meta["logo_alt"],
         brand_class=meta["brand_class"],
         striped=cfg["striped"],
+        stripe_mode=cfg.get("stripe_mode", "Odd"),
         center_titles=cfg["center_titles"],
         branded_title_color=cfg["branded_title_color"],
         show_search=cfg["show_search"],
@@ -4102,6 +4738,8 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         heatmap_style=cfg.get("heatmap_style", "Branded heatmap"),
         header_style=cfg.get("header_style", "Keep original"),
         col_header_overrides=cfg.get("col_header_overrides", {}) or {},
+        header_wrap_target=cfg.get("header_wrap_target", "Off"),
+        header_wrap_words=cfg.get("header_wrap_words", 2),
 
         # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
@@ -4157,6 +4795,7 @@ def build_publish_bundle(widget_file_name: str) -> dict:
 
         # core state (everything needed to fully restore the editor)
         "config": cfg,
+        "confirmed_total_height": int(st.session_state.get("bt_confirmed_total_height", 0) or 0),
         "col_format_rules": rules,
         "csv": csv_text,
         "hidden_cols": st.session_state.get("bt_hidden_cols", []) or [],
@@ -4191,10 +4830,10 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     for k in [
         "bt_show_header","bt_widget_title","bt_widget_subtitle","bt_center_titles","bt_branded_title_color",
         "bt_show_footer","bt_footer_logo_align","bt_footer_logo_h","bt_show_footer_notes","bt_footer_notes","bt_show_heat_scale",
-        "bt_striped_rows","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
+        "bt_striped_rows","bt_stripe_mode","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
         "bt_bar_columns","bt_bar_max_overrides","bt_bar_fixed_w",
         "bt_heat_columns","bt_heat_overrides","bt_heat_strength","bt_heatmap_style","bt_header_style",
-        "bt_col_format_rules","bt_hidden_cols"
+        "bt_header_wrap_target","bt_header_wrap_words","bt_col_format_rules","bt_hidden_cols"
     ]:
         st.session_state.pop(k, None)
 
@@ -4206,6 +4845,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
         st.session_state["bt_df_confirmed"] = df.copy(deep=True)
 
     st.session_state["bt_table_name_words"] = bundle.get("table_name_words", "")
+    st.session_state["bt_confirmed_total_height"] = int(bundle.get("confirmed_total_height", 0) or 0)
 
     def _pick(*vals, default=None):
         for v in vals:
@@ -4247,6 +4887,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_show_heat_scale"]     = cfg.get("show_heat_scale", False)
 
     st.session_state["bt_striped_rows"]        = cfg.get("striped", True)
+    st.session_state["bt_stripe_mode"]         = cfg.get("stripe_mode", "Odd")
     st.session_state["bt_cell_align"]          = cfg.get("cell_align", "Center")
     st.session_state["bt_show_search"]         = cfg.get("show_search", True)
     st.session_state["bt_show_pager"]          = cfg.get("show_pager", True)
@@ -4263,6 +4904,8 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     st.session_state["bt_heat_strength"]       = float(cfg.get("heat_strength", 0.55) or 0.55)
     st.session_state["bt_heatmap_style"]       = cfg.get("heatmap_style", "Branded heatmap")
     st.session_state["bt_header_style"]        = cfg.get("header_style", "Keep original")
+    st.session_state["bt_header_wrap_target"]  = cfg.get("header_wrap_target", "Off")
+    st.session_state["bt_header_wrap_words"]   = int(cfg.get("header_wrap_words", 2) or 2)
 
     st.session_state["bt_col_format_rules"]    = bundle.get("col_format_rules", {}) or {}
     st.session_state["bt_hidden_cols"]         = bundle.get("hidden_cols", []) or []
@@ -4296,7 +4939,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    h = int(height) if height else 800
+    h = apply_preview_height_buffer(height if height else 800)
     brand_clean = (brand or "").strip().lower()
 
     # ✅ Canada Sports Betting → FULL width (no max-width wrapper)
@@ -4307,6 +4950,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
+    scrolling="no"
     style="border:0; border-radius:0; overflow:hidden; display:block;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
@@ -4322,6 +4966,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
+    scrolling="no"
     style="border: 0; border-radius: 0; overflow: hidden; display: block;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
@@ -4329,6 +4974,122 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox"
   ></iframe>
 </div>"""
+
+
+
+def read_github_text(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
+    """Read a text file from GitHub. Returns empty string if missing."""
+    api_base = "https://api.github.com"
+    headers = github_headers(token)
+    path = (path or "").lstrip("/").strip()
+    if not path:
+        return ""
+
+    url = f"{api_base}/repos/{owner}/{repo}/contents/{path}"
+    r = http_session().get(url, headers=headers, params={"ref": branch}, timeout=20)
+
+    if r.status_code == 404:
+        return ""
+    if r.status_code != 200:
+        raise RuntimeError(f"Error reading text file: {r.status_code} {r.text}")
+
+    data = r.json() or {}
+    content_b64 = data.get("content", "")
+    if not content_b64:
+        return ""
+
+    return base64.b64decode(content_b64).decode("utf-8", errors="ignore")
+
+
+def build_published_iframe_snippet(
+    owner: str,
+    repo: str,
+    token: str,
+    widget_file_name: str,
+    pages_url: str,
+    brand: str = "",
+    fallback_height: int = 800,
+    bundle_path: str = "",
+) -> str:
+    """Rebuild iframe code for a published page from persisted metadata/bundle.
+
+    This deliberately regenerates the snippet from canonical published metadata so the
+    preview modal does not depend on transient session state.
+    """
+    widget_file_name = (widget_file_name or "").strip()
+    pages_url = (pages_url or "").strip()
+    if not pages_url and owner and repo and widget_file_name:
+        pages_url = compute_pages_url(owner, repo, widget_file_name)
+    if not pages_url:
+        return ""
+
+    resolved_brand = (brand or "").strip()
+    try:
+        resolved_height = int(fallback_height or 800)
+    except Exception:
+        resolved_height = 800
+
+    candidate_bundle_paths = []
+    bundle_path = (bundle_path or "").strip()
+    if bundle_path:
+        candidate_bundle_paths.append(bundle_path)
+    if widget_file_name:
+        candidate_bundle_paths.append(f"bundles/{widget_file_name}.json")
+        base_name = re.sub(r"\.html?$", "", widget_file_name, flags=re.IGNORECASE)
+        if base_name and base_name != widget_file_name:
+            candidate_bundle_paths.append(f"bundles/{base_name}.json")
+
+    seen = set()
+    candidate_bundle_paths = [p for p in candidate_bundle_paths if p and not (p in seen or seen.add(p))]
+
+    bundle = {}
+    for candidate in candidate_bundle_paths:
+        try:
+            bundle = read_github_json(owner, repo, token, candidate, branch="main")
+        except Exception:
+            bundle = {}
+        if isinstance(bundle, dict) and bundle:
+            break
+
+    if isinstance(bundle, dict) and bundle:
+        try:
+            resolved_height = int(bundle.get("confirmed_total_height", 0) or resolved_height)
+        except Exception:
+            resolved_height = max(320, resolved_height)
+        cfg = bundle.get("config") or {}
+        if not resolved_brand:
+            resolved_brand = str(bundle.get("brand", "") or cfg.get("brand", "") or "").strip()
+
+        if not int(bundle.get("confirmed_total_height", 0) or 0):
+            csv_text = bundle.get("csv") or ""
+            if csv_text:
+                try:
+                    bundle_df = pd.read_csv(io.StringIO(csv_text))
+                except Exception:
+                    bundle_df = None
+                if isinstance(bundle_df, pd.DataFrame) and not bundle_df.empty:
+                    hidden_cols = bundle.get("hidden_cols", []) or []
+                    if hidden_cols:
+                        bundle_df = bundle_df.drop(columns=hidden_cols, errors="ignore")
+                    resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
+
+    resolved_height = apply_preview_height_buffer(max(320, int(resolved_height or 800)), buffer_px=PREVIEW_IFRAME_BUFFER_PX, minimum_px=320)
+    return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
+
+
+def extract_iframe_height_from_snippet(snippet: str, fallback: int = 800) -> int:
+    """Read the numeric iframe height from an embed snippet."""
+    snippet = str(snippet or "")
+    try:
+        m = re.search(r'height="(\d+)"', snippet, flags=re.IGNORECASE)
+        if m:
+            return max(320, int(m.group(1)))
+    except Exception:
+        pass
+    try:
+        return max(320, int(fallback or 800))
+    except Exception:
+        return 800
 
 def wait_until_pages_live(url: str, timeout_sec: int = 60, interval_sec: float = 2.0) -> bool:
     """
@@ -4397,10 +5158,14 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_html_hash", "")
     st.session_state.setdefault("bt_last_published_url", "")
     st.session_state.setdefault("bt_iframe_code", "")
+    st.session_state.setdefault("bt_confirmed_total_height", 0)
+    st.session_state.setdefault("bt_preview_total_height", 0)
     st.session_state.setdefault("bt_last_published_repo", "")
     st.session_state.setdefault("bt_last_published_file", "")
     st.session_state.setdefault("bt_header_style", "Keep original")
     st.session_state.setdefault("bt_col_header_overrides", {})
+    st.session_state.setdefault("bt_header_wrap_target", "Off")
+    st.session_state.setdefault("bt_header_wrap_words", 2)
     st.session_state.setdefault("bt_embed_generated", False)  # show HTML/IFrame only after publish click
     st.session_state.setdefault("bt_embed_stale", False)      # becomes True after Confirm & Save post-publish
     st.session_state.setdefault("bt_published_hash", "")      # hash of last published HTML/config
@@ -4501,6 +5266,7 @@ def restore_draft_state_from_confirmed():
         "subtitle": "bt_widget_subtitle",
         "subtitle_style": "bt_subtitle_style",
         "striped": "bt_striped_rows",
+        "stripe_mode": "bt_stripe_mode",
         "show_header": "bt_show_header",
         "center_titles": "bt_center_titles",
         "branded_title_color": "bt_branded_title_color",
@@ -4533,6 +5299,8 @@ def restore_draft_state_from_confirmed():
 
         "header_style": "bt_header_style",
         "col_header_overrides": "bt_col_header_overrides",
+        "header_wrap_target": "bt_header_wrap_target",
+        "header_wrap_words": "bt_header_wrap_words",
     }
 
     # Known defaults that commonly re-appear after reruns (these are the ones we
@@ -4544,6 +5312,8 @@ def restore_draft_state_from_confirmed():
         "bt_subtitle_style": "Keep original",
         "bt_header_style": "Keep original",
         "bt_col_header_overrides": {},
+        "bt_header_wrap_target": "Off",
+        "bt_header_wrap_words": 2,
         "bt_show_footer_notes": False,
         "bt_footer_notes": "",
         "bt_show_embed": True,
@@ -4681,6 +5451,13 @@ def do_confirm_snapshot():
         col_format_rules=live_rules,
     )
 
+    confirmed_total_height = compute_preview_height(
+        len(df_confirm_for_html.index) if isinstance(df_confirm_for_html, pd.DataFrame) else 0,
+        cfg=st.session_state["bt_confirmed_cfg"],
+        df=df_confirm_for_html,
+    )
+    st.session_state["bt_confirmed_total_height"] = int(confirmed_total_height)
+
     st.session_state["bt_html_code"] = html
     st.session_state["bt_html_generated"] = True
     st.session_state["bt_html_hash"] = st.session_state["bt_confirmed_hash"]
@@ -4704,6 +5481,8 @@ def reset_table_edits():
     # ✅ Clear header overrides
     st.session_state["bt_col_header_overrides"] = {}
     st.session_state["bt_col_header_overrides_draft"] = {}
+    st.session_state["bt_header_wrap_target"] = "Off"
+    st.session_state["bt_header_wrap_words"] = 2
 
     # ✅ Force data_editor to reset by changing its key
     st.session_state["bt_editor_version"] = int(st.session_state.get("bt_editor_version", 0)) + 1
@@ -5153,7 +5932,74 @@ if main_tab == "Published Tables":
     
           /* Remove Streamlit's default underline/highlight if present */
           div[data-baseweb="tab-highlight"] { display: none !important; }
-        </style>
+        
+
+/* Explicitly kill ghost / outline / transparent variants */
+.vi-table-embed .vi-header-actions button[class*="ghost"],
+.vi-table-embed .vi-header-actions .dw-btn[class*="ghost"],
+.vi-table-embed .footer-embed-wrap button[class*="ghost"],
+.vi-table-embed .footer-embed-wrap .dw-btn[class*="ghost"],
+.vi-table-embed .vi-header-actions button[class*="outline"],
+.vi-table-embed .vi-header-actions .dw-btn[class*="outline"],
+.vi-table-embed .footer-embed-wrap button[class*="outline"],
+.vi-table-embed .footer-embed-wrap .dw-btn[class*="outline"] {
+  background: linear-gradient(180deg, var(--accent-start), var(--accent-mid)) !important;
+  background-color: var(--accent-mid) !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow:none !important;
+}
+
+/* Hover / focus / active must also match body button */
+.vi-table-embed button.dw-btn.dw-download:hover,
+.vi-table-embed .dw-btn.dw-download:hover,
+.vi-table-embed .dw-download:hover,
+.vi-table-embed .vi-header-actions button:hover,
+.vi-table-embed .vi-header-actions .dw-btn:hover,
+.vi-table-embed .vi-header-actions .dw-download:hover,
+.vi-table-embed .footer-embed-wrap button:hover,
+.vi-table-embed .footer-embed-wrap .dw-btn:hover,
+.vi-table-embed .footer-embed-wrap .dw-download:hover,
+.vi-table-embed button.dw-btn.dw-download:focus,
+.vi-table-embed .dw-btn.dw-download:focus,
+.vi-table-embed .dw-download:focus,
+.vi-table-embed .vi-header-actions button:focus,
+.vi-table-embed .vi-header-actions .dw-btn:focus,
+.vi-table-embed .vi-header-actions .dw-download:focus,
+.vi-table-embed .footer-embed-wrap button:focus,
+.vi-table-embed .footer-embed-wrap .dw-btn:focus,
+.vi-table-embed .footer-embed-wrap .dw-download:focus,
+.vi-table-embed button.dw-btn.dw-download:active,
+.vi-table-embed .dw-btn.dw-download:active,
+.vi-table-embed .dw-download:active,
+.vi-table-embed .vi-header-actions button:active,
+.vi-table-embed .vi-header-actions .dw-btn:active,
+.vi-table-embed .vi-header-actions .dw-download:active,
+.vi-table-embed .footer-embed-wrap button:active,
+.vi-table-embed .footer-embed-wrap .dw-btn:active,
+.vi-table-embed .footer-embed-wrap .dw-download:active {
+  background: linear-gradient(180deg, var(--accent-mid), var(--accent-end)) !important;
+  background-color: var(--accent-end) !important;
+  color: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow:none !important;
+  text-decoration: none !important;
+}
+
+/* Prevent parent wrappers from dimming or flattening these buttons */
+.vi-table-embed .vi-header-actions,
+.vi-table-embed .footer-embed-wrap {
+  opacity: 1 !important;
+}
+
+.vi-table-embed .vi-header-actions *,
+.vi-table-embed .footer-embed-wrap * {
+  text-decoration: none !important;
+}
+
+</style>
         """,
         unsafe_allow_html=True,
     )
@@ -5363,20 +6209,70 @@ if main_tab == "Published Tables":
                         def preview_dialog(url):
                             st.markdown(f"**Previewing:** {url}")
 
-                            # ✅ left-aligned notice strip (used when table is not editable / legacy)
                             notice_html = ""
 
+                            html_editor_key = f"pub_html_editor_{selected_repo}_{selected_file}"
+                            html_pending_key = f"{html_editor_key}__pending"
+                            html_status_key = f"{html_editor_key}__status"
+
+                            iframe_editor_key = f"pub_iframe_editor_{selected_repo}_{selected_file}"
+                            iframe_pending_key = f"{iframe_editor_key}__pending"
+
+                            if html_pending_key in st.session_state:
+                                st.session_state[html_editor_key] = st.session_state.pop(html_pending_key)
+
+                            if iframe_pending_key in st.session_state:
+                                st.session_state[iframe_editor_key] = st.session_state.pop(iframe_pending_key)
+
+                            selected_pages_url = (row.get("Pages URL", "") or url or "").strip()
+                            selected_bundle_path = f"bundles/{selected_file}.json"
+
+                            initial_html = ""
+                            try:
+                                initial_html = read_github_text(
+                                    publish_owner,
+                                    selected_repo,
+                                    token_to_use,
+                                    selected_file,
+                                    branch="main",
+                                )
+                            except Exception as e:
+                                st.warning(f"Could not load HTML from GitHub: {e}")
+
+                            if html_editor_key not in st.session_state:
+                                st.session_state[html_editor_key] = initial_html or ""
+
+                            iframe_snippet = build_published_iframe_snippet(
+                                owner=publish_owner,
+                                repo=selected_repo,
+                                token=token_to_use,
+                                widget_file_name=selected_file,
+                                pages_url=selected_pages_url,
+                                brand=row.get("Brand", ""),
+                                fallback_height=st.session_state.get("bt_iframe_height", 800),
+                                bundle_path=selected_bundle_path,
+                            )
+                            preview_iframe_height = extract_iframe_height_from_snippet(
+                                iframe_snippet,
+                                fallback=st.session_state.get("bt_iframe_height", 800),
+                            )
+                            current_iframe_state = str(st.session_state.get(iframe_editor_key) or "").strip()
+                            if iframe_snippet and (not current_iframe_state or current_iframe_state != iframe_snippet):
+                                st.session_state[iframe_editor_key] = iframe_snippet
+                            elif iframe_editor_key not in st.session_state:
+                                st.session_state[iframe_editor_key] = iframe_snippet or ""
+
                             c1, c2, c3 = st.columns(3)
-            
+
                             with c1:
                                 st.link_button("🔗 Open live page", url, use_container_width=True)
-            
+
                             with c2:
                                 if not can_edit:
                                     owner_name = row_created_by or "someone else"
                                     st.button(f"✏️ Edit {owner_name}'s table", disabled=True, use_container_width=True)
 
-                                    notice_html = f'''
+                                    notice_html = f"""
                                     <div style="
                                       margin-top: 10px;
                                       padding: 10px 12px;
@@ -5390,33 +6286,30 @@ if main_tab == "Published Tables":
                                     ">
                                       <strong>Note:</strong> Only <strong>{owner_name}</strong> can edit this table.
                                     </div>
-                                    '''
+                                    """
                                 else:
                                     has_csv = (row.get("Has CSV") == "✅")
 
                                     if not has_csv:
                                         st.button("✏️ Edit this table", disabled=True, use_container_width=True)
-                                        notice_html = '''<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.25);color:#1f3a8a;font-size:13px;line-height:1.25;text-align:left;"><strong>Note:</strong> Legacy table (no editable bundle). Re-publish once from <strong>Create New Table</strong> to enable full edit restore.</div>'''
+                                        notice_html = """<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.25);color:#1f3a8a;font-size:13px;line-height:1.25;text-align:left;"><strong>Note:</strong> Legacy table (no editable bundle). Re-publish once from <strong>Create New Table</strong> to enable full edit restore.</div>"""
                                     else:
                                         if st.button(
                                             "✏️ Edit this table",
                                             key=f"pub_edit_{selected_repo}_{selected_file}",
                                             use_container_width=True,
                                         ):
-                                            # ✅ jump to editor tab first, otherwise rerun stays on Published Tables
                                             st.session_state["main_tab"] = "Create New Table"
-
-                                            # ✅ prevent the preview from re-opening on rerun
                                             st.session_state["pub_last_preview_url"] = ""
                                             st.session_state.pop("pub_table_click_df", None)
 
-                                            # ✅ load the bundle (this already calls st.rerun())
                                             bundle_path = f"bundles/{selected_file}.json"
                                             bundle_probe = read_github_json(publish_owner, selected_repo, token_to_use, bundle_path, branch="main")
                                             if not bundle_probe:
                                                 st.error(f"Bundle not found at {bundle_path}. Cannot restore full table settings.")
                                                 st.stop()
                                             load_bundle_into_editor(publish_owner, selected_repo, token_to_use, selected_file)
+
                             with c3:
                                 if st.button(
                                     "🗑️ Delete this table",
@@ -5434,22 +6327,144 @@ if main_tab == "Published Tables":
                                         "Created UTC": row.get("Created UTC", ""),
                                     }
                                     st.session_state["pub_open_single_delete_dialog"] = True
-            
-                                    # ✅ prevent the preview dialog from being re-triggered on rerun
                                     st.session_state["pub_last_preview_url"] = ""
-            
-                                    # ✅ also clear the row selection so it doesn't auto-open preview again
                                     st.session_state.pop("pub_table_click_df", None)
-            
                                     st.rerun()
 
                             if notice_html:
                                 st.markdown(notice_html, unsafe_allow_html=True)
 
-                            components.iframe(url, height=650, scrolling=True)
-            
+                            left_col, right_col = st.columns([1.35, 1.0], gap="large")
+
+                            with left_col:
+                                components.iframe(selected_pages_url or url, height=preview_iframe_height, scrolling=False)
+
+                            with right_col:
+                                mode_key = f"pub_preview_editor_mode_{selected_repo}_{selected_file}"
+                                style_radio_as_big_tabs(mode_key, height_px=42, font_px=16, radius_px=999)
+                                editor_mode = st.radio(
+                                    "Published asset editor",
+                                    ["HTML", "IFrame"],
+                                    horizontal=True,
+                                    label_visibility="collapsed",
+                                    key=mode_key,
+                                )
+
+                                status_msg = (st.session_state.get(html_status_key) or "").strip()
+                                if status_msg:
+                                    st.info(status_msg)
+                                    st.session_state[html_status_key] = ""
+
+                                if editor_mode == "HTML":
+                                    st.caption("Edit the published HTML below. Saving here updates the actual GitHub file. GitHub Pages may take a few minutes to reflect changes.")
+                                    st.text_area(
+                                        "Published HTML",
+                                        key=html_editor_key,
+                                        height=420,
+                                        label_visibility="collapsed",
+                                    )
+
+                                    h1, h2 = st.columns(2)
+                                    with h1:
+                                        if st.button(
+                                            "↻ Reload HTML",
+                                            key=f"pub_reload_html_{selected_repo}_{selected_file}",
+                                            use_container_width=True,
+                                        ):
+                                            try:
+                                                fresh_html = read_github_text(
+                                                    publish_owner,
+                                                    selected_repo,
+                                                    token_to_use,
+                                                    selected_file,
+                                                    branch="main",
+                                                )
+                                                st.session_state[html_pending_key] = fresh_html or ""
+                                                st.session_state[html_status_key] = "Reloaded latest HTML from GitHub."
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Could not reload HTML: {e}")
+                                    with h2:
+                                        save_disabled = not can_edit
+                                        if st.button(
+                                            "💾 Save HTML to GitHub",
+                                            key=f"pub_save_html_{selected_repo}_{selected_file}",
+                                            use_container_width=True,
+                                            disabled=save_disabled,
+                                        ):
+                                            try:
+                                                updated_html = st.session_state.get(html_editor_key, "") or ""
+                                                upload_file_to_github(
+                                                    publish_owner,
+                                                    selected_repo,
+                                                    token_to_use,
+                                                    selected_file,
+                                                    updated_html,
+                                                    message=f"Update {selected_file} via preview editor",
+                                                    branch="main",
+                                                )
+                                                try:
+                                                    trigger_pages_build(publish_owner, selected_repo, token_to_use)
+                                                except Exception:
+                                                    pass
+                                                refreshed_iframe = build_published_iframe_snippet(
+                                                    owner=publish_owner,
+                                                    repo=selected_repo,
+                                                    token=token_to_use,
+                                                    widget_file_name=selected_file,
+                                                    pages_url=selected_pages_url,
+                                                    brand=row.get("Brand", ""),
+                                                    fallback_height=st.session_state.get("bt_iframe_height", 800),
+                                                    bundle_path=selected_bundle_path,
+                                                )
+                                                st.session_state[iframe_pending_key] = refreshed_iframe or ""
+                                                st.session_state[html_status_key] = "Saved HTML to GitHub. GitHub Pages may take a few minutes to reflect changes."
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Could not save HTML: {e}")
+
+                                    st.download_button(
+                                        "Download HTML file",
+                                        data=st.session_state.get(html_editor_key, "") or "",
+                                        file_name=selected_file,
+                                        mime="text/html",
+                                        use_container_width=True,
+                                        key=f"pub_dl_html_{selected_repo}_{selected_file}",
+                                    )
+                                else:
+                                    refreshed_iframe = build_published_iframe_snippet(
+                                        owner=publish_owner,
+                                        repo=selected_repo,
+                                        token=token_to_use,
+                                        widget_file_name=selected_file,
+                                        pages_url=selected_pages_url,
+                                        brand=row.get("Brand", ""),
+                                        fallback_height=st.session_state.get("bt_iframe_height", 800),
+                                        bundle_path=selected_bundle_path,
+                                    )
+                                    iframe_display_val = (refreshed_iframe or st.session_state.get(iframe_editor_key, "") or "").strip()
+                                    if iframe_display_val:
+                                        st.session_state[iframe_editor_key] = iframe_display_val
+
+                                    st.caption("This iframe snippet is rebuilt automatically from the published metadata and bundle. Editing it here is for copy/use only and does not change the GitHub page.")
+                                    st.text_area(
+                                        "Published iframe snippet",
+                                        value=iframe_display_val,
+                                        key=f"{iframe_editor_key}__view",
+                                        height=420,
+                                        label_visibility="collapsed",
+                                    )
+                                    st.download_button(
+                                        "Download iframe snippet",
+                                        data=iframe_display_val,
+                                        file_name="iframe-snippet.html",
+                                        mime="text/html",
+                                        use_container_width=True,
+                                        key=f"pub_dl_iframe_{selected_repo}_{selected_file}",
+                                    )
+
                         preview_dialog(selected_url)
-            
+
                     else:
                         st.info("Popup preview not supported in this Streamlit version — showing inline preview below.")
                         components.iframe(selected_url, height=820, scrolling=True)
@@ -6072,6 +7087,36 @@ if main_tab == "Create New Table":
                                     disabled=not show_header,
                                 )
 
+                                _df_for_header_wrap = st.session_state.get("bt_df_uploaded")
+                                _header_wrap_column_options = ["Off", "All columns"]
+                                if isinstance(_df_for_header_wrap, pd.DataFrame) and not _df_for_header_wrap.empty:
+                                    _header_wrap_column_options.extend([str(c) for c in _df_for_header_wrap.columns])
+
+                                _header_wrap_target = st.session_state.get("bt_header_wrap_target", "Off")
+                                if _header_wrap_target not in _header_wrap_column_options:
+                                    _header_wrap_target = "Off"
+                                    st.session_state["bt_header_wrap_target"] = "Off"
+
+                                st.selectbox(
+                                    "Header wrap text",
+                                    options=_header_wrap_column_options,
+                                    index=_header_wrap_column_options.index(_header_wrap_target),
+                                    key="bt_header_wrap_target",
+                                    disabled=not show_header,
+                                    help="Choose Off, All columns, or a single column to wrap header text by words per line.",
+                                )
+
+                                st.number_input(
+                                    "Words per line",
+                                    min_value=1,
+                                    max_value=10,
+                                    value=int(st.session_state.get("bt_header_wrap_words", 2)),
+                                    step=1,
+                                    key="bt_header_wrap_words",
+                                    disabled=(not show_header) or (st.session_state.get("bt_header_wrap_target", "Off") == "Off"),
+                                    help="1 = one word per line, 2 = two words per line, and so on.",
+                                )
+
                         with sub_footer:
                             with st.container(height=SETTINGS_PANEL_HEIGHT):
                                 show_footer = st.checkbox(
@@ -6272,6 +7317,15 @@ if main_tab == "Create New Table":
                                     value=st.session_state.get("bt_striped_rows", True),
                                     key="bt_striped_rows",
                                 )
+
+                                st.selectbox(
+                                    "Stripe rows",
+                                    options=["Odd", "Even"],
+                                    index=["Odd", "Even"].index(st.session_state.get("bt_stripe_mode", "Odd") if st.session_state.get("bt_stripe_mode", "Odd") in ["Odd", "Even"] else "Odd"),
+                                    key="bt_stripe_mode",
+                                    disabled=not st.session_state.get("bt_striped_rows", True),
+                                    help="Choose whether the striped background applies to odd rows or even rows.",
+                                )
                         
                                 st.selectbox(
                                     "Table Content Alignment",
@@ -6294,6 +7348,9 @@ if main_tab == "Create New Table":
                                 df_for_controls = st.session_state.get("bt_df_uploaded")
                                 _row_count_for_controls = sync_table_control_defaults_for_row_count(df_for_controls)
                                 _compact_controls_default = _row_count_for_controls <= 10 and _row_count_for_controls > 0
+
+                                if _compact_controls_default:
+                                    st.caption("Compact tables (10 rows or fewer) default to Header embed + hidden search/pager.")
 
                                 st.checkbox(
                                     "Show Search",
@@ -6328,7 +7385,7 @@ if main_tab == "Create New Table":
                                     key="bt_embed_position",
                                     disabled=not st.session_state.get("bt_show_embed", True),
                                     on_change=on_embed_position_change,
-                                    help="Choose where the Embed / Download button appears in the widget.",
+                                    help="Defaults to Header when the table has 10 rows or fewer, and Body for longer tables. You can still change it anytime.",
                                 )
                         
                                 st.divider()
@@ -6342,7 +7399,7 @@ if main_tab == "Create New Table":
                                 if not all_cols:
                                     st.info("Upload a CSV to enable column formatting.")
                                 else:
-                                    fmt_options = ["prefix", "suffix", "plus_if_positive", "comma_separator"]
+                                    fmt_options = ["prefix", "suffix", "plus_if_positive", "plain_number"]
 
                                     def _normalize_fmt_rule_for_editor(rule: dict) -> tuple[list[str], str, str]:
                                         rule = rule or {}
@@ -6406,9 +7463,9 @@ if main_tab == "Create New Table":
                                     selected_modes = st.session_state.get("bt_fmt_selected_modes", []) or []
 
                                     if "prefix" in selected_modes:
-                                        st.text_input("Prefix value", key="bt_fmt_prefix_value", placeholder="$")
+                                        st.text_input("Prefix value", key="bt_fmt_prefix_value", placeholder="Enter a prefix")
                                     if "suffix" in selected_modes:
-                                        st.text_input("Suffix value", key="bt_fmt_suffix_value", placeholder="%")
+                                        st.text_input("Suffix value", key="bt_fmt_suffix_value", placeholder="Enter a suffix")
                                     if not {"prefix", "suffix"} & set(selected_modes):
                                         st.text_input("Value", value="(auto)", disabled=True, key="bt_fmt_value_disabled")
 
@@ -6900,9 +7957,22 @@ if main_tab == "Create New Table":
                                     live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                 if live:
+                                    published_df = st.session_state.get("bt_df_confirmed")
+                                    confirmed_cfg = st.session_state.get("bt_confirmed_cfg") or {}
+                                    published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
+                                    published_iframe_height = apply_preview_height_buffer(
+                                        int(
+                                            st.session_state.get("bt_confirmed_total_height", 0)
+                                            or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
+                                        ),
+                                        buffer_px=PREVIEW_IFRAME_BUFFER_PX,
+                                        minimum_px=320,
+                                    )
+                                    st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                         pages_url,
-                                        height=int(st.session_state.get("bt_iframe_height", 800)),
+                                        height=published_iframe_height,
+                                        brand=current_brand,
                                     )
                                 
                                     # ✅ IMPORTANT: mark the page live + stop "in progress" state
@@ -6994,29 +8064,38 @@ if main_tab == "Create New Table":
                 if _left_view == "Edit table contents" and _right_view == "Preview":
                     with preview_slot:
                         st.session_state.setdefault("bt_show_preview", False)
-                        st.checkbox("Show live preview", key="bt_show_preview")
-                
+
+                        live_cfg = draft_config_from_state()
+                        live_rules = st.session_state.get("bt_col_format_rules", {})
+
+                        df_preview = st.session_state["bt_df_uploaded"].copy()
+                        hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
+                        if hidden_cols:
+                            df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
+
+                        preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
+                        preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
+                        st.session_state["bt_preview_total_height"] = int(preview_height)
+
+                        _preview_toggle_col, _preview_height_col = st.columns([1, 1])
+                        with _preview_toggle_col:
+                            st.checkbox("Show live preview", key="bt_show_preview")
+                        with _preview_height_col:
+                            st.caption(f"Estimated table height: **{int(preview_height)}px**")
+
                         if not st.session_state["bt_show_preview"]:
                             st.info("Preview hidden for performance.")
                         else:
-                            live_cfg = draft_config_from_state()
-                            live_rules = st.session_state.get("bt_col_format_rules", {})
-                
-                            df_preview = st.session_state["bt_df_uploaded"].copy()
-                            hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
-                            if hidden_cols:
-                                df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
-                
                             cfg_hash = stable_config_hash(live_cfg)
-                
+
                             try:
                                 df_hash = int(pd.util.hash_pandas_object(df_preview, index=True).sum())
                             except Exception:
                                 df_hash = hash((df_preview.shape, tuple(df_preview.columns)))
-                
+
                             rules_hash = hash(json.dumps(live_rules, sort_keys=True, default=str))
                             preview_key = f"{cfg_hash}|{df_hash}|{rules_hash}"
-                
+
                             if st.session_state.get("bt_preview_key") != preview_key:
                                 st.session_state["bt_preview_key"] = preview_key
                                 st.session_state["bt_preview_html"] = html_from_config(
@@ -7024,13 +8103,11 @@ if main_tab == "Create New Table":
                                     live_cfg,
                                     col_format_rules=live_rules,
                                 )
-                
-                            preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
-                            preview_height = compute_preview_height(preview_rows)
+
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=preview_height,
-                                scrolling=True,
+                                height=apply_preview_height_buffer(preview_height),
+                                scrolling=False,
                             )
                 else:
                     # Clear any previously mounted preview so it does NOT persist visually
