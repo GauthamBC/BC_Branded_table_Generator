@@ -648,8 +648,8 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             controls_h += 6
 
     page_status_h = 24 if show_page_numbers else 0
-    scrollbar_h = 14
-    body_bottom_gap_h = 36
+    scrollbar_h = 0
+    body_bottom_gap_h = 16
 
     footer_h = 0
     if show_footer:
@@ -657,7 +657,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
         except Exception:
             footer_logo_h = 36
-        footer_h = max(132, footer_logo_h + 96)
+        footer_h = max(84, footer_logo_h + 44)
         if show_footer_notes:
             notes = str(cfg.get("footer_notes", "") or "").strip()
             note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
@@ -668,51 +668,35 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             footer_h = max(footer_h, 92)
 
     est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
-    return max(220, min(7000, est))
+    return max(320, min(6000, est + 12))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return a generous table height so the full table can render without an internal vertical scrollbar."""
+    """Return the internal scroll cap for the table region inside the widget."""
     try:
         row_count = int(row_count)
     except Exception:
         row_count = 0
 
-    row_count = max(row_count, 1)
-    return max(260, 56 + (row_count * 52) + 18)
+    # Full-table preview/export mode: let the outer iframe height fit the widget.
+    # Keep horizontal scrolling when needed, but do not cap the table vertically here.
+    return 999999
 
 
+def compute_recommended_iframe_height(row_count: int, cfg: dict | None = None, df=None) -> int:
+    """Best-fit iframe height with a small safety buffer.
 
-PREVIEW_IFRAME_BUFFER_PX = 140
-
-
-def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
-    """Add a small bottom buffer so footers do not clip in preview iframes."""
-    try:
-        height = int(height or 0)
-    except Exception:
-        height = 0
-    try:
-        buffer_px = int(buffer_px or 0)
-    except Exception:
-        buffer_px = 0
-    try:
-        minimum_px = int(minimum_px or 0)
-    except Exception:
-        minimum_px = 0
-    return max(minimum_px, height + buffer_px)
+    This remains heuristic for exported snippets, but is intentionally tight.
+    The live preview also self-corrects using runtime DOM measurement inside the iframe.
+    """
+    base = compute_preview_height(row_count, cfg=cfg, df=df)
+    return int(max(320, base + 14))
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
-    """Apply compact-table defaults when the uploaded table shape changes.
+    """Auto-hide search/pager for compact tables by default, while allowing user override.
 
-    For tables with 10 rows or fewer, default the widget to a cleaner compact layout:
-    - hide Search
-    - hide Pager
-    - hide Page Numbers
-    - place the Embed / Download button in the Header
-
-    Users can still override these after the defaults are applied.
+    Defaults are re-applied only when the uploaded table shape changes.
     """
     row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
     col_count = len(df.columns) if isinstance(df, pd.DataFrame) else 0
@@ -724,7 +708,6 @@ def sync_table_control_defaults_for_row_count(df) -> int:
         st.session_state["bt_show_search"] = not compact_defaults
         st.session_state["bt_show_pager"] = not compact_defaults
         st.session_state["bt_show_page_numbers"] = not compact_defaults
-        st.session_state["bt_embed_position"] = "Header" if compact_defaults else "Body"
         st.session_state["bt_table_controls_auto_sig"] = data_sig
 
     return row_count
@@ -1675,7 +1658,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
+<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;" data-bt-runtime-measure="1">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
@@ -1978,28 +1961,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
       #bt-block .dw-pager .dw-status{ display:none; }
       .vi-table-embed .dw-btn.dw-download{
-        position: relative;
-        font-size: 0 !important;
-        color: transparent !important;
-        letter-spacing: 0 !important;
-        text-indent: -9999px;
-        white-space: nowrap;
-        overflow: hidden;
+        font-size: 0;
         padding-inline: 10px;
       }
       .vi-table-embed .dw-btn.dw-download::after{
         content:"Embed";
-        position:absolute;
-        inset:0;
-        display:flex;
-        align-items:center;
-        justify-content:center;
         font-size: 12px;
-        font-weight: 700;
-        color:#ffffff;
-        text-indent: 0;
-        white-space: nowrap;
-        pointer-events:none;
+        font-weight: 600;
       }
     }
 
@@ -3007,23 +2975,26 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fallbackRowHeight = rowHeights[0] || 54;
       const theadHeight = theadEl ? Math.ceil(theadEl.getBoundingClientRect().height || 0) : 0;
 
+      const compactMode = shownCount <= 10;
+      const rowsForWindow = compactMode ? Math.max(shownCount, 1) : 10;
+
       let bodyRowsHeight = 0;
-      for (let i = 0; i < Math.max(shownCount, 1); i++) {
+      for (let i = 0; i < rowsForWindow; i++) {
         bodyRowsHeight += Math.ceil(rowHeights[i] || fallbackRowHeight);
       }
 
-      const horizontalScrollbarAllowance = 14;
+      const horizontalScrollbarAllowance = compactMode ? 0 : 12;
       const bottomFadeAllowance = 0;
-      const safetyBuffer = 4;
+      const safetyBuffer = compactMode ? 2 : 2;
       const finalScrollHeight = Math.ceil(
         theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
       );
 
-      scroller.classList.add('compact-fit');
+      scroller.classList.toggle('compact-fit', compactMode);
       scroller.style.height = `${finalScrollHeight}px`;
       scroller.style.maxHeight = `${finalScrollHeight}px`;
       scroller.style.overflowX = 'auto';
-      scroller.style.overflowY = 'hidden';
+      scroller.style.overflowY = compactMode ? 'hidden' : 'auto';
     }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
@@ -3978,6 +3949,65 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   })();
   </script>
 </section>
+
+<script>
+(function () {
+  function btStableHeight() {
+    const root = document.documentElement;
+    const body = document.body;
+    const widget = document.querySelector('.vi-table-embed');
+    const candidates = [];
+    if (root) {
+      candidates.push(root.scrollHeight, root.offsetHeight, root.clientHeight);
+    }
+    if (body) {
+      candidates.push(body.scrollHeight, body.offsetHeight, body.clientHeight);
+    }
+    if (widget) {
+      const rect = widget.getBoundingClientRect();
+      candidates.push(Math.ceil(rect.height));
+      candidates.push(Math.ceil(widget.scrollHeight || 0));
+      candidates.push(Math.ceil(widget.offsetHeight || 0));
+    }
+    const h = Math.max.apply(null, candidates.filter(v => Number.isFinite(v) && v > 0));
+    return Math.ceil((h || 0) + 6);
+  }
+
+  function btPublishMeasuredHeight() {
+    const measured = btStableHeight();
+    try {
+      document.documentElement.style.setProperty('--bt-measured-height', measured + 'px');
+      document.body.setAttribute('data-bt-measured-height', String(measured));
+    } catch (e) {}
+    try {
+      if (window.frameElement) {
+        window.frameElement.style.height = measured + 'px';
+      }
+    } catch (e) {}
+    try {
+      window.parent.postMessage({ type: 'bt-widget-height', height: measured }, '*');
+    } catch (e) {}
+  }
+
+  function btScheduleMeasure() {
+    btPublishMeasuredHeight();
+    window.setTimeout(btPublishMeasuredHeight, 60);
+    window.setTimeout(btPublishMeasuredHeight, 180);
+    window.setTimeout(btPublishMeasuredHeight, 400);
+  }
+
+  window.addEventListener('load', btScheduleMeasure);
+  window.addEventListener('resize', btScheduleMeasure);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(btScheduleMeasure).catch(function(){});
+  }
+  const obs = new MutationObserver(function () { btScheduleMeasure(); });
+  window.addEventListener('DOMContentLoaded', function () {
+    obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: false });
+    btScheduleMeasure();
+  });
+})();
+</script>
 </body>
 </html>
 
@@ -4631,7 +4661,7 @@ def generate_table_html_from_df(
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
-        .replace("[[WIDGET_MAX_H]]", str(compute_preview_height(row_count)))
+        .replace("[[WIDGET_MAX_H]]", str(compute_recommended_iframe_height(row_count, df=df)))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -4939,7 +4969,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    h = apply_preview_height_buffer(height if height else 800)
+    h = int(height) if height else 800
     brand_clean = (brand or "").strip().lower()
 
     # ✅ Canada Sports Betting → FULL width (no max-width wrapper)
@@ -5071,9 +5101,9 @@ def build_published_iframe_snippet(
                     hidden_cols = bundle.get("hidden_cols", []) or []
                     if hidden_cols:
                         bundle_df = bundle_df.drop(columns=hidden_cols, errors="ignore")
-                    resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
+                    resolved_height = int(compute_recommended_iframe_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
 
-    resolved_height = apply_preview_height_buffer(max(320, int(resolved_height or 800)), buffer_px=PREVIEW_IFRAME_BUFFER_PX, minimum_px=320)
+    resolved_height = max(320, int(resolved_height or 800))
     return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
 
 
@@ -5451,7 +5481,7 @@ def do_confirm_snapshot():
         col_format_rules=live_rules,
     )
 
-    confirmed_total_height = compute_preview_height(
+    confirmed_total_height = compute_recommended_iframe_height(
         len(df_confirm_for_html.index) if isinstance(df_confirm_for_html, pd.DataFrame) else 0,
         cfg=st.session_state["bt_confirmed_cfg"],
         df=df_confirm_for_html,
@@ -7349,9 +7379,6 @@ if main_tab == "Create New Table":
                                 _row_count_for_controls = sync_table_control_defaults_for_row_count(df_for_controls)
                                 _compact_controls_default = _row_count_for_controls <= 10 and _row_count_for_controls > 0
 
-                                if _compact_controls_default:
-                                    st.caption("Compact tables (10 rows or fewer) default to Header embed + hidden search/pager.")
-
                                 st.checkbox(
                                     "Show Search",
                                     value=st.session_state.get("bt_show_search", not _compact_controls_default),
@@ -7385,7 +7412,7 @@ if main_tab == "Create New Table":
                                     key="bt_embed_position",
                                     disabled=not st.session_state.get("bt_show_embed", True),
                                     on_change=on_embed_position_change,
-                                    help="Defaults to Header when the table has 10 rows or fewer, and Body for longer tables. You can still change it anytime.",
+                                    help="Choose where the Embed / Download button appears in the widget.",
                                 )
                         
                                 st.divider()
@@ -7960,13 +7987,9 @@ if main_tab == "Create New Table":
                                     published_df = st.session_state.get("bt_df_confirmed")
                                     confirmed_cfg = st.session_state.get("bt_confirmed_cfg") or {}
                                     published_row_count = len(published_df.index) if isinstance(published_df, pd.DataFrame) else 0
-                                    published_iframe_height = apply_preview_height_buffer(
-                                        int(
-                                            st.session_state.get("bt_confirmed_total_height", 0)
-                                            or compute_preview_height(published_row_count, cfg=confirmed_cfg, df=published_df)
-                                        ),
-                                        buffer_px=PREVIEW_IFRAME_BUFFER_PX,
-                                        minimum_px=320,
+                                    published_iframe_height = int(
+                                        st.session_state.get("bt_confirmed_total_height", 0)
+                                        or compute_recommended_iframe_height(published_row_count, cfg=confirmed_cfg, df=published_df)
                                     )
                                     st.session_state["bt_iframe_height"] = published_iframe_height
                                     st.session_state["bt_iframe_code"] = build_iframe_snippet(
@@ -8075,13 +8098,17 @@ if main_tab == "Create New Table":
 
                         preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
                         preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
+                        recommended_iframe_height = compute_recommended_iframe_height(preview_rows, cfg=live_cfg, df=df_preview)
                         st.session_state["bt_preview_total_height"] = int(preview_height)
+                        st.session_state["bt_recommended_iframe_height"] = int(recommended_iframe_height)
 
                         _preview_toggle_col, _preview_height_col = st.columns([1, 1])
                         with _preview_toggle_col:
                             st.checkbox("Show live preview", key="bt_show_preview")
                         with _preview_height_col:
-                            st.caption(f"Estimated table height: **{int(preview_height)}px**")
+                            st.caption(
+                                f"Best-fit iframe height: **{int(recommended_iframe_height)}px** · Preview container: **{int(preview_height)}px**"
+                            )
 
                         if not st.session_state["bt_show_preview"]:
                             st.info("Preview hidden for performance.")
@@ -8106,7 +8133,7 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=apply_preview_height_buffer(preview_height),
+                                height=int(recommended_iframe_height),
                                 scrolling=False,
                             )
                 else:
