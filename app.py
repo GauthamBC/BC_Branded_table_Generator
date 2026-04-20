@@ -2278,10 +2278,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background:none;
     }
 
+    /* ✅ Branded scrollbar across all brands */
     #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
     #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
-      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
+      background: var(--scroll-thumb);
       border-radius: 9999px;
       border: 2px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
