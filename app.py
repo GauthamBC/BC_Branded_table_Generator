@@ -704,9 +704,15 @@ def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUF
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
-    """Auto-hide search/pager for compact tables by default, while allowing user override.
+    """Apply compact-table defaults when the uploaded table shape changes.
 
-    Defaults are re-applied only when the uploaded table shape changes.
+    For tables with 10 rows or fewer, default the widget to a cleaner compact layout:
+    - hide Search
+    - hide Pager
+    - hide Page Numbers
+    - place the Embed / Download button in the Header
+
+    Users can still override these after the defaults are applied.
     """
     row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
     col_count = len(df.columns) if isinstance(df, pd.DataFrame) else 0
@@ -718,6 +724,7 @@ def sync_table_control_defaults_for_row_count(df) -> int:
         st.session_state["bt_show_search"] = not compact_defaults
         st.session_state["bt_show_pager"] = not compact_defaults
         st.session_state["bt_show_page_numbers"] = not compact_defaults
+        st.session_state["bt_embed_position"] = "Header" if compact_defaults else "Body"
         st.session_state["bt_table_controls_auto_sig"] = data_sig
 
     return row_count
@@ -7342,6 +7349,9 @@ if main_tab == "Create New Table":
                                 _row_count_for_controls = sync_table_control_defaults_for_row_count(df_for_controls)
                                 _compact_controls_default = _row_count_for_controls <= 10 and _row_count_for_controls > 0
 
+                                if _compact_controls_default:
+                                    st.caption("Compact tables (10 rows or fewer) default to Header embed + hidden search/pager.")
+
                                 st.checkbox(
                                     "Show Search",
                                     value=st.session_state.get("bt_show_search", not _compact_controls_default),
@@ -7375,7 +7385,7 @@ if main_tab == "Create New Table":
                                     key="bt_embed_position",
                                     disabled=not st.session_state.get("bt_show_embed", True),
                                     on_change=on_embed_position_change,
-                                    help="Choose where the Embed / Download button appears in the widget.",
+                                    help="Defaults to Header when the table has 10 rows or fewer, and Body for longer tables. You can still change it anytime.",
                                 )
                         
                                 st.divider()
