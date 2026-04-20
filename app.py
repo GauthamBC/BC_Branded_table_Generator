@@ -2297,38 +2297,32 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.96));
     }
 
-    /* Always-visible left/right inner gutter so the table body stays aligned
-       with the control row even while horizontally scrolling. */
+    /* Fixed left/right visual gutters so both sides stay aligned with the
+       control row while the middle of the table scrolls underneath. */
     #bt-block .dw-scroll::before,
     #bt-block .dw-scroll::after{
       content:"";
-      position: sticky;
+      position: absolute;
       top: 0;
       bottom: 0;
       width: var(--table-side-pad);
-      display:block;
       pointer-events:none;
       z-index: 9;
+      background: rgba(255,255,255,.98);
     }
 
     #bt-block .dw-scroll::before{
       left: 0;
-      float: left;
-      background: linear-gradient(to right, rgba(255,255,255,.98), rgba(255,255,255,.98));
       box-shadow: inset -1px 0 0 rgba(var(--brand-500-rgb), .08);
     }
 
     #bt-block .dw-scroll::after{
       right: 0;
-      float: right;
-      background: linear-gradient(to left, rgba(255,255,255,.98), rgba(255,255,255,.98));
       box-shadow: inset 1px 0 0 rgba(var(--brand-500-rgb), .08);
     }
 
     #bt-block .dw-scroll.compact-fit::before,
     #bt-block .dw-scroll.compact-fit::after{
-      width: var(--table-side-pad);
-      display:block;
       background: rgba(255,255,255,.98);
     }
 
@@ -2345,8 +2339,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     #bt-block table.dw-table {
       width: max-content;   /* allow columns to grow so headers can fit */
-      min-width: calc(100% - (var(--table-side-pad) * 2));      /* fill viewport but preserve visible side gutters */
-      margin: 0 var(--table-side-pad);
+      min-width: 100%;      /* fill the viewport cleanly */
+      margin: 0;
       border-collapse: separate;
       border-spacing: 0;
       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
@@ -2357,6 +2351,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
 
     /* Header row */
+    /* Real inner spacing on the first/last columns so both edges feel aligned */
+    #bt-block thead th:first-child,
+    #bt-block tbody td:first-child{
+      padding-left: calc(var(--cell-pad-x) + var(--table-side-pad));
+    }
+
+    #bt-block thead th:last-child,
+    #bt-block tbody td:last-child{
+      padding-right: calc(var(--cell-pad-x) + var(--table-side-pad));
+    }
+
     #bt-block thead th{
       background:linear-gradient(180deg, var(--accent-start) 0%, var(--header-bg) 100%);
       color:#ffffff;
