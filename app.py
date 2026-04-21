@@ -5842,56 +5842,68 @@ st.text_input(
     help="Enter your 6-digit passcode to enable publishing/editing as this user.",
 )
 
-# Keep the auth actions grouped together tightly.
+# Keep the auth actions grouped together tightly with no dead space between them.
 st.markdown(
     """
     <style>
-    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) {
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) {
         width: fit-content !important;
+        max-width: fit-content !important;
         display: flex !important;
         flex-wrap: nowrap !important;
         justify-content: flex-start !important;
         align-items: center !important;
-        column-gap: 8px !important;
+        gap: 0 !important;
+        column-gap: 0 !important;
         row-gap: 0 !important;
     }
 
-    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div[data-testid="stColumn"] {
         flex: 0 0 auto !important;
         width: auto !important;
         min-width: 0 !important;
         max-width: fit-content !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
 
-    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) > div[data-testid="column"] > div,
-    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) div[data-testid="element-container"] {
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div[data-testid="column"] > div,
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div[data-testid="stColumn"] > div,
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) div[data-testid="element-container"],
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) div[data-testid="stButton"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: fit-content !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-c_login, c_logout = st.columns([0.0001, 0.0001], gap="small")
+auth_actions_col, _auth_actions_spacer = st.columns([3, 7], gap="small")
 
-with c_login:
-    login_clicked = st.button(
-        "Log in",
-        disabled=pass_disabled or not (st.session_state.get("bt_user_passcode") or "").strip(),
-        type="primary",
-        use_container_width=False,
-        key="bt_login_btn",
-    )
+with auth_actions_col:
+    c_login, c_logout = st.columns([1, 1], gap="small")
 
-with c_logout:
-    logout_clicked = st.button(
-        "Log out",
-        disabled=not st.session_state.get("bt_is_logged_in", False),
-        use_container_width=False,
-        key="bt_logout_btn",
-    )
+    with c_login:
+        login_clicked = st.button(
+            "Log in",
+            disabled=pass_disabled or not (st.session_state.get("bt_user_passcode") or "").strip(),
+            type="primary",
+            use_container_width=False,
+            key="bt_login_btn",
+        )
+
+    with c_logout:
+        logout_clicked = st.button(
+            "Log out",
+            disabled=not st.session_state.get("bt_is_logged_in", False),
+            use_container_width=False,
+            key="bt_logout_btn",
+        )
 
 if logout_clicked:
     _u = (st.session_state.get("bt_logged_in_user") or "").strip().lower()
