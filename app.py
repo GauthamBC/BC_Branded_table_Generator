@@ -48,7 +48,22 @@ def inject_global_radio_button_css():
     }
 
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
+        width: 140px !important;
+        min-width: 140px !important;
+        max-width: 140px !important;
+        min-height: 38px !important;
+        padding: 6px 14px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 auto !important;
+    }
+
     div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
         width: auto !important;
@@ -411,7 +426,22 @@ st.markdown(
     }
 
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
+        width: 140px !important;
+        min-width: 140px !important;
+        max-width: 140px !important;
+        min-height: 38px !important;
+        padding: 6px 14px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 auto !important;
+    }
+
     div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
         width: fit-content !important;
@@ -5819,7 +5849,7 @@ with c_login:
         "Log in",
         disabled=pass_disabled or not (st.session_state.get("bt_user_passcode") or "").strip(),
         type="primary",
-        use_container_width=True,
+        use_container_width=False,
         key="bt_login_btn",
     )
 
@@ -5827,7 +5857,7 @@ with c_logout:
     logout_clicked = st.button(
         "Log out",
         disabled=not st.session_state.get("bt_is_logged_in", False),
-        use_container_width=True,
+        use_container_width=False,
         key="bt_logout_btn",
     )
 
