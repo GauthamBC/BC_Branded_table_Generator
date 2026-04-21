@@ -353,31 +353,39 @@ inject_global_radio_button_css()
 st.markdown(
     """
     <style>
+    /* Keep main tabs full width */
     div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]),
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]),
-    div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
-    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
-    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
-    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]),
-    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]),
-    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) {
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) {
         width: 100% !important;
     }
 
     div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]) > button,
-    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button,
-    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button {
         width: 100% !important;
         min-height: 64px !important;
         font-size: 18px !important;
         font-weight: 700 !important;
         border-radius: 12px !important;
-        white-space: normal !important;
+    }
+
+    /* ✅ Action buttons → auto width */
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) {
+        width: auto !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
+        width: auto !important;
+        min-height: 44px !important;
+        padding: 10px 18px !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
     }
     </style>
     """,
