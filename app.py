@@ -368,24 +368,32 @@ st.markdown(
         border-radius: 12px !important;
     }
 
-    /* ✅ Action buttons → auto width */
+    /* ✅ Action buttons → compact / content-sized */
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
     div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
     div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
     div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) {
-        width: auto !important;
+        width: fit-content !important;
+        display: inline-flex !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
     }
 
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
-        width: auto !important;
+        width: fit-content !important;
+        min-width: 120px !important;
+        max-width: none !important;
         min-height: 44px !important;
         padding: 10px 18px !important;
         font-size: 15px !important;
         font-weight: 600 !important;
         border-radius: 10px !important;
+        white-space: nowrap !important;
+        flex: 0 0 auto !important;
     }
     </style>
     """,
