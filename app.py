@@ -17,26 +17,56 @@ def inject_global_radio_button_css():
     """
     st.markdown(
         """
-        <style>
+<style>
+    /* Main nav buttons stay full width */
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]),
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) {
+        width: 100% !important;
+        display: block !important;
+    }
 
-/* ✅ EMBED BUTTON STYLE SOURCE OF TRUTH
-   Keep header, body, and footer triggers visually identical in the widget itself.
-   The actual widget CSS below is the canonical source; this block only prevents
-   Streamlit wrapper styles from dimming links or buttons around it. */
-.vi-table-embed .vi-header-actions,
-.vi-table-embed .footer-embed-wrap {
-  opacity: 1 !important;
-}
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_create"]) > button,
+    div[data-testid="stButton"]:has(button[key="main_tab_btn_published"]) > button {
+        width: 100% !important;
+        min-height: 64px !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        border-radius: 12px !important;
+        white-space: normal !important;
+    }
 
-.vi-table-embed .vi-header-actions *,
-.vi-table-embed .footer-embed-wrap * {
-  text-decoration: none !important;
-}
+    /* Action buttons should NOT stretch */
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) {
+        width: fit-content !important;
+        display: inline-block !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
 
-</style>
-        """,
-        unsafe_allow_html=True,
-    )
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
+        width: auto !important;
+        display: inline-flex !important;
+        flex: 0 0 auto !important;
+        min-width: 120px !important;
+        max-width: none !important;
+        min-height: 44px !important;
+        padding: 10px 18px !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        white-space: nowrap !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 def style_radio_as_big_tabs(
