@@ -49,14 +49,14 @@ def inject_global_radio_button_css():
 
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
-        width: 140px !important;
-        min-width: 140px !important;
-        max-width: 140px !important;
+        width: 136px !important;
+        min-width: 136px !important;
+        max-width: 136px !important;
         min-height: 38px !important;
         padding: 6px 14px !important;
         font-size: 14px !important;
         font-weight: 600 !important;
-        border-radius: 10px !important;
+        border-radius: 999px !important;
         white-space: nowrap !important;
         display: inline-flex !important;
         align-items: center !important;
@@ -427,14 +427,14 @@ st.markdown(
 
     div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
     div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
-        width: 140px !important;
-        min-width: 140px !important;
-        max-width: 140px !important;
+        width: 136px !important;
+        min-width: 136px !important;
+        max-width: 136px !important;
         min-height: 38px !important;
         padding: 6px 14px !important;
         font-size: 14px !important;
         font-weight: 600 !important;
-        border-radius: 10px !important;
+        border-radius: 999px !important;
         white-space: nowrap !important;
         display: inline-flex !important;
         align-items: center !important;
@@ -5842,7 +5842,9 @@ st.text_input(
     help="Enter your 6-digit passcode to enable publishing/editing as this user.",
 )
 
-c_login, c_logout = st.columns(2, gap="small")
+# Keep the auth actions grouped together like a compact segmented control.
+# A third spacer column prevents Streamlit from pushing the two buttons to opposite ends.
+c_login, c_logout, _auth_spacer = st.columns([1.15, 1.15, 7.7], gap="small")
 
 with c_login:
     login_clicked = st.button(
