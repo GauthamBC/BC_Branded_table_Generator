@@ -5842,9 +5842,30 @@ st.text_input(
     help="Enter your 6-digit passcode to enable publishing/editing as this user.",
 )
 
-# Keep the auth actions grouped together like a compact segmented control.
-# A third spacer column prevents Streamlit from pushing the two buttons to opposite ends.
-c_login, c_logout, _auth_spacer = st.columns([1.15, 1.15, 7.7], gap="small")
+# Keep the auth actions grouped together tightly.
+st.markdown(
+    """
+    <style>
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) {
+        width: fit-content !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+c_login, c_logout = st.columns([1, 1], gap="small")
 
 with c_login:
     login_clicked = st.button(
