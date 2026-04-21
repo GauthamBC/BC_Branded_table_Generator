@@ -5846,26 +5846,35 @@ st.text_input(
 st.markdown(
     """
     <style>
-    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) {
+    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) {
         width: fit-content !important;
         display: flex !important;
         flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
         align-items: center !important;
-        gap: 8px !important;
+        column-gap: 8px !important;
+        row-gap: 0 !important;
     }
 
-    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div {
+    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) > div[data-testid="column"] {
         flex: 0 0 auto !important;
         width: auto !important;
         min-width: 0 !important;
-        max-width: none !important;
+        max-width: fit-content !important;
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) > div[data-testid="column"] > div,
+    div[data-testid="stHorizontalBlock"]:has(div[data-testid="stButton"] button[key="bt_login_btn"]):has(div[data-testid="stButton"] button[key="bt_logout_btn"]) div[data-testid="element-container"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: fit-content !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-c_login, c_logout = st.columns([1, 1], gap="small")
+c_login, c_logout = st.columns([0.0001, 0.0001], gap="small")
 
 with c_login:
     login_clicked = st.button(
