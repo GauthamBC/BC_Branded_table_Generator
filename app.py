@@ -1963,7 +1963,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed thead th{
       white-space: normal !important;
       word-break: normal !important;
-      overflow-wrap: break-word !important;
+      overflow-wrap: normal !important;
       height: auto !important;
       line-height: 1.2 !important;
     }
@@ -2457,11 +2457,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block thead th.sortable[data-sort="desc"]::after{content:"▼"}
     
     /* Balanced 1–3 line header labels using whole words only */
-    #bt-block thead th.sortable > .dw-th-label{
+    #bt-block thead th .dw-th-label{
       display:inline-block;
       width:auto;
       min-width:0;
-      max-width:none;
+      max-width:220px;
       white-space:normal;
       overflow:visible;
       text-overflow:clip;
@@ -2471,6 +2471,31 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       line-height:1.15;
       text-align:inherit;
       vertical-align:middle;
+    }
+
+    #bt-block thead th .dw-th-main{
+      display:block;
+      font-size:inherit;
+      font-weight:700;
+      line-height:1.12;
+      white-space:normal;
+      word-break:normal;
+      overflow-wrap:normal;
+      hyphens:none;
+    }
+
+    #bt-block thead th .dw-th-sub{
+      display:block;
+      margin-top:3px;
+      font-size:clamp(11px, 0.82em, 12.5px);
+      font-weight:500;
+      line-height:1.15;
+      letter-spacing:.01em;
+      opacity:.82;
+      white-space:normal;
+      word-break:normal;
+      overflow-wrap:normal;
+      hyphens:none;
     }
         
     #bt-block thead th.sortable:hover,
@@ -3186,6 +3211,26 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       return lines.join('<br>');
     }
 
+
+    function splitHeaderBracketSubtext(raw){
+      const txt = normalizeHeaderText(raw);
+      const match = txt.match(/^(.*?)\s*(\([^()]+\))\s*$/);
+      if (!match) return { main: txt, sub: '' };
+      return { main: normalizeHeaderText(match[1]), sub: normalizeHeaderText(match[2]) };
+    }
+
+    function buildHeaderLabelHTML(raw, fixedWords = 0){
+      const parts = splitHeaderBracketSubtext(raw);
+      const mainRaw = parts.main || normalizeHeaderText(raw);
+      const mainHTML = fixedWords > 0
+        ? buildFixedWordsHeaderHTML(mainRaw, fixedWords)
+        : buildBalancedHeaderHTML(mainRaw, 3, 18);
+      const subHTML = parts.sub ? buildBalancedHeaderHTML(parts.sub, 2, 28) : '';
+
+      return '<span class="dw-th-main">' + mainHTML + '</span>' +
+        (subHTML ? '<span class="dw-th-sub">' + subHTML + '</span>' : '');
+    }
+
     function applyBalancedHeaderWrap(rootEl){
       const scope = rootEl || table;
       const ths = Array.from(scope.querySelectorAll('#bt-block thead th, thead th'));
@@ -3208,11 +3253,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         th.setAttribute('data-header-original', raw);
 
         const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
-        if (fixedWords > 0) {
-          label.innerHTML = buildFixedWordsHeaderHTML(raw, fixedWords);
-        } else {
-          label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
-        }
+        label.innerHTML = buildHeaderLabelHTML(raw, fixedWords);
       });
     }
 
@@ -3239,7 +3280,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         if (!rawLines.length) return;
 
         const longest = rawLines.reduce((m, line) => Math.max(m, line.length), 0);
-        const px = Math.max(92, Math.min(260, Math.round((longest * 9) + 34)));
+        const px = Math.max(92, Math.min(220, Math.round((longest * 8.2) + 34)));
         th.style.minWidth = px + 'px';
       });
     }
@@ -3913,7 +3954,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
               .filter(Boolean);
             if (!rawLines.length) return;
             const longest = rawLines.reduce((m, line) => Math.max(m, line.length), 0);
-            const px = Math.max(92, Math.min(260, Math.round((longest * 9) + 34)));
+            const px = Math.max(92, Math.min(220, Math.round((longest * 8.2) + 34)));
             th.style.minWidth = px + 'px';
           });
         }
@@ -4506,11 +4547,14 @@ def generate_table_html_from_df(
             should_wrap_header = True
             wrap_words_for_col = 1
 
+        # Render the header label in a dedicated span so JS can auto-balance it.
+        # Bracketed helper text is auto-styled smaller in the published widget.
         if should_wrap_header:
             wrapped_lines = wrap_text_by_words(display_col, wrap_words_for_col).splitlines()
-            safe_label = "<br>".join(html_mod.escape(line) for line in wrapped_lines if line.strip())
+            safe_label_inner = "<br>".join(html_mod.escape(line) for line in wrapped_lines if line.strip())
         else:
-            safe_label = html_mod.escape(display_col)
+            safe_label_inner = html_mod.escape(display_col)
+        safe_label = f'<span class="dw-th-label"><span class="dw-th-main">{safe_label_inner}</span></span>'
 
         classes = []
         if col in bar_columns_set and col_type == "num":
