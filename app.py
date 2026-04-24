@@ -3887,6 +3887,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           .vi-table-embed.export-mode.brand-aceodds .vi-footer{ background:#F4F6FA !important; }
           .vi-table-embed.export-mode.brand-bolavip .vi-table-header,
           .vi-table-embed.export-mode.brand-bolavip .vi-footer{ background:#FFF1F2 !important; }
+
+          /* ✅ PNG export only: remove heatmap colouring from image downloads
+             so Top 10 / Bottom 10 images stay clean and editorial. */
+          .vi-table-embed.export-mode #bt-block td.dw-heat-td{
+            background-image:none !important;
+            box-shadow:none !important;
+            opacity:1 !important;
+          }
+          .vi-table-embed.export-mode .footer-scale{
+            display:none !important;
+          }
         
           /* ✅ REMOVE SORT ARROWS IN EXPORT MODE */
           .vi-table-embed.export-mode #bt-block thead th.sortable::after{
@@ -4038,6 +4049,22 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           });
         }
 
+        function disableHeatmapInImageClone(cloneRoot){
+          // Keep heatmap active in the live/interactive table, but strip it from PNG exports.
+          // This removes inline heat backgrounds first, then lets normal zebra striping show through.
+          cloneRoot.querySelectorAll('#bt-block td.dw-heat-td').forEach(td => {
+            td.classList.remove('dw-heat-td');
+            td.style.background = '';
+            td.style.backgroundColor = '';
+            td.style.backgroundImage = '';
+            td.style.opacity = '';
+            td.style.boxShadow = '';
+          });
+          cloneRoot.querySelectorAll('.footer-scale').forEach(el => {
+            el.style.display = 'none';
+          });
+        }
+
         function applyImageColumnSelectionInClone(cloneRoot){
           const table = cloneRoot.querySelector('#bt-block table.dw-table');
           if(!table || !table.tHead || !table.tBodies || !table.tBodies[0]) return;
@@ -4064,6 +4091,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         // ✅ Call before capture (export-only)
         wrapExportHeaders(clone);
         applySmartHeaderWidthsInClone(clone);
+        disableHeatmapInImageClone(clone);
         applyImageColumnSelectionInClone(clone);
 
         showRowsInClone(clone, mode);
