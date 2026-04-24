@@ -3470,6 +3470,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
       scroller.classList.remove('compact-fit');
       scroller.style.overflowX = 'auto';
+      // Vertical scrolling is controlled after rows are rendered.
+      // This keeps exactly 10 visible rows while still allowing rows 11+
+      // to be reached when Rows/Page is 15/20/30/All.
       scroller.style.overflowY = 'auto';
 
       const widgetH = widgetRoot.clientHeight || 800;
@@ -3498,24 +3501,28 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fallbackRowH = 44;
       const rowCapH = measuredRowsH || (Math.min(visibleRows.length || 1, 10) * fallbackRowH);
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
+      const hasOverflowRows = visibleRows.length > 10;
 
-      // Core rule: show a maximum of 10 body rows. If the user chooses 15/20/30/All,
-      // the extra rows stay inside this same scroller instead of increasing widget height.
-      // Do NOT add extra horizontal-scrollbar reserve to the viewport height; browsers
-      // render that bar as part of the scroller area, and reserving extra height lets
-      // the next row peek through/push the footer down slightly.
-      const targetContentH = headerTableH + rowCapH;
+      // Core rule: the viewport height is based on the table header + exactly 10 rows.
+      // Rows/Page can be 15/20/30/All, but rows 11+ must stay inside this fixed
+      // viewport and be reached through the branded vertical scrollbar.
+      // The horizontal scrollbar reserve is included consistently for 10 and 10+ rows,
+      // so switching row counts does not nudge the footer/page-status down.
+      const horizontalReserve = needsXScroll ? 12 : 0;
+      const targetContentH = headerTableH + rowCapH + horizontalReserve;
       const desiredH = Math.max(120, Math.min(maxScrollerH, targetContentH));
       const fullContentH = Math.ceil(table.scrollHeight || 0);
 
       if (card){
         card.style.flex = '0 0 auto';
         card.style.height = desiredH + 'px';
-        card.style.maxHeight = maxScrollerH + 'px';
+        card.style.maxHeight = desiredH + 'px';
       }
+
       scroller.style.height = desiredH + 'px';
-      scroller.style.maxHeight = maxScrollerH + 'px';
-      scroller.classList.toggle('compact-fit', fullContentH <= desiredH + 2);
+      scroller.style.maxHeight = desiredH + 'px';
+      scroller.style.overflowY = hasOverflowRows ? 'scroll' : 'hidden';
+      scroller.classList.toggle('compact-fit', !hasOverflowRows && fullContentH <= desiredH + 2);
     }
 
     window.addEventListener('resize', () => {
