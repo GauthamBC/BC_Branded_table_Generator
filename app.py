@@ -3498,13 +3498,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fallbackRowH = 44;
       const rowCapH = measuredRowsH || (Math.min(visibleRows.length || 1, 10) * fallbackRowH);
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
-      const xScrollReserve = needsXScroll ? 14 : 0;
 
       // Core rule: show a maximum of 10 body rows. If the user chooses 15/20/30/All,
       // the extra rows stay inside this same scroller instead of increasing widget height.
-      const targetContentH = headerTableH + rowCapH + xScrollReserve + 1;
+      // Do NOT add extra horizontal-scrollbar reserve to the viewport height; browsers
+      // render that bar as part of the scroller area, and reserving extra height lets
+      // the next row peek through/push the footer down slightly.
+      const targetContentH = headerTableH + rowCapH;
       const desiredH = Math.max(120, Math.min(maxScrollerH, targetContentH));
-      const fullContentH = Math.ceil(table.scrollHeight || 0) + xScrollReserve;
+      const fullContentH = Math.ceil(table.scrollHeight || 0);
 
       if (card){
         card.style.flex = '0 0 auto';
