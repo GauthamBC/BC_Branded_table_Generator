@@ -7393,29 +7393,33 @@ if main_tab == "Create New Table":
                         st.session_state["bt_left_view"] = "Get Embed Script"
                         st.rerun()
 
-                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-
-                _right_btn_col1, _right_btn_col2, _right_btn_spacer = st.columns([0.10, 0.28, 0.62], gap="small")
-                with _right_btn_col1:
-                    if st.button(
-                        "Preview",
-                        key="bt_right_preview_btn",
-                        use_container_width=True,
-                        type="primary" if st.session_state.get("bt_right_view") == "Preview" else "secondary",
-                    ):
-                        st.session_state["bt_right_view"] = "Preview"
-                        st.rerun()
-                with _right_btn_col2:
-                    if st.button(
-                        "Edit table content (optional)",
-                        key="bt_right_body_btn",
-                        use_container_width=True,
-                        type="primary" if st.session_state.get("bt_right_view") == "Edit table content (optional)" else "secondary",
-                    ):
-                        st.session_state["bt_right_view"] = "Edit table content (optional)"
-                        st.rerun()
-
+                # Show the Preview / Edit body buttons only while the user is in the table-editing view.
+                # In Get Embed Script mode, hide them so the embed screen stays clean and focused.
                 left_view = st.session_state.get("bt_left_view", "Edit table contents")
+
+                if left_view == "Edit table contents":
+                    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+                    _right_btn_col1, _right_btn_col2, _right_btn_spacer = st.columns([0.10, 0.28, 0.62], gap="small")
+                    with _right_btn_col1:
+                        if st.button(
+                            "Preview",
+                            key="bt_right_preview_btn",
+                            use_container_width=True,
+                            type="primary" if st.session_state.get("bt_right_view") == "Preview" else "secondary",
+                        ):
+                            st.session_state["bt_right_view"] = "Preview"
+                            st.rerun()
+                    with _right_btn_col2:
+                        if st.button(
+                            "Edit table content (optional)",
+                            key="bt_right_body_btn",
+                            use_container_width=True,
+                            type="primary" if st.session_state.get("bt_right_view") == "Edit table content (optional)" else "secondary",
+                        ):
+                            st.session_state["bt_right_view"] = "Edit table content (optional)"
+                            st.rerun()
+
                 right_view = st.session_state.get("bt_right_view", "Preview")
 
                 left_col, right_col = st.columns([1, 3], gap="large")
