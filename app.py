@@ -908,6 +908,20 @@ def apply_text_case(text: str, style: str) -> str:
     return s
 
 
+def title_size_to_css(size: str) -> str:
+    """Return a safe CSS font-size for the table header title.
+
+    The header itself stays at a fixed 88px height, so changing this only
+    scales the title text rather than resizing the header box.
+    """
+    size = str(size or "Default").strip()
+    mapping = {
+        "Default": "clamp(18px,2.3vw,22px)",
+        "Large": "clamp(22px,2.8vw,27px)",
+        "Extra large": "clamp(25px,3.2vw,32px)",
+    }
+    return mapping.get(size, mapping["Default"])
+
 def wrap_text_by_words(text: str, words_per_line: int) -> str:
     """Wrap text into lines containing up to `words_per_line` words each."""
     s = "" if text is None else str(text).strip()
@@ -2156,6 +2170,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --row-hover-bg:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%);
       --scroll-thumb:var(--brand-500);
       --footer-border: rgba(var(--brand-500-rgb), 0.35);
+      --title-font-size:[[TITLE_FONT_SIZE]];
 
       --cell-align:center;
 
@@ -2302,6 +2317,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       border-bottom:1px solid rgba(var(--brand-500-rgb), .18);
       padding:14px 18px;
       min-height:88px;
+      height:88px;
+      flex:0 0 88px;
       background:rgba(var(--brand-500-rgb), .045);
       backdrop-filter:none;
       display:flex;
@@ -2336,7 +2353,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     .vi-table-embed .vi-header-actions.vi-hide{ display:none !important; }
     .vi-table-embed .vi-table-header .title{
-      margin:0; font-size:clamp(18px,2.3vw,22px); font-weight:800; letter-spacing:-0.02em; color:#111827; display:block; text-shadow:0 1px 0 rgba(255,255,255,.65);
+      margin:0; font-size:var(--title-font-size, clamp(18px,2.3vw,22px)); line-height:1.05; font-weight:800; letter-spacing:-0.02em; color:#111827; display:block; text-shadow:0 1px 0 rgba(255,255,255,.65);
     }
     .vi-table-embed .vi-table-header .title.branded{ color:var(--brand-600); }
     .vi-table-embed .vi-table-header .subtitle{ margin:0; font-size:13px; color:#7a808d; display:block; }
@@ -4740,6 +4757,7 @@ def generate_table_html_from_df(
     brand_logo_alt: str,
     brand_class: str,
     title_style: str = "Keep original",
+    title_size: str = "Default",
     subtitle_style: str = "Keep original",
     striped: bool = True,
     stripe_mode: str = "Odd",
@@ -5309,6 +5327,7 @@ def generate_table_html_from_df(
         .replace("[[STRIPE_CSS]]", stripe_css)
         .replace("[[HEADER_ALIGN_CLASS]]", header_class)
         .replace("[[TITLE_CLASS]]", title_class)
+        .replace("[[TITLE_FONT_SIZE]]", title_size_to_css(title_size))
         .replace("[[HEADER_VIS_CLASS]]", header_vis)
         .replace("[[FOOTER_VIS_CLASS]]", footer_vis)
         .replace("[[EMBED_POSITION]]", embed_position)
@@ -5362,6 +5381,7 @@ def draft_config_from_state() -> dict:
         "brand": st.session_state.get("brand_table", "Action Network"),
         "title": st.session_state.get("bt_widget_title", "Table 1"),
         "title_style": st.session_state.get("bt_title_style", "Keep original"),
+        "title_size": st.session_state.get("bt_title_size", "Default"),
         "subtitle": st.session_state.get("bt_widget_subtitle", "Subheading"),
         "subtitle_style": st.session_state.get("bt_subtitle_style", "Keep original"),
         "striped": st.session_state.get("bt_striped_rows", True),
@@ -5403,6 +5423,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         df=df,
         title=cfg["title"],
         title_style=cfg.get("title_style", "Keep original"),
+        title_size=cfg.get("title_size", "Default"),
         subtitle=cfg["subtitle"],
         subtitle_style=cfg.get("subtitle_style", "Keep original"),
         brand_logo_url=meta["logo_url"],
@@ -5527,7 +5548,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
 
     # Clear editor keys to avoid stale mixes
     for k in [
-        "bt_show_header","bt_widget_title","bt_widget_subtitle","bt_center_titles","bt_branded_title_color",
+        "bt_show_header","bt_widget_title","bt_title_size","bt_widget_subtitle","bt_center_titles","bt_branded_title_color",
         "bt_show_footer","bt_footer_logo_align","bt_footer_logo_h","bt_show_footer_notes","bt_footer_notes","bt_show_heat_scale",
         "bt_striped_rows","bt_stripe_mode","bt_stripe_tone","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
         "bt_bar_columns","bt_bar_max_overrides","bt_bar_fixed_w",
@@ -5567,6 +5588,9 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     )
     st.session_state["bt_title_style"]        = _pick(
         cfg.get("title_style"), cfg.get("table_title_style"), bundle.get("title_style"), default="Keep original"
+    )
+    st.session_state["bt_title_size"]         = _pick(
+        cfg.get("title_size"), bundle.get("title_size"), default="Default"
     )
     st.session_state["bt_widget_subtitle"]     = _pick(
         cfg.get("subtitle"), cfg.get("table_subtitle"), bundle.get("widget_subtitle"), bundle.get("table_subtitle"), default="Subheading"
@@ -5973,6 +5997,7 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_footer_logo_align", "Center")
     st.session_state.setdefault("bt_footer_logo_h", 36)
     st.session_state.setdefault("bt_stripe_tone", "Light")
+    st.session_state.setdefault("bt_title_size", "Default")
 
     st.session_state.setdefault("bt_show_footer_notes", False)
     st.session_state.setdefault("bt_footer_notes", "")
@@ -6027,6 +6052,7 @@ def _cache_header_draft():
         "bt_show_header",
         "bt_widget_title",
         "bt_title_style",
+        "bt_title_size",
         "bt_widget_subtitle",
         "bt_subtitle_style",
         "bt_center_titles",
@@ -6063,6 +6089,7 @@ def restore_draft_state_from_confirmed():
         "brand": "brand_table",
         "title": "bt_widget_title",
         "title_style": "bt_title_style",
+        "title_size": "bt_title_size",
         "subtitle": "bt_widget_subtitle",
         "subtitle_style": "bt_subtitle_style",
         "striped": "bt_striped_rows",
@@ -6109,6 +6136,7 @@ def restore_draft_state_from_confirmed():
     known_defaults = {
         "bt_widget_title": "Table 1",
         "bt_title_style": "Keep original",
+        "bt_title_size": "Default",
         "bt_widget_subtitle": "Subheading",
         "bt_subtitle_style": "Keep original",
         "bt_header_style": "Keep original",
@@ -7865,6 +7893,19 @@ if main_tab == "Create New Table":
                                     index=_case_opts.index(st.session_state.get("bt_title_style", "Keep original")),
                                     key="bt_title_style",
                                     disabled=not show_header,
+                                )
+
+                                _title_size_opts = ["Default", "Large", "Extra large"]
+                                _current_title_size = st.session_state.get("bt_title_size", "Default")
+                                if _current_title_size not in _title_size_opts:
+                                    _current_title_size = "Default"
+                                st.selectbox(
+                                    "Title size",
+                                    options=_title_size_opts,
+                                    index=_title_size_opts.index(_current_title_size),
+                                    key="bt_title_size",
+                                    disabled=not show_header,
+                                    help="Scales the title text only. The header box height stays fixed.",
                                 )
 
                                 
