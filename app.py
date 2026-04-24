@@ -2152,6 +2152,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --header-bg:var(--brand-500);
       --stripe:var(--brand-100);
       --hover:var(--brand-300);
+      --row-stripe-bg:var(--stripe);
+      --row-hover-bg:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%);
       --scroll-thumb:var(--brand-500);
       --footer-border: rgba(var(--brand-500-rgb), 0.35);
 
@@ -3018,7 +3020,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     /* zebra */
     
     #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
-    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--stripe); } /* striped */
+    #bt-block tbody tr.dw-zebra-odd  td{ background:var(--row-stripe-bg); } /* striped */
     [[STRIPE_CSS]]
 
 
@@ -3028,7 +3030,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       border-bottom: 1px solid rgba(var(--brand-500-rgb), .08);
     }
     #bt-block tbody tr:hover td{
-      background:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%) !important;
+      background:var(--row-hover-bg) !important;
     }
     #bt-block tbody tr:hover{
       box-shadow:inset 4px 0 0 var(--brand-500);
@@ -4741,6 +4743,7 @@ def generate_table_html_from_df(
     subtitle_style: str = "Keep original",
     striped: bool = True,
     stripe_mode: str = "Odd",
+    stripe_tone: str = "Light",
     center_titles: bool = False,
     branded_title_color: bool = True,
     show_search: bool = True,
@@ -5199,14 +5202,36 @@ def generate_table_html_from_df(
     stripe_mode_norm = str(stripe_mode or "Odd").strip().lower()
     stripe_target_class = "dw-zebra-even" if stripe_mode_norm == "even" else "dw-zebra-odd"
 
+    stripe_tone_norm = str(stripe_tone or "Light").strip().lower()
+    if stripe_tone_norm not in {"light", "dark"}:
+        stripe_tone_norm = "light"
+
+    # Light = current behaviour: pale stripe + darker hover.
+    # Dark = use the current hover shade as the stripe + lighter hover.
+    row_colour_css = (
+        """
+    #bt-block{
+      --row-stripe-bg:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%);
+      --row-hover-bg:var(--stripe);
+    }
+    """
+        if stripe_tone_norm == "dark"
+        else """
+    #bt-block{
+      --row-stripe-bg:var(--stripe);
+      --row-hover-bg:linear-gradient(180deg, rgba(var(--brand-500-rgb), .16) 0%, rgba(var(--brand-500-rgb), .28) 100%);
+    }
+    """
+    )
+
     stripe_css = (
-        f"""
+        row_colour_css + f"""
     #bt-block tbody tr:not(.dw-empty) td{{ background:#ffffff; }} /* base */
-    #bt-block tbody tr.{stripe_target_class} td{{ background:var(--stripe); }} /* striped */
+    #bt-block tbody tr.{stripe_target_class} td{{ background:var(--row-stripe-bg); }} /* striped */
     #bt-block tbody tr:not(.dw-empty):not(.{stripe_target_class}) td{{ background:#ffffff; }} /* plain */
     """
         if striped
-        else """
+        else row_colour_css + """
     #bt-block tbody tr:not(.dw-empty) td{background:#ffffff;}
     """
     )
@@ -5341,6 +5366,7 @@ def draft_config_from_state() -> dict:
         "subtitle_style": st.session_state.get("bt_subtitle_style", "Keep original"),
         "striped": st.session_state.get("bt_striped_rows", True),
         "stripe_mode": st.session_state.get("bt_stripe_mode", "Odd"),
+        "stripe_tone": st.session_state.get("bt_stripe_tone", "Light"),
         "show_header": st.session_state.get("bt_show_header", True),
         "center_titles": st.session_state.get("bt_center_titles", False),
         "branded_title_color": st.session_state.get("bt_branded_title_color", True),
@@ -5384,6 +5410,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         brand_class=meta["brand_class"],
         striped=cfg["striped"],
         stripe_mode=cfg.get("stripe_mode", "Odd"),
+        stripe_tone=cfg.get("stripe_tone", "Light"),
         center_titles=cfg["center_titles"],
         branded_title_color=cfg["branded_title_color"],
         show_search=cfg["show_search"],
@@ -5502,7 +5529,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
     for k in [
         "bt_show_header","bt_widget_title","bt_widget_subtitle","bt_center_titles","bt_branded_title_color",
         "bt_show_footer","bt_footer_logo_align","bt_footer_logo_h","bt_show_footer_notes","bt_footer_notes","bt_show_heat_scale",
-        "bt_striped_rows","bt_stripe_mode","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
+        "bt_striped_rows","bt_stripe_mode","bt_stripe_tone","bt_cell_align","bt_show_search","bt_show_pager","bt_show_embed","bt_show_page_numbers",
         "bt_bar_columns","bt_bar_max_overrides","bt_bar_fixed_w",
         "bt_heat_columns","bt_heat_overrides","bt_heat_strength","bt_heatmap_style","bt_header_style",
         "bt_header_wrap_target","bt_header_wrap_words","bt_col_format_rules","bt_hidden_cols"
@@ -5561,6 +5588,7 @@ def load_bundle_into_editor(owner: str, repo: str, token: str, widget_file_name:
 
     st.session_state["bt_striped_rows"]        = cfg.get("striped", True)
     st.session_state["bt_stripe_mode"]         = cfg.get("stripe_mode", "Odd")
+    st.session_state["bt_stripe_tone"]         = cfg.get("stripe_tone", "Light")
     st.session_state["bt_cell_align"]          = cfg.get("cell_align", "Center")
     st.session_state["bt_show_search"]         = cfg.get("show_search", True)
     st.session_state["bt_show_pager"]          = cfg.get("show_pager", True)
@@ -5944,6 +5972,7 @@ def ensure_confirm_state_exists():
 
     st.session_state.setdefault("bt_footer_logo_align", "Center")
     st.session_state.setdefault("bt_footer_logo_h", 36)
+    st.session_state.setdefault("bt_stripe_tone", "Light")
 
     st.session_state.setdefault("bt_show_footer_notes", False)
     st.session_state.setdefault("bt_footer_notes", "")
@@ -6038,6 +6067,7 @@ def restore_draft_state_from_confirmed():
         "subtitle_style": "bt_subtitle_style",
         "striped": "bt_striped_rows",
         "stripe_mode": "bt_stripe_mode",
+        "stripe_tone": "bt_stripe_tone",
         "show_header": "bt_show_header",
         "center_titles": "bt_center_titles",
         "branded_title_color": "bt_branded_title_color",
@@ -6092,6 +6122,7 @@ def restore_draft_state_from_confirmed():
         # These are set in ensure_confirm_state_exists:
         "bt_footer_logo_align": "Center",
         "bt_footer_logo_h": 36,
+        "bt_stripe_tone": "Light",
         "bt_show_heat_scale": False,
         "bt_heat_scale_label_mode": "Low/High",
         "bt_bar_columns": [],
@@ -8217,6 +8248,15 @@ if main_tab == "Create New Table":
                                     key="bt_stripe_mode",
                                     disabled=not st.session_state.get("bt_striped_rows", True),
                                     help="Choose whether the striped background applies to odd rows or even rows.",
+                                )
+
+                                st.selectbox(
+                                    "Stripe shade",
+                                    options=["Light", "Dark"],
+                                    index=["Light", "Dark"].index(st.session_state.get("bt_stripe_tone", "Light") if st.session_state.get("bt_stripe_tone", "Light") in ["Light", "Dark"] else "Light"),
+                                    key="bt_stripe_tone",
+                                    disabled=not st.session_state.get("bt_striped_rows", True),
+                                    help="Light keeps the current pale stripe with a darker hover. Dark uses the darker hover shade for stripes and a lighter hover effect.",
                                 )
                         
                                 st.selectbox(
