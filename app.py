@@ -7422,9 +7422,14 @@ if main_tab == "Create New Table":
 
                 right_view = st.session_state.get("bt_right_view", "Preview")
 
-                left_col, right_col = st.columns([1, 3], gap="large")
+                # Use the full available width in Get Embed Script mode so the form never gets squeezed.
+                # In edit mode, keep the original left/settings + right/preview layout.
+                if left_view == "Get Embed Script":
+                    left_col, right_col = st.columns([0.001, 1], gap="small")
+                else:
+                    left_col, right_col = st.columns([1, 3], gap="large")
 
-                # ✅ Right side: Preview + Body Editor tabs
+                # ✅ Right side: Preview + Body Editor tabs / Embed Script UI
                 with right_col:
                     # Always create this so the preview renderer at the bottom can use it
                     preview_slot = st.container()
@@ -8438,7 +8443,7 @@ if main_tab == "Create New Table":
                                         st.warning("⏳ Still updating. Please try again in a few seconds.")
                         st.markdown("#### Get Embed Script")
 
-                        _embed_left_col, _embed_right_col = st.columns([0.34, 0.66], gap="large")
+                        _embed_left_col, _embed_right_col = st.columns([0.44, 0.56], gap="large")
                         with _embed_left_col:
 
                             st.session_state.setdefault("bt_embed_started", False)
@@ -8768,24 +8773,13 @@ if main_tab == "Create New Table":
                                     st.caption("Published Page")
                                     st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
 
-                                # ✅ Faster than st.tabs(): only renders ONE view per rerun
-                                style_radio_as_big_tabs("bt_embed_view", height_px=46, font_px=16, radius_px=12)
-                                embed_view = st.radio(
-                                    "Embed view",
-                                    ["HTML Code", "IFrame"],
-                                    horizontal=True,
-                                    label_visibility="collapsed",
-                                    key="bt_embed_view",
-                                )
-                            
-                                if embed_view == "HTML Code":
+                                html_tab, iframe_tab = st.tabs(["HTML", "Iframe"])
+
+                                with html_tab:
                                     html_code_val = (st.session_state.get("bt_html_code") or "").strip()
                                     if not html_code_val:
                                         st.info("Click **Confirm & Save** to generate HTML.")
                                     else:
-                                        st.caption("HTML Code")
-                            
-                                        # ✅ Rendering huge st.code blocks is slow — use text_area (faster) + optional code view
                                         st.text_area(
                                             "HTML Code",
                                             value=html_code_val,
@@ -8793,7 +8787,7 @@ if main_tab == "Create New Table":
                                             label_visibility="collapsed",
                                             key="bt_html_code_view",
                                         )
-                            
+
                                         st.download_button(
                                             "Download HTML file",
                                             data=html_code_val,
@@ -8801,19 +8795,17 @@ if main_tab == "Create New Table":
                                             mime="text/html",
                                             use_container_width=True,
                                         )
-                            
-                                else:
+
+                                with iframe_tab:
                                     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-                                    st.caption("IFrame Code")
-                            
                                     st.text_area(
-                                        "IFrame Code",
+                                        "Iframe Code",
                                         value=iframe_val or "",
                                         height=160,
                                         label_visibility="collapsed",
                                         key="bt_iframe_code_view",
                                     )
-                            
+
                                     st.download_button(
                                         "Download iframe snippet",
                                         data=iframe_val or "",
