@@ -4009,9 +4009,33 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           });
         }
 
+        function applyImageColumnSelectionInClone(cloneRoot){
+          const table = cloneRoot.querySelector('#bt-block table.dw-table');
+          if(!table || !table.tHead || !table.tBodies || !table.tBodies[0]) return;
+
+          const ths = Array.from(table.tHead.rows[0].cells || []);
+          const hideIdx = [];
+          ths.forEach((th, idx) => {
+            const keep = (th.getAttribute('data-export-image') || '1') === '1';
+            if(!keep) hideIdx.push(idx);
+          });
+          if(!hideIdx.length) return;
+
+          hideIdx.forEach(idx => {
+            if(ths[idx]) ths[idx].style.display = 'none';
+          });
+          Array.from(table.tBodies[0].rows || []).forEach(row => {
+            const cells = Array.from(row.cells || []);
+            hideIdx.forEach(idx => {
+              if(cells[idx]) cells[idx].style.display = 'none';
+            });
+          });
+        }
+
         // ✅ Call before capture (export-only)
         wrapExportHeaders(clone);
         applySmartHeaderWidthsInClone(clone);
+        applyImageColumnSelectionInClone(clone);
 
         showRowsInClone(clone, mode);
 
@@ -4276,10 +4300,14 @@ def generate_table_html_from_df(
     col_header_overrides: dict | None = None,
     header_wrap_target: str = "Off",
     header_wrap_words: int = 2,
+    image_columns: list[str] | None = None,
     col_format_rules: dict | None = None,
 ) -> str:
 
     df = df.copy()
+    image_columns_set = set(str(c) for c in (image_columns or []) if str(c) in [str(x) for x in df.columns])
+    if not image_columns_set:
+        image_columns_set = set(str(c) for c in list(df.columns)[:5]) if len(df.columns) > 5 else set(str(c) for c in df.columns)
 
     # Dynamic heights based on row count
     row_count = len(df.index)
@@ -4614,9 +4642,11 @@ def generate_table_html_from_df(
         class_attr = " ".join(classes)
         wrap_attr = f' data-header-wrap-words="{wrap_words_for_col}"' if should_wrap_header else ""
         original_attr = html_mod.escape(display_col, quote=True)
+        data_col_attr = html_mod.escape(str(col), quote=True)
+        export_image_attr = "1" if str(col) in image_columns_set else "0"
 
         head_cells.append(
-            f'<th scope="col" data-type="{col_type}" data-header-original="{original_attr}" class="{class_attr}"{wrap_attr}>{safe_label}</th>'
+            f'<th scope="col" data-type="{col_type}" data-col-name="{data_col_attr}" data-export-image="{export_image_attr}" data-header-original="{original_attr}" class="{class_attr}"{wrap_attr}>{safe_label}</th>'
         )
 
     table_head_html = "\n              ".join(head_cells)
@@ -4626,6 +4656,7 @@ def generate_table_html_from_df(
     for _, row in df.iterrows():
         cells = []
         for col in df.columns:
+            export_image_attr = ' data-export-image="1"' if str(col) in image_columns_set else ' data-export-image="0"'
             raw_val = row[col]
             display_val = format_numeric_for_display(raw_val, max_decimals=2)
             display_val = apply_column_formatting(col, display_val, raw_val)
@@ -4658,7 +4689,7 @@ def generate_table_html_from_df(
 
                 cells.append(
                     f"""
-                    <td class="{td_class}"{td_style}>
+                    <td class="{td_class}"{export_image_attr}{td_style}>
                       <div class="dw-bar-wrap" title="{safe_title}">
                         <div class="dw-bar-track">
                           <div class="dw-bar-fill" style="width:{pct_bar:.2f}%;"></div>
@@ -4686,12 +4717,12 @@ def generate_table_html_from_df(
                 heat_style = heat_background_css(pct, alpha)
 
                 cells.append(
-                    f'<td class="dw-heat-td" style="{heat_style}"><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>'
+                    f'<td class="dw-heat-td"{export_image_attr} style="{heat_style}"><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>'
                 )
 
             else:
                 td_class = ' class="dw-text-col"' if col in text_wrap_columns else ""
-                cells.append(f'<td{td_class}><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
+                cells.append(f'<td{td_class}{export_image_attr}><div class="dw-cell" title="{safe_title}">{safe_val}</div></td>')
 
         row_html_snippets.append("            <tr>" + "".join(cells) + "</tr>")
 
@@ -4869,6 +4900,7 @@ def draft_config_from_state() -> dict:
         "col_header_overrides": st.session_state.get("bt_col_header_overrides", {}) or {},
         "header_wrap_target": st.session_state.get("bt_header_wrap_target", "Off"),
         "header_wrap_words": st.session_state.get("bt_header_wrap_words", 2),
+        "image_columns": st.session_state.get("bt_image_columns", []) or [],
     }
 
 
@@ -4911,6 +4943,7 @@ def html_from_config(df: pd.DataFrame, cfg: dict, col_format_rules: dict | None 
         col_header_overrides=cfg.get("col_header_overrides", {}) or {},
         header_wrap_target=cfg.get("header_wrap_target", "Off"),
         header_wrap_words=cfg.get("header_wrap_words", 2),
+        image_columns=cfg.get("image_columns", []) or [],
 
         # ✅ LIVE-ONLY formatting rules
         col_format_rules=col_format_rules,
@@ -5401,6 +5434,9 @@ def reset_widget_state_for_new_upload():
         "bt_enable_body_editor",     # ✅ NEW
         "bt_df_editor",              # ✅ NEW
         "bt_body_apply_flash",       # ✅ NEW
+        "bt_image_columns",          # ✅ PNG export column selector
+        "bt_image_columns_confirmed",# ✅ confirmed PNG export columns
+        "bt_image_col_dialog_open",  # ✅ dialog state
     ]
 
     for k in keys_to_clear:
@@ -5475,6 +5511,13 @@ def ensure_confirm_state_exists():
     st.session_state.setdefault("bt_enable_body_editor", False)
     st.session_state.setdefault("bt_body_apply_flash", False)
     st.session_state.setdefault("bt_editor_version", 0)
+
+    # ✅ PNG export column selector
+    # Used only for Top 10 / Bottom 10 / Current View image downloads.
+    # The interactive table + embed HTML can keep all visible columns.
+    st.session_state.setdefault("bt_image_columns", [])
+    st.session_state.setdefault("bt_image_columns_confirmed", [])
+    st.session_state.setdefault("bt_image_col_dialog_open", False)
 
 
 # =========================================================
@@ -5691,19 +5734,74 @@ def prune_bar_overrides():
         if k in selected
     }
 
+
+def get_image_export_columns_for_current_table(df: pd.DataFrame | None = None) -> list[str]:
+    """Return the columns available for PNG exports after live hidden columns are removed."""
+    if df is None:
+        df = st.session_state.get("bt_df_uploaded")
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+
+    hidden_cols = set(st.session_state.get("bt_hidden_cols", []) or [])
+    return [str(c) for c in df.columns if c not in hidden_cols]
+
+
+def sync_image_columns_default_for_current_table(force_first_five: bool = False) -> list[str]:
+    """Keep the PNG export column selection valid for the current visible table.
+
+    For tables with more than 5 visible columns, the default is the first 5 columns.
+    Users can select fewer than 5, but never more than 5.
+    """
+    available = get_image_export_columns_for_current_table()
+    if not available:
+        st.session_state["bt_image_columns"] = []
+        return []
+
+    current = [c for c in (st.session_state.get("bt_image_columns") or []) if c in available]
+
+    if len(available) <= 5:
+        chosen = available
+    elif force_first_five or not current:
+        chosen = available[:5]
+    else:
+        chosen = current[:5]
+
+    st.session_state["bt_image_columns"] = chosen
+    return chosen
+
+
+def confirm_save_needs_image_column_picker() -> bool:
+    """Show the image-column picker only when the current visible table has >5 columns."""
+    return len(get_image_export_columns_for_current_table()) > 5
+
 def do_confirm_snapshot():
     # ✅ Always snapshot what user currently has in live table
     st.session_state["bt_df_confirmed"] = st.session_state["bt_df_uploaded"].copy()
 
     cfg = draft_config_from_state()
-    st.session_state["bt_confirmed_cfg"] = cfg
-    st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
 
     # ✅ Apply hidden columns to the confirmed snapshot
     hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
     df_confirm_for_html = st.session_state["bt_df_confirmed"].copy()
     if hidden_cols:
         df_confirm_for_html = df_confirm_for_html.drop(columns=hidden_cols, errors="ignore")
+
+    # ✅ Lock PNG export columns at Confirm & Save time.
+    # If >5 visible columns, users choose up to 5 in the dialog; default = first 5.
+    available_image_cols = [str(c) for c in df_confirm_for_html.columns]
+    chosen_image_cols = [c for c in (st.session_state.get("bt_image_columns") or []) if c in available_image_cols]
+    if len(available_image_cols) <= 5:
+        chosen_image_cols = available_image_cols
+    elif not chosen_image_cols:
+        chosen_image_cols = available_image_cols[:5]
+    else:
+        chosen_image_cols = chosen_image_cols[:5]
+    st.session_state["bt_image_columns"] = chosen_image_cols
+    st.session_state["bt_image_columns_confirmed"] = chosen_image_cols
+    cfg["image_columns"] = chosen_image_cols
+
+    st.session_state["bt_confirmed_cfg"] = cfg
+    st.session_state["bt_confirmed_hash"] = stable_config_hash(cfg)
 
     live_rules = st.session_state.get("bt_col_format_rules", {})
     html = html_from_config(
@@ -7211,13 +7309,97 @@ if main_tab == "Create New Table":
                         st.markdown("#### Edit table contents")
 
                         # ✅ Confirm & Save at the top
-                        st.button(
+                        if st.button(
                             "Confirm & Save",
                             key="bt_confirm_btn",
                             use_container_width=True,
                             type="primary",
-                            on_click=do_confirm_snapshot,
-                        )
+                        ):
+                            if confirm_save_needs_image_column_picker():
+                                sync_image_columns_default_for_current_table(force_first_five=False)
+                                st.session_state["bt_image_col_dialog_open"] = True
+                                st.rerun()
+                            else:
+                                sync_image_columns_default_for_current_table(force_first_five=True)
+                                do_confirm_snapshot()
+                                st.rerun()
+
+                        if st.session_state.get("bt_image_col_dialog_open", False):
+                            if hasattr(st, "dialog"):
+                                @st.dialog("Choose image columns", width="large")
+                                def image_column_picker_dialog():
+                                    available_cols = get_image_export_columns_for_current_table()
+                                    default_cols = [c for c in (st.session_state.get("bt_image_columns") or []) if c in available_cols]
+                                    if not default_cols:
+                                        default_cols = available_cols[:5]
+                                    default_cols = default_cols[:5]
+
+                                    st.markdown(
+                                        "Your table has more than five visible columns. "
+                                        "Choose the columns to lock into the **Top 10 / Bottom 10 image exports**. "
+                                        "The interactive table and embed can still keep all visible columns."
+                                    )
+
+                                    selected_cols = st.multiselect(
+                                        "Image export columns (max 5)",
+                                        options=available_cols,
+                                        default=default_cols,
+                                        max_selections=5,
+                                        key="bt_image_columns_picker",
+                                        help="Default is the first five visible columns. You can select fewer if the image should be cleaner.",
+                                    )
+
+                                    st.caption(
+                                        f"Selected {len(selected_cols)} of 5 allowed. "
+                                        "These columns will be locked into exported PNG images after saving."
+                                    )
+
+                                    c1, c2 = st.columns(2)
+                                    with c1:
+                                        save_cols = st.button(
+                                            "Confirm & Save with these columns",
+                                            type="primary",
+                                            use_container_width=True,
+                                            disabled=len(selected_cols) == 0,
+                                        )
+                                    with c2:
+                                        use_default = st.button(
+                                            "Use first 5 columns",
+                                            use_container_width=True,
+                                        )
+
+                                    if len(selected_cols) == 0:
+                                        st.warning("Select at least one column for image exports.")
+
+                                    if use_default:
+                                        st.session_state["bt_image_columns"] = available_cols[:5]
+                                        st.session_state["bt_image_col_dialog_open"] = False
+                                        do_confirm_snapshot()
+                                        st.rerun()
+
+                                    if save_cols:
+                                        st.session_state["bt_image_columns"] = selected_cols[:5]
+                                        st.session_state["bt_image_col_dialog_open"] = False
+                                        do_confirm_snapshot()
+                                        st.rerun()
+
+                                image_column_picker_dialog()
+                            else:
+                                st.info("Choose up to five columns for Top 10 / Bottom 10 image exports before saving.")
+                                available_cols = get_image_export_columns_for_current_table()
+                                default_cols = [c for c in (st.session_state.get("bt_image_columns") or []) if c in available_cols] or available_cols[:5]
+                                selected_cols = st.multiselect(
+                                    "Image export columns (max 5)",
+                                    options=available_cols,
+                                    default=default_cols[:5],
+                                    max_selections=5,
+                                    key="bt_image_columns_picker_inline",
+                                )
+                                if st.button("Confirm & Save with selected image columns", type="primary", use_container_width=True, disabled=len(selected_cols) == 0):
+                                    st.session_state["bt_image_columns"] = selected_cols[:5]
+                                    st.session_state["bt_image_col_dialog_open"] = False
+                                    do_confirm_snapshot()
+                                    st.rerun()
 
                         if st.session_state.get("bt_confirm_flash", False):
                             st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
