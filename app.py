@@ -3222,16 +3222,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 #bt-block .dw-card{
   margin: 0;
   border-radius: 0;
-  flex: 0 0 auto !important;
+  flex: 0 0 auto;
   min-height: 0 !important;
 }
 #bt-block .dw-scroll{
   margin: 0;
-  height: auto !important;
-  max-height: none !important;
   min-height: 0 !important;
-  flex: 0 0 auto !important;
-  overflow-y: auto !important;
+  flex: 0 0 auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #bt-block .dw-page-status{
@@ -3514,14 +3514,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fullContentH = Math.ceil(table.scrollHeight || 0);
 
       if (card){
-        card.style.flex = '0 0 auto';
-        card.style.height = desiredH + 'px';
-        card.style.maxHeight = desiredH + 'px';
+        card.style.setProperty('flex', '0 0 auto', 'important');
+        card.style.setProperty('height', desiredH + 'px', 'important');
+        card.style.setProperty('max-height', desiredH + 'px', 'important');
+        card.style.setProperty('overflow', 'hidden', 'important');
       }
 
-      scroller.style.height = desiredH + 'px';
-      scroller.style.maxHeight = desiredH + 'px';
-      scroller.style.overflowY = hasOverflowRows ? 'scroll' : 'hidden';
+      scroller.style.setProperty('height', desiredH + 'px', 'important');
+      scroller.style.setProperty('max-height', desiredH + 'px', 'important');
+      scroller.style.setProperty('overflow-x', 'auto', 'important');
+      scroller.style.setProperty('overflow-y', hasOverflowRows ? 'scroll' : 'hidden', 'important');
+      scroller.style.setProperty('-webkit-overflow-scrolling', 'touch');
       scroller.classList.toggle('compact-fit', !hasOverflowRows && fullContentH <= desiredH + 2);
     }
 
