@@ -3483,15 +3483,28 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const cardBorder = card ? 2 : 0;
       const safety = 6;
 
-      // Remaining space available for the scrollable table area inside the fixed 800px widget.
+      // Remaining space available inside the fixed 800px widget. The table is never
+      // allowed to push the page status/footer down past this.
       const maxScrollerH = Math.max(220, widgetH - headerH - footerH - controlsH - statusH - rootPad - cardBorder - safety);
 
-      // Shrink to the visible table content when there are only 10 rows, but cap it
-      // when 15/20/30/All rows are selected so the table scrolls internally.
-      const tableContentH = Math.ceil(table.scrollHeight || 0);
+      const visibleRows = Array.from(tb.rows).filter(r =>
+        !r.classList.contains('dw-empty') && r.style.display !== 'none'
+      );
+      const headerTableH = table.tHead ? Math.ceil(table.tHead.getBoundingClientRect().height || 0) : 0;
+      const firstVisibleRows = visibleRows.slice(0, 10);
+      const measuredRowsH = firstVisibleRows.reduce((sum, row) => {
+        return sum + Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0);
+      }, 0);
+      const fallbackRowH = 44;
+      const rowCapH = measuredRowsH || (Math.min(visibleRows.length || 1, 10) * fallbackRowH);
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const xScrollReserve = needsXScroll ? 14 : 0;
-      const desiredH = Math.max(120, Math.min(maxScrollerH, tableContentH + xScrollReserve));
+
+      // Core rule: show a maximum of 10 body rows. If the user chooses 15/20/30/All,
+      // the extra rows stay inside this same scroller instead of increasing widget height.
+      const targetContentH = headerTableH + rowCapH + xScrollReserve + 1;
+      const desiredH = Math.max(120, Math.min(maxScrollerH, targetContentH));
+      const fullContentH = Math.ceil(table.scrollHeight || 0) + xScrollReserve;
 
       if (card){
         card.style.flex = '0 0 auto';
@@ -3500,7 +3513,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
       scroller.style.height = desiredH + 'px';
       scroller.style.maxHeight = maxScrollerH + 'px';
-      scroller.classList.toggle('compact-fit', tableContentH + xScrollReserve <= maxScrollerH);
+      scroller.classList.toggle('compact-fit', fullContentH <= desiredH + 2);
     }
 
     window.addEventListener('resize', () => {
@@ -3817,6 +3830,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         setPageStatus(total, pages);
       }
     
+      if (scroller) scroller.scrollTop = 0;
       applyVisibleZebra();
       syncMenuOptions();
       syncMeasuredScrollerHeight();
