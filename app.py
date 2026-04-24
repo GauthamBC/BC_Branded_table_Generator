@@ -1755,7 +1755,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-         color:#181a1f;background:linear-gradient(180deg,#ffffff 0%, rgba(var(--brand-500-rgb), .04) 100%);border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
+         color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
     html, body { height:100%; }
@@ -1899,12 +1899,31 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --footer-border: rgba(var(--brand-500-rgb), 0.40);
     }
 
-    /* Header block */
+    /* Brand-safe flat tints for image/export footer/header areas */
+    .vi-table-embed.brand-canadasb .vi-table-header,
+    .vi-table-embed.brand-canadasb .vi-footer{ background:#FFF1F1; }
+
+    .vi-table-embed.brand-vegasinsider .vi-table-header,
+    .vi-table-embed.brand-vegasinsider .vi-footer{ background:#FFF8E3; }
+
+    .vi-table-embed.brand-actionnetwork .vi-table-header,
+    .vi-table-embed.brand-actionnetwork .vi-footer{ background:#F3FCF5; }
+
+    .vi-table-embed.brand-rotogrinders .vi-table-header,
+    .vi-table-embed.brand-rotogrinders .vi-footer{ background:#F0F6FF; }
+
+    .vi-table-embed.brand-aceodds .vi-table-header,
+    .vi-table-embed.brand-aceodds .vi-footer{ background:#F4F6FA; }
+
+    .vi-table-embed.brand-bolavip .vi-table-header,
+    .vi-table-embed.brand-bolavip .vi-footer{ background:#FFF1F2; }
+
+    /* Header block - clean editorial flat tint, no gradient */
     .vi-table-embed .vi-table-header{
-      border-bottom:1px solid var(--brand-600);
+      border-bottom:1px solid rgba(var(--brand-500-rgb), .18);
       padding:14px 18px;
       min-height:88px;
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .04));
+      background:rgba(var(--brand-500-rgb), .045);
       backdrop-filter:none;
       display:flex;
       align-items:center;
@@ -2115,7 +2134,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* Buttons */
     #bt-block .dw-btn{
-      background:linear-gradient(180deg, var(--accent-start) 0%, var(--accent-mid) 100%);
+      background:var(--header-bg);
       color:#fff;
       border:1px solid rgba(var(--brand-500-rgb), .72);
       padding-inline: 10px;
@@ -2147,7 +2166,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed [data-embed-position="Header"] .vi-header-actions .dw-btn,
     .vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap button,
     .vi-table-embed [data-embed-position="Footer"] .footer-embed-wrap .dw-btn{
-      background:linear-gradient(180deg, var(--accent-start) 0%, var(--accent-mid) 100%) !important;
+      background:var(--header-bg) !important;
       background-color:var(--accent-mid) !important;
       color:#ffffff !important;
       border:1px solid rgba(var(--brand-500-rgb), .72) !important;
@@ -2419,9 +2438,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       table-layout: auto;
     }
 
-    /* Header row */
+    /* Header row - clean editorial flat brand colour, no gradient */
     #bt-block thead th{
-      background:linear-gradient(180deg, var(--accent-start) 0%, var(--header-bg) 100%);
+      background:var(--header-bg);
       color:#ffffff;
       font-weight:700;
       vertical-align:middle;
@@ -2647,15 +2666,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background: var(--brand-50) !important;
     }
 
-    /* Footer */
+    /* Footer - clean editorial flat tint, no gradient */
     .vi-table-embed .vi-footer {
       display:flex;
       align-items:center;
       padding:10px 18px;
       min-height:88px;
       height:88px;
-      border-top:1px solid var(--footer-border);
-      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--brand-500-rgb), .05));
+      border-top:1px solid rgba(var(--brand-500-rgb), .16);
+      background:rgba(var(--brand-500-rgb), .055);
       backdrop-filter:none;
       flex: 0 0 88px;
       z-index: 30;
@@ -3833,6 +3852,37 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
                     .vi-table-embed.export-mode #bt-block tbody td{
                       font-size: 16px !important;
                     }
+        
+          /* ✅ Clean editorial export: no gradients on Top 10 / Bottom 10 PNGs */
+          .vi-table-embed.export-mode{
+            background:#ffffff !important;
+          }
+          .vi-table-embed.export-mode .vi-table-header{
+            background:rgba(var(--brand-500-rgb), .045) !important;
+            border-bottom:1px solid rgba(var(--brand-500-rgb), .18) !important;
+          }
+          .vi-table-embed.export-mode #bt-block thead th{
+            background:var(--header-bg) !important;
+            color:#ffffff !important;
+            box-shadow:none !important;
+          }
+          .vi-table-embed.export-mode .vi-footer{
+            background:rgba(var(--brand-500-rgb), .055) !important;
+            border-top:1px solid rgba(var(--brand-500-rgb), .16) !important;
+            box-shadow:none !important;
+          }
+          .vi-table-embed.export-mode.brand-canadasb .vi-table-header,
+          .vi-table-embed.export-mode.brand-canadasb .vi-footer{ background:#FFF1F1 !important; }
+          .vi-table-embed.export-mode.brand-vegasinsider .vi-table-header,
+          .vi-table-embed.export-mode.brand-vegasinsider .vi-footer{ background:#FFF8E3 !important; }
+          .vi-table-embed.export-mode.brand-actionnetwork .vi-table-header,
+          .vi-table-embed.export-mode.brand-actionnetwork .vi-footer{ background:#F3FCF5 !important; }
+          .vi-table-embed.export-mode.brand-rotogrinders .vi-table-header,
+          .vi-table-embed.export-mode.brand-rotogrinders .vi-footer{ background:#F0F6FF !important; }
+          .vi-table-embed.export-mode.brand-aceodds .vi-table-header,
+          .vi-table-embed.export-mode.brand-aceodds .vi-footer{ background:#F4F6FA !important; }
+          .vi-table-embed.export-mode.brand-bolavip .vi-table-header,
+          .vi-table-embed.export-mode.brand-bolavip .vi-footer{ background:#FFF1F2 !important; }
         
           /* ✅ REMOVE SORT ARROWS IN EXPORT MODE */
           .vi-table-embed.export-mode #bt-block thead th.sortable::after{
