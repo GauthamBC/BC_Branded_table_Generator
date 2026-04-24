@@ -563,6 +563,149 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# =========================================================
+# ✅ Final button layout override
+# - Left tabs stay full-width (Edit table contents / Get Embed Script)
+# - Auth + right preview buttons stay compact and adjacent
+# =========================================================
+st.markdown(
+    """
+    <style>
+    /* Left action tabs: keep the original full-width 50/50 feel */
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_left_edit_btn"]):has(button[key="bt_left_embed_btn"]) {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        gap: 16px !important;
+        align-items: stretch !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_left_edit_btn"]):has(button[key="bt_left_embed_btn"]) > div {
+        flex: 1 1 0 !important;
+        width: 50% !important;
+        max-width: none !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: block !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 56px !important;
+        border-radius: 12px !important;
+        font-size: 17px !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+    }
+
+    /* Auth buttons: compact pill buttons, locked next to each other */
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) {
+        width: fit-content !important;
+        max-width: fit-content !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        column-gap: 8px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div {
+        flex: 0 0 auto !important;
+        width: 136px !important;
+        max-width: 136px !important;
+        min-width: 136px !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div:last-child {
+        width: 0 !important; min-width: 0 !important; max-width: 0 !important; overflow: hidden !important;
+    }
+
+    /* Right preview/edit buttons: compact and adjacent */
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_right_preview_btn"]):has(button[key="bt_right_body_btn"]) {
+        width: fit-content !important;
+        max-width: fit-content !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        column-gap: 8px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_right_preview_btn"]):has(button[key="bt_right_body_btn"]) > div {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        max-width: fit-content !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_right_preview_btn"]):has(button[key="bt_right_body_btn"]) > div:last-child {
+        width: 0 !important; min-width: 0 !important; max-width: 0 !important; overflow: hidden !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) {
+        width: fit-content !important;
+        max-width: fit-content !important;
+        display: inline-flex !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
+        height: 44px !important;
+        min-height: 44px !important;
+        width: auto !important;
+        min-width: 118px !important;
+        padding: 0 20px !important;
+        border-radius: 12px !important;
+        background: #f7f7f7 !important;
+        border: 1px solid #d7d7d7 !important;
+        color: #6b7280 !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        line-height: 1 !important;
+        box-shadow: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button {
+        width: 136px !important;
+        min-width: 136px !important;
+        max-width: 136px !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
+        min-width: 118px !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
+        min-width: 260px !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button:hover {
+        background: #eeeeee !important;
+        border-color: #cfcfcf !important;
+        color: #374151 !important;
+        box-shadow: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 @st.cache_resource
 def http_session() -> requests.Session:
     s = requests.Session()
@@ -6268,27 +6411,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-auth_actions_col, _auth_actions_spacer = st.columns([3, 7], gap="small")
+# Compact auth action row: keep Log in / Log out next to each other without dead column space.
+c_login, c_logout, _auth_actions_spacer = st.columns([0.12, 0.12, 0.76], gap="small")
 
-with auth_actions_col:
-    c_login, c_logout = st.columns([1, 1], gap="small")
+with c_login:
+    login_clicked = st.button(
+        "Log in",
+        disabled=pass_disabled or not (st.session_state.get("bt_user_passcode") or "").strip(),
+        type="primary",
+        use_container_width=True,
+        key="bt_login_btn",
+    )
 
-    with c_login:
-        login_clicked = st.button(
-            "Log in",
-            disabled=pass_disabled or not (st.session_state.get("bt_user_passcode") or "").strip(),
-            type="primary",
-            use_container_width=False,
-            key="bt_login_btn",
-        )
-
-    with c_logout:
-        logout_clicked = st.button(
-            "Log out",
-            disabled=not st.session_state.get("bt_is_logged_in", False),
-            use_container_width=False,
-            key="bt_logout_btn",
-        )
+with c_logout:
+    logout_clicked = st.button(
+        "Log out",
+        disabled=not st.session_state.get("bt_is_logged_in", False),
+        use_container_width=True,
+        key="bt_logout_btn",
+    )
 
 if logout_clicked:
     _u = (st.session_state.get("bt_logged_in_user") or "").strip().lower()
@@ -7235,7 +7376,7 @@ if main_tab == "Create New Table":
                     if st.button(
                         "Edit table contents",
                         key="bt_left_edit_btn",
-                        use_container_width=False,
+                        use_container_width=True,
                         type="primary" if st.session_state.get("bt_left_view") == "Edit table contents" else "secondary",
                     ):
                         _cache_header_draft()
@@ -7245,7 +7386,7 @@ if main_tab == "Create New Table":
                     if st.button(
                         "Get Embed Script",
                         key="bt_left_embed_btn",
-                        use_container_width=False,
+                        use_container_width=True,
                         type="primary" if st.session_state.get("bt_left_view") == "Get Embed Script" else "secondary",
                     ):
                         _cache_header_draft()
@@ -7254,12 +7395,12 @@ if main_tab == "Create New Table":
 
                 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-                _right_btn_col1, _right_btn_col2, _right_btn_spacer = st.columns([0.14, 0.34, 0.52], gap="small")
+                _right_btn_col1, _right_btn_col2, _right_btn_spacer = st.columns([0.10, 0.28, 0.62], gap="small")
                 with _right_btn_col1:
                     if st.button(
                         "Preview",
                         key="bt_right_preview_btn",
-                        use_container_width=False,
+                        use_container_width=True,
                         type="primary" if st.session_state.get("bt_right_view") == "Preview" else "secondary",
                     ):
                         st.session_state["bt_right_view"] = "Preview"
@@ -7268,7 +7409,7 @@ if main_tab == "Create New Table":
                     if st.button(
                         "Edit table content (optional)",
                         key="bt_right_body_btn",
-                        use_container_width=False,
+                        use_container_width=True,
                         type="primary" if st.session_state.get("bt_right_view") == "Edit table content (optional)" else "secondary",
                     ):
                         st.session_state["bt_right_view"] = "Edit table content (optional)"
