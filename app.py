@@ -3753,12 +3753,25 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         cloneScroller.classList.add('no-scroll');
       }
 
-      // ✅ export width = widget width (consistent, legible)
-    const w = Math.max(900, Math.min(1600, Math.ceil(targetWidth || 1200)));
-    clone.style.maxWidth = "none";
-    clone.style.width = w + "px";
+        // ✅ Export width = the full visible selected-column table width.
+      // This prevents the 5th selected image column from being clipped in PNG downloads.
+      clone.style.maxWidth = "none";
+      clone.style.width = Math.max(900, Math.ceil(targetWidth || 1200)) + "px";
+      clone.style.margin = "0";
+      clone.style.paddingTop = "0";
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
       await waitForFontsAndImages(clone);
+
+      const exportTable = clone.querySelector('#bt-block table.dw-table');
+      const exportCard = clone.querySelector('#bt-block .dw-card');
+      const naturalTableW = exportTable ? Math.ceil(exportTable.scrollWidth || exportTable.getBoundingClientRect().width || 0) : 0;
+      const naturalCardW = exportCard ? Math.ceil(exportCard.scrollWidth || exportCard.getBoundingClientRect().width || 0) : 0;
+      const w = Math.max(
+        900,
+        Math.min(2400, Math.max(Math.ceil(targetWidth || 1200), naturalTableW, naturalCardW))
+      );
+      clone.style.width = w + "px";
+      await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
 
       const fullH = Math.ceil(Math.max(
         clone.scrollHeight || 0,
@@ -3826,6 +3839,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         stage.style.top = '0';
         stage.style.background = '#ffffff';
         stage.style.zIndex = '-1';
+        stage.style.margin = '0';
+        stage.style.padding = '0';
+        stage.style.overflow = 'visible';
 
         const clone = widget.cloneNode(true);
         clone.classList.add('export-mode');
@@ -3860,6 +3876,19 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           /* ✅ Clean editorial export: no gradients on Top 10 / Bottom 10 PNGs */
           .vi-table-embed.export-mode{
             background:#ffffff !important;
+            margin:0 !important;
+            padding:0 !important;
+            border-top:0 !important;
+            overflow:visible !important;
+          }
+          /* ✅ PNG export only: remove the little top breathing room above the table */
+          .vi-table-embed.export-mode #bt-block{
+            padding-top:0 !important;
+            margin-top:0 !important;
+          }
+          .vi-table-embed.export-mode #bt-block .dw-card,
+          .vi-table-embed.export-mode #bt-block .dw-scroll{
+            margin-top:0 !important;
           }
           .vi-table-embed.export-mode .vi-table-header{
             background:rgba(var(--brand-500-rgb), .045) !important;
@@ -4104,7 +4133,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
 
         const widgetW = Math.ceil(widget.getBoundingClientRect().width || 1200);
-        const fullTableWidth = Math.max(900, Math.min(1600, widgetW));
+        const exportTable = clone.querySelector('#bt-block table.dw-table');
+        const exportCard = clone.querySelector('#bt-block .dw-card');
+        const tableW = exportTable ? Math.ceil(exportTable.scrollWidth || exportTable.getBoundingClientRect().width || 0) : 0;
+        const cardW = exportCard ? Math.ceil(exportCard.scrollWidth || exportCard.getBoundingClientRect().width || 0) : 0;
+        const fullTableWidth = Math.max(900, Math.min(2400, Math.max(widgetW, tableW, cardW)));
 
         await captureCloneToPng(clone, stage, filename, fullTableWidth);
 
