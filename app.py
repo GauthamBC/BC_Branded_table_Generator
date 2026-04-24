@@ -2440,6 +2440,147 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
     }
 
+    /* ✅ Mobile polish: keep desktop unchanged, but scale/stabilise the embed on phones */
+    @media (max-width: 640px){
+      .vi-table-embed{
+        --gutter: 8px;
+      }
+
+      /* Header can breathe on mobile, but text is scaled down so it does not crop */
+      .vi-table-embed .vi-table-header{
+        height: auto !important;
+        min-height: 0 !important;
+        flex-basis: auto !important;
+        padding: 12px 14px !important;
+        gap: 8px !important;
+        overflow: hidden !important;
+      }
+      .vi-table-embed .vi-header-main{
+        gap: 6px !important;
+      }
+      .vi-table-embed .vi-table-header .title{
+        font-size: clamp(22px, 7.2vw, 30px) !important;
+        line-height: 0.98 !important;
+        letter-spacing: -0.035em !important;
+        max-width: 100% !important;
+      }
+      .vi-table-embed .vi-table-header .subtitle{
+        font-size: clamp(13px, 4vw, 16px) !important;
+        line-height: 1.18 !important;
+        max-width: 100% !important;
+      }
+
+      /* Controls stack cleanly instead of forcing the Embed button off-screen */
+      #bt-block{
+        padding-top: 10px !important;
+      }
+      #bt-block .dw-controls{
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        margin: 2px 0 10px 0 !important;
+      }
+      #bt-block .left,
+      #bt-block .right{
+        width: 100% !important;
+      }
+      #bt-block .left{
+        justify-content: flex-start !important;
+      }
+      #bt-block .right{
+        justify-content: flex-end !important;
+        gap: 7px !important;
+        flex-wrap: nowrap !important;
+        min-width: 0 !important;
+      }
+      #bt-block .dw-input{
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        font-size: 14px !important;
+        min-height: 40px !important;
+      }
+      #bt-block .dw-select{
+        width: 62px !important;
+        min-width: 62px !important;
+        font-size: 14px !important;
+        min-height: 40px !important;
+      }
+      #bt-block .dw-btn{
+        min-width: 40px !important;
+        min-height: 40px !important;
+        padding: 8px 10px !important;
+        font-size: 14px !important;
+      }
+      .vi-table-embed .dw-btn.dw-download{
+        width: 62px !important;
+        min-width: 62px !important;
+        max-width: 62px !important;
+        padding: 8px 8px !important;
+      }
+      .vi-table-embed .dw-btn.dw-download::after{
+        content: "Embed" !important;
+        font-size: 12px !important;
+      }
+
+      /* Table typography is slightly tighter on phones while keeping the desktop styling intact */
+      #bt-block table.dw-table{
+        font-size: 13px !important;
+      }
+      #bt-block thead th,
+      #bt-block tbody td{
+        padding: 9px 10px !important;
+      }
+      #bt-block thead th{
+        font-size: 12.5px !important;
+      }
+      #bt-block thead th .dw-th-sub{
+        font-size: 10.5px !important;
+      }
+      #bt-block .dw-cell{
+        line-height: 1.28 !important;
+      }
+      #bt-block .dw-page-status{
+        font-size: 12px !important;
+        padding: 7px 8px !important;
+      }
+      .vi-table-embed .vi-footer{
+        min-height: 92px !important;
+        padding: 14px 12px !important;
+      }
+      .vi-table-embed .vi-footer img{
+        max-height: 38px !important;
+      }
+    }
+
+    @media (max-width: 390px){
+      .vi-table-embed .vi-table-header .title{
+        font-size: clamp(20px, 6.6vw, 26px) !important;
+      }
+      .vi-table-embed .vi-table-header .subtitle{
+        font-size: 13px !important;
+      }
+      #bt-block .right{
+        gap: 5px !important;
+      }
+      #bt-block .dw-select{
+        width: 58px !important;
+        min-width: 58px !important;
+      }
+      #bt-block .dw-btn{
+        min-width: 38px !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+      }
+      .vi-table-embed .dw-btn.dw-download{
+        width: 56px !important;
+        min-width: 56px !important;
+        max-width: 56px !important;
+      }
+      .vi-table-embed .dw-btn.dw-download::after{
+        font-size: 11px !important;
+      }
+    }
+
     #bt-block .dw-input::placeholder{color:#9AA4B2}
     #bt-block .dw-input:focus,
     #bt-block .dw-select:focus{
@@ -3222,16 +3363,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 #bt-block .dw-card{
   margin: 0;
   border-radius: 0;
-  flex: 0 0 auto;
+  flex: 0 0 auto !important;
   min-height: 0 !important;
 }
 #bt-block .dw-scroll{
   margin: 0;
+  height: auto !important;
+  max-height: none !important;
   min-height: 0 !important;
-  flex: 0 0 auto;
-  overflow-x: auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  flex: 0 0 auto !important;
+  overflow-y: auto !important;
 }
 
 #bt-block .dw-page-status{
@@ -3514,17 +3655,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fullContentH = Math.ceil(table.scrollHeight || 0);
 
       if (card){
-        card.style.setProperty('flex', '0 0 auto', 'important');
-        card.style.setProperty('height', desiredH + 'px', 'important');
-        card.style.setProperty('max-height', desiredH + 'px', 'important');
-        card.style.setProperty('overflow', 'hidden', 'important');
+        card.style.flex = '0 0 auto';
+        card.style.height = desiredH + 'px';
+        card.style.maxHeight = desiredH + 'px';
       }
 
-      scroller.style.setProperty('height', desiredH + 'px', 'important');
-      scroller.style.setProperty('max-height', desiredH + 'px', 'important');
-      scroller.style.setProperty('overflow-x', 'auto', 'important');
-      scroller.style.setProperty('overflow-y', hasOverflowRows ? 'scroll' : 'hidden', 'important');
-      scroller.style.setProperty('-webkit-overflow-scrolling', 'touch');
+      scroller.style.height = desiredH + 'px';
+      scroller.style.maxHeight = desiredH + 'px';
+      scroller.style.overflowY = hasOverflowRows ? 'scroll' : 'hidden';
       scroller.classList.toggle('compact-fit', !hasOverflowRows && fullContentH <= desiredH + 2);
     }
 
