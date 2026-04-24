@@ -3244,7 +3244,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const mainHTML = fixedWords > 0
         ? buildFixedWordsHeaderHTML(mainRaw, fixedWords)
         : buildBalancedHeaderHTML(mainRaw, 3, 18);
-      const subHTML = parts.sub ? buildBalancedHeaderHTML(parts.sub, 2, 28) : '';
+      // Keep short bracket helper text together where possible; longer helper text
+      // can still wrap at word boundaries, never mid-word.
+      const subHTML = parts.sub
+        ? (parts.sub.length <= 34 ? parts.sub : buildBalancedHeaderHTML(parts.sub, 2, 30))
+        : '';
 
       return '<span class="dw-th-main">' + mainHTML + '</span>' +
         (subHTML ? '<span class="dw-th-sub">' + subHTML + '</span>' : '');
@@ -3919,6 +3923,32 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           padding: 10px 14px !important;
           text-align: center !important;
           line-height: 1.15 !important;
+          max-width: 220px !important;
+        }
+
+        .vi-table-embed.export-mode #bt-block thead th .dw-th-main{
+          display:block !important;
+          max-width:220px !important;
+          white-space:normal !important;
+          word-break:normal !important;
+          overflow-wrap:normal !important;
+          hyphens:none !important;
+          font-weight:700 !important;
+          line-height:1.12 !important;
+        }
+
+        .vi-table-embed.export-mode #bt-block thead th .dw-th-sub{
+          display:block !important;
+          margin-top:3px !important;
+          font-size:11.5px !important;
+          font-weight:500 !important;
+          line-height:1.15 !important;
+          letter-spacing:0.2px !important;
+          opacity:.86 !important;
+          white-space:normal !important;
+          word-break:normal !important;
+          overflow-wrap:normal !important;
+          hyphens:none !important;
         }
 
         .vi-table-embed.export-mode #bt-block thead th{
@@ -3979,11 +4009,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
             th.setAttribute('data-header-original', raw);
 
             const fixedWords = parseInt(th.getAttribute('data-header-wrap-words') || '0', 10) || 0;
-            if (fixedWords > 0) {
-              label.innerHTML = buildFixedWordsHeaderHTML(raw, fixedWords);
-            } else {
-              label.innerHTML = buildBalancedHeaderHTML(raw, 3, 16);
-            }
+            // ✅ Match the live table header treatment in PNG exports:
+            // bracketed helper text is rendered smaller and the main label is
+            // balanced across 1–3 lines using whole-word wrapping only.
+            label.innerHTML = buildHeaderLabelHTML(raw, fixedWords);
           });
         }
         function applySmartHeaderWidthsInClone(cloneRoot){
@@ -8565,13 +8594,57 @@ if main_tab == "Create New Table":
                     with preview_slot:
                         st.session_state.setdefault("bt_show_preview", False)
 
-                        live_cfg = draft_config_from_state()
                         live_rules = st.session_state.get("bt_col_format_rules", {})
 
                         df_preview = st.session_state["bt_df_uploaded"].copy()
                         hidden_cols = st.session_state.get("bt_hidden_cols", []) or []
                         if hidden_cols:
                             df_preview = df_preview.drop(columns=hidden_cols, errors="ignore")
+
+                        # ✅ Preview PNG export columns should be editable before Confirm & Save.
+                        # Downloading Top 10 / Bottom 10 from the live preview is unlimited and
+                        # should not require saving/publishing each time.
+                        preview_available_cols = [str(c) for c in df_preview.columns] if isinstance(df_preview, pd.DataFrame) else []
+                        if preview_available_cols:
+                            current_preview_cols = [
+                                c for c in (st.session_state.get("bt_image_columns") or [])
+                                if c in preview_available_cols
+                            ]
+                            if len(preview_available_cols) <= 5:
+                                current_preview_cols = preview_available_cols
+                            elif not current_preview_cols:
+                                current_preview_cols = preview_available_cols[:5]
+                            else:
+                                current_preview_cols = current_preview_cols[:5]
+                            st.session_state["bt_image_columns"] = current_preview_cols
+
+                            if len(preview_available_cols) > 5:
+                                with st.expander("🖼️ Preview image export columns", expanded=False):
+                                    st.caption(
+                                        "Choose up to five columns for the preview PNG downloads. "
+                                        "This updates the preview image immediately and does not require Confirm & Save."
+                                    )
+                                    preview_selected_cols = st.multiselect(
+                                        "Columns for Top 10 / Bottom 10 preview images",
+                                        options=preview_available_cols,
+                                        default=current_preview_cols,
+                                        max_selections=5,
+                                        key="bt_preview_image_columns_picker",
+                                        help="Default is the first five visible columns. You can select fewer for a cleaner image.",
+                                    )
+                                    if preview_selected_cols:
+                                        st.session_state["bt_image_columns"] = preview_selected_cols[:5]
+                                    else:
+                                        st.warning("Select at least one column for preview image downloads.")
+                                        st.session_state["bt_image_columns"] = preview_available_cols[:5]
+
+                        live_cfg = draft_config_from_state()
+                        # ✅ Force the preview to include the Embed / Download menu so PNGs
+                        # can be downloaded unlimited times without Confirm & Save.
+                        live_cfg["show_embed"] = True
+                        if str(live_cfg.get("embed_position", "Body") or "Body") not in ("Header", "Footer", "Body"):
+                            live_cfg["embed_position"] = "Body"
+                        live_cfg["image_columns"] = st.session_state.get("bt_image_columns", []) or []
 
                         preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
                         preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
