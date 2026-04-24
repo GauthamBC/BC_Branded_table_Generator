@@ -797,10 +797,7 @@ def render_embed_output_panel():
 
     # Fallback: if the page is live but iframe text was not persisted, rebuild it from the URL.
     if published_url_val and not iframe_val:
-        try:
-            iframe_h = max(320, int(st.session_state.get("bt_iframe_height", 0) or st.session_state.get("bt_confirmed_total_height", 0) or 800))
-        except Exception:
-            iframe_h = 800
+        iframe_h = FIXED_IFRAME_HEIGHT_PX
         try:
             iframe_val = build_iframe_snippet(
                 published_url_val,
@@ -1058,100 +1055,32 @@ def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> in
 
 
 def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Estimate the total widget height from the top of the header to the bottom of the footer.
+    """Return the fixed preview/embed height.
 
-    This intentionally avoids adding large safety padding because the returned value is also used
-    as the published iframe height. The goal is a tight outer height that ends at the widget,
-    not below it.
+    The old auto-height estimator was intentionally removed because the generated
+    iframe should now stay consistent at 800px across all tables.
     """
-    try:
-        row_count = int(row_count)
-    except Exception:
-        row_count = 0
-
-    cfg = cfg or {}
-    if df is not None and isinstance(df, pd.DataFrame):
-        row_count = len(df.index)
-        columns = list(df.columns)
-    else:
-        columns = []
-
-    if row_count <= 0:
-        base_header = 88 if cfg.get("show_header", True) else 0
-        base_footer = 88 if cfg.get("show_footer", True) else 0
-        controls_h = 50 if (cfg.get("show_search", True) or cfg.get("show_pager", True) or (cfg.get("show_embed", True) and str(cfg.get("embed_position", "Body") or "Body") == "Body")) else 0
-        return max(360, min(1200, base_header + controls_h + 120 + base_footer))
-
-    visible_rows = max(row_count, 1)
-
-    show_header = bool(cfg.get("show_header", True))
-    show_footer = bool(cfg.get("show_footer", True))
-    show_search = bool(cfg.get("show_search", True))
-    show_pager = bool(cfg.get("show_pager", True))
-    show_page_numbers = bool(cfg.get("show_page_numbers", True)) and show_pager
-    show_embed = bool(cfg.get("show_embed", True))
-    embed_position = str(cfg.get("embed_position", "Body") or "Body")
-    show_footer_notes = bool(cfg.get("show_footer_notes", False))
-    show_heat_scale = bool(cfg.get("show_heat_scale", False)) and not show_footer_notes
-
-    title_lines = _estimate_wrapped_line_count(cfg.get("title", "Table 1"), max_chars_per_line=34)
-    subtitle_lines = _estimate_wrapped_line_count(cfg.get("subtitle", ""), max_chars_per_line=46) if str(cfg.get("subtitle", "")).strip() else 0
-
-    header_h = 0
-    if show_header:
-        header_h = 88 + max(0, title_lines - 1) * 18 + max(0, subtitle_lines - 1) * 14
-        if show_embed and embed_position == "Header":
-            header_h = max(header_h, 88)
-
-    max_header_lines = _estimate_header_line_count(columns, cfg=cfg, df=df)
-    table_head_h = 56 + max(0, max_header_lines - 1) * 16
-
-    row_h = 52
-    body_h = visible_rows * row_h
-
-    controls_h = 0
-    if show_search or show_pager or (show_embed and embed_position == "Body"):
-        controls_h = 46
-        if (show_search and show_pager) or ((show_search or show_pager) and show_embed and embed_position == "Body"):
-            controls_h += 6
-
-    page_status_h = 24 if show_page_numbers else 0
-    scrollbar_h = 14
-    body_bottom_gap_h = 36
-
-    footer_h = 0
-    if show_footer:
-        try:
-            footer_logo_h = int(cfg.get("footer_logo_h", 36) or 36)
-        except Exception:
-            footer_logo_h = 36
-        footer_h = max(132, footer_logo_h + 96)
-        if show_footer_notes:
-            notes = str(cfg.get("footer_notes", "") or "").strip()
-            note_lines = _estimate_wrapped_line_count(notes, max_chars_per_line=72) if notes else 0
-            footer_h += note_lines * 18 + (10 if note_lines else 0)
-        elif show_heat_scale:
-            footer_h += 22
-        if show_embed and embed_position == "Footer":
-            footer_h = max(footer_h, 92)
-
-    est = header_h + controls_h + table_head_h + body_h + scrollbar_h + body_bottom_gap_h + page_status_h + footer_h
-    return max(220, min(7000, est))
+    return FIXED_IFRAME_HEIGHT_PX
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return a generous table height so the full table can render without an internal vertical scrollbar."""
-    try:
-        row_count = int(row_count)
-    except Exception:
-        row_count = 0
+    """Return a fixed scroller height for the table body.
 
-    row_count = max(row_count, 1)
-    return max(260, 56 + (row_count * 52) + 18)
+    This keeps the table body the same size whether the user selects 10, 15,
+    20, 30, or All rows. Extra rows scroll inside the branded table area.
+    """
+    return FIXED_TABLE_SCROLL_HEIGHT_PX
 
 
+# =========================================================
+# ✅ Fixed iframe/table body sizing
+# =========================================================
+# Keep generated embeds consistent. The outer iframe stays fixed at 800px,
+# while the table body uses an internal branded vertical scrollbar for extra rows.
+FIXED_IFRAME_HEIGHT_PX = 800
+FIXED_TABLE_SCROLL_HEIGHT_PX = 588
 
-PREVIEW_IFRAME_BUFFER_PX = 5
+PREVIEW_IFRAME_BUFFER_PX = 0
 
 
 def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUFFER_PX, minimum_px: int = 180) -> int:
@@ -2773,9 +2702,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* scroll */
     #bt-block .dw-scroll{
-      min-height: 0;
+      height: var(--table-max-h);
+      max-height: var(--table-max-h);
+      min-height: var(--table-max-h);
       overflow-x: auto;
-      overflow-y: hidden;
+      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: contain;
@@ -2811,7 +2742,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background:none;
     }
 
-    #bt-block .dw-scroll::-webkit-scrollbar{ width: 10px; height: 10px; }
+    #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
     #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
@@ -3284,6 +3215,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 #bt-block .dw-scroll{
   margin: 0;
+  height: var(--table-max-h) !important;
+  max-height: var(--table-max-h) !important;
+  min-height: var(--table-max-h) !important;
+  overflow-y: auto !important;
 }
 
 #bt-block .dw-page-status{
@@ -3512,35 +3447,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
 
     function syncMeasuredScrollerHeight(){
-      if (!widgetRoot || !scroller || !table || !tb) return;
-
-      const theadEl = table.tHead;
-      const visibleRows = Array.from(tb.rows).filter(row =>
-        !row.classList.contains('dw-empty') && row.style.display !== 'none'
-      );
-
-      const shownCount = visibleRows.length;
-      const rowHeights = visibleRows.map(row => row.getBoundingClientRect().height || 0).filter(Boolean);
-      const fallbackRowHeight = rowHeights[0] || 54;
-      const theadHeight = theadEl ? Math.ceil(theadEl.getBoundingClientRect().height || 0) : 0;
-
-      let bodyRowsHeight = 0;
-      for (let i = 0; i < Math.max(shownCount, 1); i++) {
-        bodyRowsHeight += Math.ceil(rowHeights[i] || fallbackRowHeight);
-      }
-
-      const horizontalScrollbarAllowance = 14;
-      const bottomFadeAllowance = 0;
-      const safetyBuffer = 4;
-      const finalScrollHeight = Math.ceil(
-        theadHeight + bodyRowsHeight + horizontalScrollbarAllowance + bottomFadeAllowance + safetyBuffer
-      );
-
-      scroller.classList.add('compact-fit');
-      scroller.style.height = `${finalScrollHeight}px`;
-      scroller.style.maxHeight = `${finalScrollHeight}px`;
+      if (!scroller) return;
+      scroller.classList.remove('compact-fit');
+      scroller.style.height = '';
+      scroller.style.maxHeight = '';
       scroller.style.overflowX = 'auto';
-      scroller.style.overflowY = 'hidden';
+      scroller.style.overflowY = 'auto';
     }
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
@@ -5735,22 +5647,8 @@ def measure_rendered_html_height_playwright(html: str, min_height: int = 320, ex
 
 
 def resolve_final_iframe_height(html: str, fallback_height: int, min_height: int = 320, extra_padding: int = PREVIEW_IFRAME_BUFFER_PX) -> tuple[int, str]:
-    """Prefer a Playwright-measured height; fall back to the legacy estimated height."""
-    fallback_height = max(min_height, _safe_int(fallback_height, min_height))
-    try:
-        measured = measure_rendered_html_height_playwright(
-            html=html,
-            min_height=min_height,
-            extra_padding=extra_padding,
-        )
-        return max(min_height, _safe_int(measured, fallback_height)), 'playwright'
-    except Exception:
-        estimated = apply_preview_height_buffer(
-            fallback_height,
-            buffer_px=extra_padding,
-            minimum_px=min_height,
-        )
-        return max(min_height, _safe_int(estimated, fallback_height)), 'estimated'
+    """Use the fixed iframe height instead of measuring/estimating dynamically."""
+    return FIXED_IFRAME_HEIGHT_PX, 'fixed'
 
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
@@ -5767,7 +5665,8 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    h = max(320, _safe_int(height if height else 800, 800))
+    # Height is intentionally locked for consistency; users can edit the snippet manually if needed.
+    h = FIXED_IFRAME_HEIGHT_PX
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
@@ -5886,7 +5785,7 @@ def build_published_iframe_snippet(
                     resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
 
     resolved_height = max(320, int(resolved_height or 800))
-    return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
+    return build_iframe_snippet(pages_url, height=FIXED_IFRAME_HEIGHT_PX, brand=resolved_brand)
 
 
 def extract_iframe_height_from_snippet(snippet: str, fallback: int = 800) -> int:
@@ -8948,10 +8847,7 @@ if main_tab == "Create New Table":
                                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                     if live:
-                                        published_iframe_height = max(
-                                            320,
-                                            int(st.session_state.get("bt_confirmed_total_height", 0) or 0),
-                                        )
+                                        published_iframe_height = FIXED_IFRAME_HEIGHT_PX
                                         st.session_state["bt_iframe_height"] = published_iframe_height
                                         st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                             pages_url,
@@ -8963,10 +8859,7 @@ if main_tab == "Create New Table":
                                         st.session_state["bt_publish_in_progress"] = False
                                         st.session_state["bt_live_confirmed"] = True
 
-                                        if str(st.session_state.get("bt_confirmed_height_source", "estimated") or "estimated") == "playwright":
-                                            st.success(f"✅ Page is live. IFrame is ready. Measured height: {published_iframe_height}px.")
-                                        else:
-                                            st.success(f"✅ Page is live. IFrame is ready. Using fallback estimated height: {published_iframe_height}px.")
+                                        st.success(f"✅ Page is live. IFrame is ready. Fixed height: {published_iframe_height}px.")
                                     else:
                                         st.session_state["bt_iframe_code"] = ""
                                 
