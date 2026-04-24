@@ -743,40 +743,99 @@ def style_radio_as_tabs(
 
 
 
+
+def _bt_copy_button(label: str, text: str, key_suffix: str):
+    """Small front-end copy button for code snippets."""
+    payload = json.dumps(text or "")
+    safe_id = re.sub(r"[^A-Za-z0-9_-]", "", str(key_suffix or "copy"))
+    components.html(
+        f"""
+        <button id="bt-copy-{safe_id}" style="
+            width:100%;
+            height:38px;
+            border:1px solid #d1d5db;
+            border-radius:10px;
+            background:#ffffff;
+            color:#374151;
+            font:600 14px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            cursor:pointer;
+        ">{html_mod.escape(label)}</button>
+        <script>
+        (function(){{
+          const btn = document.getElementById('bt-copy-{safe_id}');
+          const txt = {payload};
+          if(!btn) return;
+          btn.addEventListener('click', async function(){{
+            try {{
+              await navigator.clipboard.writeText(txt);
+              const old = btn.textContent;
+              btn.textContent = 'Copied ✓';
+              btn.style.background = '#ecfdf5';
+              btn.style.borderColor = '#a7f3d0';
+              setTimeout(function(){{
+                btn.textContent = old;
+                btn.style.background = '#ffffff';
+                btn.style.borderColor = '#d1d5db';
+              }}, 1400);
+            }} catch(e) {{
+              btn.textContent = 'Select text and copy';
+              setTimeout(function(){{ btn.textContent = {json.dumps(label)}; }}, 1600);
+            }}
+          }});
+        }})();
+        </script>
+        """,
+        height=46,
+    )
+
+
 def render_embed_output_panel():
-    """Render generated HTML / iframe snippets in a stable right-side panel."""
+    """Render published URL plus generated HTML / iframe snippets in the right-side panel."""
     published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
     html_code_val = (st.session_state.get("bt_html_code") or "").strip()
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
-    show_tabs = bool(
-        (html_code_val or iframe_val)
-        and (
-            st.session_state.get("bt_embed_generated", False)
-            or st.session_state.get("bt_live_confirmed", False)
-            or published_url_val
-        )
-    )
 
-    st.markdown("#### Embed output")
+    # Fallback: if the page is live but iframe text was not persisted, rebuild it from the URL.
+    if published_url_val and not iframe_val:
+        try:
+            iframe_h = max(320, int(st.session_state.get("bt_iframe_height", 0) or st.session_state.get("bt_confirmed_total_height", 0) or 800))
+        except Exception:
+            iframe_h = 800
+        try:
+            iframe_val = build_iframe_snippet(
+                published_url_val,
+                height=iframe_h,
+                brand=st.session_state.get("brand_table", ""),
+            )
+            st.session_state["bt_iframe_code"] = iframe_val
+        except Exception:
+            iframe_val = ""
 
-    if published_url_val and st.session_state.get("bt_live_confirmed", False):
-        st.caption("Published Page")
+    st.markdown("### Embed output")
+
+    # Live page always comes first.
+    if published_url_val:
+        st.markdown("**Live page**")
         st.link_button("🔗 Open published page", published_url_val, use_container_width=True)
+    else:
+        st.info("Your live page link will appear here after you create the embed script.")
 
-    if show_tabs:
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+    if html_code_val or iframe_val:
+        st.caption("Copy the snippet you need below.")
         html_tab, iframe_tab = st.tabs(["HTML", "Iframe"])
 
         with html_tab:
-            if not html_code_val:
-                st.info("Click **Confirm & Save** to generate HTML.")
-            else:
+            if html_code_val:
                 st.text_area(
                     "HTML Code",
                     value=html_code_val,
-                    height=460,
+                    height=320,
                     label_visibility="collapsed",
                     key="bt_html_code_view_right_panel",
                 )
+                _bt_copy_button("Copy HTML", html_code_val, "html-right-panel")
                 st.download_button(
                     "Download HTML file",
                     data=html_code_val,
@@ -785,18 +844,19 @@ def render_embed_output_panel():
                     use_container_width=True,
                     key="bt_download_html_right_panel",
                 )
+            else:
+                st.info("Click **Confirm & Save** first to generate the latest HTML.")
 
         with iframe_tab:
-            if not iframe_val:
-                st.info("Create the embed script to generate the iframe snippet.")
-            else:
+            if iframe_val:
                 st.text_area(
                     "Iframe Code",
                     value=iframe_val,
-                    height=220,
+                    height=180,
                     label_visibility="collapsed",
                     key="bt_iframe_code_view_right_panel",
                 )
+                _bt_copy_button("Copy iframe", iframe_val, "iframe-right-panel")
                 st.download_button(
                     "Download iframe snippet",
                     data=iframe_val,
@@ -805,8 +865,11 @@ def render_embed_output_panel():
                     use_container_width=True,
                     key="bt_download_iframe_right_panel",
                 )
+            else:
+                st.info("Create the embed script to generate the iframe snippet.")
     else:
         st.info("Your HTML and iframe snippets will appear here after you create the embed script.")
+
 
 
 # =========================================================
@@ -7504,7 +7567,8 @@ if main_tab == "Create New Table":
                     preview_slot = st.container()
 
                     if left_view == "Get Embed Script":
-                        render_embed_output_panel()
+                        # Rendered after the left form so newly-created embed code appears immediately.
+                        pass
 
                     elif right_view == "Preview":
                         # (Intentionally blank) — remove the extra big "Preview" heading.
@@ -8896,6 +8960,12 @@ if main_tab == "Create New Table":
                                         )
                             else:
                                 st.info("Your HTML and iframe snippets will appear here after you create the embed script.")
+                # ✅ In Get Embed Script mode, render the right-side output AFTER the left form
+                # so a freshly-created live page / iframe appears immediately in the same run.
+                if left_view == "Get Embed Script":
+                    with right_col:
+                        render_embed_output_panel()
+
                 # ✅ Render preview LAST (HARD-GATED: do NOT run on Get embed script)
                 _left_view = st.session_state.get("bt_left_view", "Edit table contents")
                 _right_view = st.session_state.get("bt_right_view", "Preview")
