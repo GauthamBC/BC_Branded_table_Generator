@@ -1078,7 +1078,11 @@ def compute_widget_table_max_height(row_count: int) -> int:
 # Keep generated embeds consistent. The outer iframe stays fixed at 800px,
 # while the table body uses an internal branded vertical scrollbar for extra rows.
 FIXED_IFRAME_HEIGHT_PX = 800
+# Kept for backward compatibility only. The live widget now uses flex sizing
+# inside the fixed 800px frame so the footer is never pushed out of view.
 FIXED_TABLE_SCROLL_HEIGHT_PX = 588
+# Streamlit preview gets a tiny safety allowance so the iframe border/footer is not clipped.
+PREVIEW_COMPONENT_HEIGHT_PX = 820
 
 PREVIEW_IFRAME_BUFFER_PX = 0
 
@@ -2123,9 +2127,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
 
-      height: auto;
-      min-height: 0;
-      max-height: none;
+      height: 800px;
+      min-height: 800px;
+      max-height: 800px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -2693,7 +2697,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       width: 100%;
       overflow: hidden;
       border-radius:0;
-      flex: 0 0 auto;
+      flex: 1 1 auto;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -2702,9 +2706,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* scroll */
     #bt-block .dw-scroll{
-      height: var(--table-max-h);
-      max-height: var(--table-max-h);
-      min-height: var(--table-max-h);
+      height: auto;
+      max-height: none;
+      min-height: 0;
+      flex: 1 1 auto;
       overflow-x: auto;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
@@ -2864,7 +2869,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     /* shared cell spacing/alignment */
     #bt-block thead th,
     #bt-block tbody td {
-      padding: 15px 14px;
+      padding: 10px 14px;
       text-align: var(--cell-align, center);
       vertical-align: middle;
     }
@@ -3212,12 +3217,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 #bt-block .dw-card{
   margin: 0;
   border-radius: 0;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
 }
 #bt-block .dw-scroll{
   margin: 0;
-  height: var(--table-max-h) !important;
-  max-height: var(--table-max-h) !important;
-  min-height: var(--table-max-h) !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
   overflow-y: auto !important;
 }
 
@@ -9038,11 +9046,7 @@ if main_tab == "Create New Table":
                         preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
                         st.session_state["bt_preview_total_height"] = int(preview_height)
 
-                        _preview_toggle_col, _preview_height_col = st.columns([1, 1])
-                        with _preview_toggle_col:
-                            st.checkbox("Show live preview", key="bt_show_preview")
-                        with _preview_height_col:
-                            st.caption(f"Estimated table height: **{int(preview_height)}px**")
+                        st.checkbox("Show live preview", key="bt_show_preview")
 
                         if not st.session_state["bt_show_preview"]:
                             st.info("Preview hidden for performance.")
@@ -9067,7 +9071,7 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=apply_preview_height_buffer(preview_height),
+                                height=PREVIEW_COMPONENT_HEIGHT_PX,
                                 scrolling=False,
                             )
                 else:
