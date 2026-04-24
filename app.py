@@ -3211,21 +3211,26 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       overflow-y: visible !important;
     }
   
+#bt-block{
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
 #bt-block .dw-controls{
   padding: 0 12px;
 }
 #bt-block .dw-card{
   margin: 0;
   border-radius: 0;
-  flex: 1 1 auto !important;
+  flex: 0 0 auto !important;
   min-height: 0 !important;
 }
 #bt-block .dw-scroll{
   margin: 0;
-  height: 100% !important;
+  height: auto !important;
   max-height: none !important;
   min-height: 0 !important;
-  flex: 1 1 auto !important;
+  flex: 0 0 auto !important;
   overflow-y: auto !important;
 }
 
@@ -3455,13 +3460,53 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
 
     function syncMeasuredScrollerHeight(){
-      if (!scroller) return;
+      if (!scroller || !widgetRoot) return;
+
+      const card = root.querySelector('.dw-card');
+      const header = widgetRoot.querySelector('.vi-table-header:not(.vi-hide)');
+      const footer = widgetRoot.querySelector('.vi-footer:not(.vi-hide)');
+      const controlsRow = root.querySelector('.dw-controls:not(.vi-hide)');
+      const statusRow = root.querySelector('.dw-page-status:not(.vi-hide)');
+
       scroller.classList.remove('compact-fit');
-      scroller.style.height = '';
-      scroller.style.maxHeight = '';
       scroller.style.overflowX = 'auto';
       scroller.style.overflowY = 'auto';
+
+      const widgetH = widgetRoot.clientHeight || 800;
+      const headerH = header ? header.offsetHeight : 0;
+      const footerH = footer ? footer.offsetHeight : 0;
+      const controlsH = controlsRow ? controlsRow.offsetHeight : 0;
+      const statusH = statusRow ? statusRow.offsetHeight : 0;
+
+      const rootStyle = window.getComputedStyle(root);
+      const rootPad = (parseFloat(rootStyle.paddingTop) || 0) + (parseFloat(rootStyle.paddingBottom) || 0);
+      const cardBorder = card ? 2 : 0;
+      const safety = 6;
+
+      // Remaining space available for the scrollable table area inside the fixed 800px widget.
+      const maxScrollerH = Math.max(220, widgetH - headerH - footerH - controlsH - statusH - rootPad - cardBorder - safety);
+
+      // Shrink to the visible table content when there are only 10 rows, but cap it
+      // when 15/20/30/All rows are selected so the table scrolls internally.
+      const tableContentH = Math.ceil(table.scrollHeight || 0);
+      const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
+      const xScrollReserve = needsXScroll ? 14 : 0;
+      const desiredH = Math.max(120, Math.min(maxScrollerH, tableContentH + xScrollReserve));
+
+      if (card){
+        card.style.flex = '0 0 auto';
+        card.style.height = desiredH + 'px';
+        card.style.maxHeight = maxScrollerH + 'px';
+      }
+      scroller.style.height = desiredH + 'px';
+      scroller.style.maxHeight = maxScrollerH + 'px';
+      scroller.classList.toggle('compact-fit', tableContentH + xScrollReserve <= maxScrollerH);
     }
+
+    window.addEventListener('resize', () => {
+      window.clearTimeout(window.__btResizeT);
+      window.__btResizeT = window.setTimeout(syncMeasuredScrollerHeight, 80);
+    });
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
