@@ -7405,91 +7405,16 @@ if main_tab == "Create New Table":
                             use_container_width=True,
                             type="primary",
                         ):
-                            if confirm_save_needs_image_column_picker():
-                                sync_image_columns_default_for_current_table(force_first_five=False)
-                                st.session_state["bt_image_col_dialog_open"] = True
-                                st.rerun()
+                            # Image export columns are managed in one place: the
+                            # Preview/Image export columns panel. Confirm & Save
+                            # simply uses that current selection.
+                            chosen_cols = sync_image_columns_default_for_current_table(force_first_five=False)
+                            if len(get_image_export_columns_for_current_table()) > 5 and not chosen_cols:
+                                st.warning("Please choose at least one image export column in the Image export columns panel.")
                             else:
-                                sync_image_columns_default_for_current_table(force_first_five=True)
+                                st.session_state["bt_image_columns_confirmed"] = chosen_cols
                                 do_confirm_snapshot()
                                 st.rerun()
-
-                        if st.session_state.get("bt_image_col_dialog_open", False):
-                            if hasattr(st, "dialog"):
-                                @st.dialog("Choose image columns", width="large")
-                                def image_column_picker_dialog():
-                                    available_cols = get_image_export_columns_for_current_table()
-                                    default_cols = [c for c in (st.session_state.get("bt_image_columns") or []) if c in available_cols]
-                                    if not default_cols:
-                                        default_cols = available_cols[:5]
-                                    default_cols = default_cols[:5]
-
-                                    st.markdown(
-                                        "Your table has more than five visible columns. "
-                                        "Choose the columns to lock into the **Top 10 / Bottom 10 image exports**. "
-                                        "The interactive table and embed can still keep all visible columns."
-                                    )
-
-                                    selected_cols = st.multiselect(
-                                        "Image export columns (max 5)",
-                                        options=available_cols,
-                                        default=default_cols,
-                                        max_selections=5,
-                                        key="bt_image_columns_picker",
-                                        help="Default is the first five visible columns. You can select fewer if the image should be cleaner.",
-                                    )
-
-                                    st.caption(
-                                        f"Selected {len(selected_cols)} of 5 allowed. "
-                                        "These columns will be locked into exported PNG images after saving."
-                                    )
-
-                                    c1, c2 = st.columns(2)
-                                    with c1:
-                                        save_cols = st.button(
-                                            "Confirm & Save with these columns",
-                                            type="primary",
-                                            use_container_width=True,
-                                            disabled=len(selected_cols) == 0,
-                                        )
-                                    with c2:
-                                        use_default = st.button(
-                                            "Use first 5 columns",
-                                            use_container_width=True,
-                                        )
-
-                                    if len(selected_cols) == 0:
-                                        st.warning("Select at least one column for image exports.")
-
-                                    if use_default:
-                                        st.session_state["bt_image_columns"] = available_cols[:5]
-                                        st.session_state["bt_image_col_dialog_open"] = False
-                                        do_confirm_snapshot()
-                                        st.rerun()
-
-                                    if save_cols:
-                                        st.session_state["bt_image_columns"] = selected_cols[:5]
-                                        st.session_state["bt_image_col_dialog_open"] = False
-                                        do_confirm_snapshot()
-                                        st.rerun()
-
-                                image_column_picker_dialog()
-                            else:
-                                st.info("Choose up to five columns for Top 10 / Bottom 10 image exports before saving.")
-                                available_cols = get_image_export_columns_for_current_table()
-                                default_cols = [c for c in (st.session_state.get("bt_image_columns") or []) if c in available_cols] or available_cols[:5]
-                                selected_cols = st.multiselect(
-                                    "Image export columns (max 5)",
-                                    options=available_cols,
-                                    default=default_cols[:5],
-                                    max_selections=5,
-                                    key="bt_image_columns_picker_inline",
-                                )
-                                if st.button("Confirm & Save with selected image columns", type="primary", use_container_width=True, disabled=len(selected_cols) == 0):
-                                    st.session_state["bt_image_columns"] = selected_cols[:5]
-                                    st.session_state["bt_image_col_dialog_open"] = False
-                                    do_confirm_snapshot()
-                                    st.rerun()
 
                         if st.session_state.get("bt_confirm_flash", False):
                             st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
@@ -8680,24 +8605,55 @@ if main_tab == "Create New Table":
                             st.session_state["bt_image_columns"] = current_preview_cols
 
                             if len(preview_available_cols) > 5:
-                                with st.expander("🖼️ Preview image export columns", expanded=False):
+                                with st.expander("🖼️ Image export columns", expanded=True):
                                     st.caption(
-                                        "Choose up to five columns for the preview PNG downloads. "
-                                        "This updates the preview image immediately and does not require Confirm & Save."
+                                        "Choose up to five columns for Top 10 / Bottom 10 PNG downloads. "
+                                        "This is the only place you need to manage image columns; Confirm & Save will use the same selection."
                                     )
                                     preview_selected_cols = st.multiselect(
-                                        "Columns for Top 10 / Bottom 10 preview images",
+                                        "Columns for Top 10 / Bottom 10 images (max 5)",
                                         options=preview_available_cols,
                                         default=current_preview_cols,
                                         max_selections=5,
                                         key="bt_preview_image_columns_picker",
                                         help="Default is the first five visible columns. You can select fewer for a cleaner image.",
                                     )
+
+                                    action_col1, action_col2 = st.columns([1, 1])
+                                    with action_col1:
+                                        lock_cols_clicked = st.button(
+                                            "Lock image columns",
+                                            key="bt_lock_image_columns_btn",
+                                            type="primary",
+                                            use_container_width=True,
+                                            disabled=len(preview_selected_cols) == 0,
+                                        )
+                                    with action_col2:
+                                        reset_cols_clicked = st.button(
+                                            "Use first 5 columns",
+                                            key="bt_reset_image_columns_btn",
+                                            use_container_width=True,
+                                        )
+
+                                    if reset_cols_clicked:
+                                        st.session_state["bt_image_columns"] = preview_available_cols[:5]
+                                        st.session_state["bt_image_columns_confirmed"] = preview_available_cols[:5]
+                                        st.rerun()
+
                                     if preview_selected_cols:
                                         st.session_state["bt_image_columns"] = preview_selected_cols[:5]
+                                        st.caption(
+                                            f"Selected {len(preview_selected_cols)} of 5 allowed. "
+                                            "These columns will be used for preview downloads and saved image exports."
+                                        )
                                     else:
-                                        st.warning("Select at least one column for preview image downloads.")
+                                        st.warning("Select at least one column for image downloads.")
                                         st.session_state["bt_image_columns"] = preview_available_cols[:5]
+
+                                    if lock_cols_clicked and preview_selected_cols:
+                                        st.session_state["bt_image_columns"] = preview_selected_cols[:5]
+                                        st.session_state["bt_image_columns_confirmed"] = preview_selected_cols[:5]
+                                        st.success("Image columns locked for Top 10 / Bottom 10 PNG exports.")
 
                         live_cfg = draft_config_from_state()
                         # ✅ Force the preview to include the Embed / Download menu so PNGs
