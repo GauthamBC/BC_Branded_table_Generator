@@ -393,7 +393,110 @@ import streamlit.components.v1 as components
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# =========================================================
+# ✅ Final compact pill action buttons + no-dead-space rows
+# =========================================================
+st.markdown(
+    """
+    <style>
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) {
+        width: fit-content !important; min-width:0 !important; max-width:fit-content !important;
+        display:inline-flex !important; flex:0 0 auto !important; margin:0 !important; padding:0 !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
+        height:44px !important; min-height:44px !important; width:auto !important; min-width:132px !important;
+        padding:0 22px !important; border-radius:12px !important; background:#f7f7f7 !important;
+        border:1px solid #d7d7d7 !important; color:#8f9298 !important; font-size:15px !important;
+        font-weight:500 !important; line-height:1 !important; box-shadow:none !important; display:inline-flex !important;
+        align-items:center !important; justify-content:center !important; white-space:nowrap !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button { min-width:220px !important; }
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button:hover,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button:hover {
+        background:#eeeeee !important; border-color:#cfcfcf !important; color:#4b5563 !important; box-shadow:none !important;
+    }
+    div[data-testid="stButton"]:has(button[key="bt_login_btn"]) > button:disabled,
+    div[data-testid="stButton"]:has(button[key="bt_logout_btn"]) > button:disabled,
+    div[data-testid="stButton"]:has(button[key="bt_left_edit_btn"]) > button:disabled,
+    div[data-testid="stButton"]:has(button[key="bt_left_embed_btn"]) > button:disabled,
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button:disabled,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button:disabled {
+        opacity:.58 !important; background:#f7f7f7 !important; color:#9ca3af !important; border-color:#d7d7d7 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]),
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_left_edit_btn"]):has(button[key="bt_left_embed_btn"]),
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_right_preview_btn"]):has(button[key="bt_right_body_btn"]) {
+        width:fit-content !important; max-width:fit-content !important; display:flex !important; flex-wrap:nowrap !important;
+        align-items:center !important; justify-content:flex-start !important; gap:8px !important; column-gap:8px !important;
+        row-gap:0 !important; margin:0 !important; padding:0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_login_btn"]):has(button[key="bt_logout_btn"]) > div,
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_left_edit_btn"]):has(button[key="bt_left_embed_btn"]) > div,
+    div[data-testid="stHorizontalBlock"]:has(button[key="bt_right_preview_btn"]):has(button[key="bt_right_body_btn"]) > div {
+        flex:0 0 auto !important; width:auto !important; min-width:0 !important; max-width:fit-content !important; padding:0 !important; margin:0 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 inject_global_radio_button_css()
+
+# ✅ Compact right-side view buttons: Preview + Edit table content (optional)
+st.markdown(
+    """
+    <style>
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]),
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) {
+        width: fit-content !important;
+        display: inline-flex !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button,
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
+        width: fit-content !important;
+        min-height: 34px !important;
+        padding: 6px 12px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        border-radius: 999px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1.15 !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key="bt_right_preview_btn"]) > button {
+        min-width: 82px !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key="bt_right_body_btn"]) > button {
+        min-width: 190px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     """
@@ -7132,7 +7235,7 @@ if main_tab == "Create New Table":
                     if st.button(
                         "Edit table contents",
                         key="bt_left_edit_btn",
-                        use_container_width=True,
+                        use_container_width=False,
                         type="primary" if st.session_state.get("bt_left_view") == "Edit table contents" else "secondary",
                     ):
                         _cache_header_draft()
@@ -7142,7 +7245,7 @@ if main_tab == "Create New Table":
                     if st.button(
                         "Get Embed Script",
                         key="bt_left_embed_btn",
-                        use_container_width=True,
+                        use_container_width=False,
                         type="primary" if st.session_state.get("bt_left_view") == "Get Embed Script" else "secondary",
                     ):
                         _cache_header_draft()
@@ -7151,24 +7254,24 @@ if main_tab == "Create New Table":
 
                 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-                _right_btn_col1, _right_btn_col2 = st.columns(2, gap="small")
+                _right_btn_col1, _right_btn_col2, _right_btn_spacer = st.columns([0.14, 0.34, 0.52], gap="small")
                 with _right_btn_col1:
                     if st.button(
                         "Preview",
                         key="bt_right_preview_btn",
-                        use_container_width=True,
+                        use_container_width=False,
                         type="primary" if st.session_state.get("bt_right_view") == "Preview" else "secondary",
                     ):
                         st.session_state["bt_right_view"] = "Preview"
                         st.rerun()
                 with _right_btn_col2:
                     if st.button(
-                        "Edit table content (Optional)",
+                        "Edit table content (optional)",
                         key="bt_right_body_btn",
-                        use_container_width=True,
-                        type="primary" if st.session_state.get("bt_right_view") == "Edit table content (Optional)" else "secondary",
+                        use_container_width=False,
+                        type="primary" if st.session_state.get("bt_right_view") == "Edit table content (optional)" else "secondary",
                     ):
-                        st.session_state["bt_right_view"] = "Edit table content (Optional)"
+                        st.session_state["bt_right_view"] = "Edit table content (optional)"
                         st.rerun()
 
                 left_view = st.session_state.get("bt_left_view", "Edit table contents")
@@ -7186,7 +7289,7 @@ if main_tab == "Create New Table":
                         pass
                 
                     else:
-                        st.markdown("### Edit table content (Optional)")
+                        st.markdown("### Edit table content (optional)")
                         st.caption("Edit cells + hide columns here. Click **Apply changes to preview** to update the preview.")
 
                         # Quick header preview (updates instantly as you type in the left panel)
