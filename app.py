@@ -2470,56 +2470,70 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         max-width: 100% !important;
       }
 
-      /* Controls stack cleanly instead of forcing the Embed button off-screen */
+      /* Mobile controls: keep search, rows/page, pager and embed on ONE row */
       #bt-block{
         padding-top: 10px !important;
       }
       #bt-block .dw-controls{
-        grid-template-columns: 1fr !important;
-        gap: 10px !important;
+        grid-template-columns: minmax(92px, 1fr) auto !important;
+        align-items: center !important;
+        gap: 6px !important;
         margin: 2px 0 10px 0 !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
       }
       #bt-block .left,
       #bt-block .right{
-        width: 100% !important;
+        width: auto !important;
+        min-width: 0 !important;
       }
       #bt-block .left{
         justify-content: flex-start !important;
       }
       #bt-block .right{
         justify-content: flex-end !important;
-        gap: 7px !important;
+        gap: 5px !important;
         flex-wrap: nowrap !important;
+        min-width: 0 !important;
+      }
+      #bt-block .dw-field{
+        width: 100% !important;
         min-width: 0 !important;
       }
       #bt-block .dw-input{
         width: 100% !important;
-        max-width: 100% !important;
+        max-width: 142px !important;
         min-width: 0 !important;
-        font-size: 14px !important;
-        min-height: 40px !important;
+        font-size: 13px !important;
+        min-height: 38px !important;
+        padding-left: 9px !important;
+        padding-right: 24px !important;
       }
       #bt-block .dw-select{
-        width: 62px !important;
-        min-width: 62px !important;
-        font-size: 14px !important;
-        min-height: 40px !important;
+        width: 54px !important;
+        min-width: 54px !important;
+        font-size: 13px !important;
+        min-height: 38px !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
       }
       #bt-block .dw-btn{
-        min-width: 40px !important;
-        min-height: 40px !important;
-        padding: 8px 10px !important;
-        font-size: 14px !important;
+        width: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        padding: 7px 8px !important;
+        font-size: 13px !important;
       }
       .vi-table-embed .dw-btn.dw-download{
-        width: 62px !important;
-        min-width: 62px !important;
-        max-width: 62px !important;
-        padding: 8px 8px !important;
+        width: 58px !important;
+        min-width: 58px !important;
+        max-width: 58px !important;
+        padding: 7px 7px !important;
       }
       .vi-table-embed .dw-btn.dw-download::after{
         content: "Embed" !important;
-        font-size: 12px !important;
+        font-size: 11.5px !important;
       }
 
       /* Table typography is slightly tighter on phones while keeping the desktop styling intact */
@@ -3381,6 +3395,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   flex: 0 0 auto;
 }
 
+/* ✅ Hard scroll guard: the table body itself must remain scrollable */
+#bt-block .dw-card{ overflow:hidden !important; }
+#bt-block .dw-scroll{
+  overflow-x:auto !important;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch !important;
+  touch-action:pan-x pan-y !important;
+  overscroll-behavior:contain !important;
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
@@ -3601,7 +3625,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
 
     function syncMeasuredScrollerHeight(){
-      if (!scroller || !widgetRoot) return;
+      if (!scroller || !widgetRoot || !table || !tb) return;
 
       const card = root.querySelector('.dw-card');
       const header = widgetRoot.querySelector('.vi-table-header:not(.vi-hide)');
@@ -3611,10 +3635,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
       scroller.classList.remove('compact-fit');
       scroller.style.overflowX = 'auto';
-      // Vertical scrolling is controlled after rows are rendered.
-      // This keeps exactly 10 visible rows while still allowing rows 11+
-      // to be reached when Rows/Page is 15/20/30/All.
       scroller.style.overflowY = 'auto';
+      scroller.style.webkitOverflowScrolling = 'touch';
+      scroller.style.touchAction = 'pan-x pan-y';
+      scroller.style.overscrollBehavior = 'contain';
 
       const widgetH = widgetRoot.clientHeight || 800;
       const headerH = header ? header.offsetHeight : 0;
@@ -3627,43 +3651,46 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const cardBorder = card ? 2 : 0;
       const safety = 6;
 
-      // Remaining space available inside the fixed 800px widget. The table is never
-      // allowed to push the page status/footer down past this.
-      const maxScrollerH = Math.max(220, widgetH - headerH - footerH - controlsH - statusH - rootPad - cardBorder - safety);
+      const maxScrollerH = Math.max(180, widgetH - headerH - footerH - controlsH - statusH - rootPad - cardBorder - safety);
 
       const visibleRows = Array.from(tb.rows).filter(r =>
         !r.classList.contains('dw-empty') && r.style.display !== 'none'
       );
+
       const headerTableH = table.tHead ? Math.ceil(table.tHead.getBoundingClientRect().height || 0) : 0;
-      const firstVisibleRows = visibleRows.slice(0, 10);
-      const measuredRowsH = firstVisibleRows.reduce((sum, row) => {
+      const firstTenRows = visibleRows.slice(0, 10);
+      const measuredRowsH = firstTenRows.reduce((sum, row) => {
         return sum + Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0);
       }, 0);
-      const fallbackRowH = 44;
-      const rowCapH = measuredRowsH || (Math.min(visibleRows.length || 1, 10) * fallbackRowH);
-      const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
-      const hasOverflowRows = visibleRows.length > 10;
 
-      // Core rule: the viewport height is based on the table header + exactly 10 rows.
-      // Rows/Page can be 15/20/30/All, but rows 11+ must stay inside this fixed
-      // viewport and be reached through the branded vertical scrollbar.
-      // The horizontal scrollbar reserve is included consistently for 10 and 10+ rows,
-      // so switching row counts does not nudge the footer/page-status down.
+      const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
+      const rowCap = Math.min(Math.max(visibleRows.length, 1), 10);
+      const rowCapH = measuredRowsH || (rowCap * fallbackRowH);
+      const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const horizontalReserve = needsXScroll ? 12 : 0;
-      const targetContentH = headerTableH + rowCapH + horizontalReserve;
-      const desiredH = Math.max(120, Math.min(maxScrollerH, targetContentH));
-      const fullContentH = Math.ceil(table.scrollHeight || 0);
+
+      // Hard rule: the viewport is table header + max 10 visible rows.
+      // Rows 11+ remain inside this fixed viewport and are reached by vertical scroll.
+      const desiredH = Math.max(140, Math.min(maxScrollerH, headerTableH + rowCapH + horizontalReserve));
 
       if (card){
         card.style.flex = '0 0 auto';
         card.style.height = desiredH + 'px';
         card.style.maxHeight = desiredH + 'px';
+        card.style.minHeight = '0';
+        card.style.overflow = 'hidden';
       }
 
       scroller.style.height = desiredH + 'px';
       scroller.style.maxHeight = desiredH + 'px';
-      scroller.style.overflowY = hasOverflowRows ? 'scroll' : 'hidden';
-      scroller.classList.toggle('compact-fit', !hasOverflowRows && fullContentH <= desiredH + 2);
+      scroller.style.minHeight = '0';
+
+      requestAnimationFrame(() => {
+        const overflowsVertically = table.scrollHeight > scroller.clientHeight + 2;
+        const hasExtraRows = visibleRows.length > 10;
+        scroller.style.overflowY = (hasExtraRows || overflowsVertically) ? 'auto' : 'hidden';
+        scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
+      });
     }
 
     window.addEventListener('resize', () => {
@@ -3949,7 +3976,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         setPageStatus(0, 0);
         applyVisibleZebra();
         syncMenuOptions();
-        syncMeasuredScrollerHeight();
+        requestAnimationFrame(syncMeasuredScrollerHeight);
         return;
       }
     
@@ -3983,7 +4010,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       if (scroller) scroller.scrollTop = 0;
       applyVisibleZebra();
       syncMenuOptions();
-      syncMeasuredScrollerHeight();
+      requestAnimationFrame(syncMeasuredScrollerHeight);
     }
 
     if(hasSearch){
