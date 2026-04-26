@@ -3382,11 +3382,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 #bt-block .dw-scroll{
   margin: 0;
-  height: auto !important;
-  max-height: none !important;
+  height: var(--bt-scroll-h, 520px) !important;
+  max-height: var(--bt-scroll-h, 520px) !important;
   min-height: 0 !important;
   flex: 0 0 auto !important;
-  overflow-y: auto !important;
+  overflow-x: auto !important;
+  overflow-y: scroll !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior: contain !important;
 }
 
 #bt-block .dw-page-status{
@@ -3398,110 +3402,18 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 /* ✅ Hard scroll guard: the table body itself must remain scrollable */
 #bt-block .dw-card{ overflow:hidden !important; }
 #bt-block .dw-scroll{
+  height: var(--bt-scroll-h, 520px) !important;
+  max-height: var(--bt-scroll-h, 520px) !important;
   overflow-x:auto !important;
-  overflow-y:auto;
+  overflow-y:scroll !important;
   -webkit-overflow-scrolling:touch !important;
   touch-action:pan-x pan-y !important;
   overscroll-behavior:contain !important;
 }
-
-
-/* ======================================================
-   ✅ Final mobile/iframe scroll correction
-   ====================================================== */
-#bt-block .dw-card{ overflow:hidden !important; }
-#bt-block .dw-scroll{
-  overflow-x:auto !important;
-  overflow-y:auto !important;
-  -webkit-overflow-scrolling:touch !important;
-  touch-action:pan-x pan-y !important;
-  overscroll-behavior:contain !important;
-  scrollbar-gutter:stable both-edges;
-}
-#bt-block .dw-scroll.compact-fit{ overflow-y:hidden !important; }
-#bt-block .dw-scroll:not(.compact-fit){ cursor:grab; }
-#bt-block .dw-scroll:not(.compact-fit):active{ cursor:grabbing; }
-@media (max-width: 640px){
-  .vi-table-embed{
-    height:auto !important;
-    min-height:0 !important;
-    max-height:none !important;
-    overflow:visible !important;
-  }
-  #bt-block{ flex:0 0 auto !important; padding-bottom:0 !important; }
-  #bt-block .dw-controls{
-    display:grid !important;
-    grid-template-columns:minmax(110px, 1fr) auto !important;
-    gap:6px !important;
-    padding:0 10px !important;
-    margin:4px 0 8px !important;
-    align-items:center !important;
-  }
-  #bt-block .left{ min-width:0 !important; }
-  #bt-block .right{
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:6px !important;
-    min-width:0 !important;
-    justify-content:flex-end !important;
-  }
-  #bt-block .dw-field{ width:100% !important; min-width:0 !important; }
-  #bt-block .dw-input{
-    width:100% !important;
-    min-width:0 !important;
-    max-width:100% !important;
-    height:34px !important;
-    font-size:12px !important;
-    padding:7px 24px 7px 10px !important;
-  }
-  #bt-block .dw-pager{
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:5px !important;
-    min-width:0 !important;
-  }
-  #bt-block .dw-status{ display:none !important; }
-  #bt-block .dw-select{
-    width:50px !important;
-    height:34px !important;
-    font-size:12px !important;
-    padding:6px 8px !important;
-  }
-  #bt-block .dw-btn[data-page]{
-    width:34px !important;
-    height:34px !important;
-    min-width:34px !important;
-  }
-  .vi-table-embed .dw-btn.dw-download,
-  .vi-table-embed button.dw-btn.dw-download{
-    width:54px !important;
-    min-width:54px !important;
-    max-width:54px !important;
-    height:34px !important;
-    padding:0 8px !important;
-    font-size:0 !important;
-    overflow:hidden !important;
-    white-space:nowrap !important;
-  }
-  .vi-table-embed .dw-btn.dw-download::after,
-  .vi-table-embed button.dw-btn.dw-download::after{
-    content:'Embed';
-    font-size:12px !important;
-    line-height:1 !important;
-  }
-  #bt-block .dw-scroll{
-    overflow-y:auto !important;
-    -webkit-overflow-scrolling:touch !important;
-    touch-action:pan-x pan-y !important;
-  }
-  .vi-table-embed .vi-footer{
-    min-height:76px !important;
-    height:76px !important;
-    flex-basis:76px !important;
-    padding:8px 14px !important;
-  }
-  .vi-table-embed .footer-logo{ min-width:0 !important; justify-content:center !important; }
-  .vi-table-embed .vi-footer img{ max-height:38px !important; }
+#bt-block thead th{
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 
 </style>
@@ -3765,30 +3677,41 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
       const rowCap = Math.min(Math.max(visibleRows.length, 1), 10);
       const rowCapH = measuredRowsH || (rowCap * fallbackRowH);
-      // Do not add a vertical reserve for the horizontal scrollbar here.
-      // Adding that reserve is what allowed row 11 to peek through on mobile.
-      const horizontalReserve = 0;
+      const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
+      const horizontalReserve = needsXScroll ? 12 : 0;
 
-      // Hard rule: the viewport is table header + exactly max 10 visible rows.
+      // Hard rule: the viewport is table header + max 10 visible rows.
       // Rows 11+ remain inside this fixed viewport and are reached by vertical scroll.
       const desiredH = Math.max(140, Math.min(maxScrollerH, headerTableH + rowCapH + horizontalReserve));
 
       if (card){
-        card.style.flex = '0 0 auto';
-        card.style.height = desiredH + 'px';
-        card.style.maxHeight = desiredH + 'px';
-        card.style.minHeight = '0';
-        card.style.overflow = 'hidden';
+        card.style.setProperty('flex', '0 0 auto', 'important');
+        card.style.setProperty('height', desiredH + 'px', 'important');
+        card.style.setProperty('max-height', desiredH + 'px', 'important');
+        card.style.setProperty('min-height', '0', 'important');
+        card.style.setProperty('overflow', 'hidden', 'important');
       }
 
-      scroller.style.height = desiredH + 'px';
-      scroller.style.maxHeight = desiredH + 'px';
-      scroller.style.minHeight = '0';
+      // Use an !important CSS variable because a later responsive CSS block also
+      // targets .dw-scroll. This was the bit that made 15/20/All show extra rows
+      // but prevented the scroll container from actually scrolling.
+      scroller.style.setProperty('--bt-scroll-h', desiredH + 'px');
+      scroller.style.setProperty('height', desiredH + 'px', 'important');
+      scroller.style.setProperty('max-height', desiredH + 'px', 'important');
+      scroller.style.setProperty('min-height', '0', 'important');
+      scroller.style.setProperty('overflow-x', 'auto', 'important');
+      scroller.style.setProperty('overflow-y', 'scroll', 'important');
+      scroller.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+      scroller.style.setProperty('touch-action', 'pan-x pan-y', 'important');
+      scroller.style.setProperty('overscroll-behavior', 'contain', 'important');
 
       requestAnimationFrame(() => {
         const overflowsVertically = table.scrollHeight > scroller.clientHeight + 2;
         const hasExtraRows = visibleRows.length > 10;
-        scroller.style.overflowY = (hasExtraRows || overflowsVertically) ? 'auto' : 'hidden';
+        // Keep the scroll container active whenever the selected page has more
+        // than 10 rows. Do not switch back to hidden, otherwise Rows/Page 15+
+        // looks right but cannot actually scroll.
+        scroller.style.setProperty('overflow-y', (hasExtraRows || overflowsVertically) ? 'scroll' : 'hidden', 'important');
         scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
       });
     }
@@ -3801,57 +3724,36 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
 
-    // ✅ Robust nested scrolling for iframes, desktop trackpads, and mobile touch.
-    // Some CMS/iframe contexts swallow native overflow scrolling; this keeps rows 11+
-    // reachable without changing the fixed 10-row viewport height.
-    function scrollerCanScrollY(){
-      return scroller && (scroller.scrollHeight > scroller.clientHeight + 2);
-    }
-
-    scroller.addEventListener('wheel', function(e){
-      if (!scrollerCanScrollY()) return;
-      if (Math.abs(e.deltaY || 0) <= Math.abs(e.deltaX || 0)) return;
+    // Fallback for embedded iframes/WordPress/mobile browsers: keep wheel and
+    // touch gestures attached to the actual table scroller, not the outer page.
+    scroller.addEventListener('wheel', (e) => {
+      if (scroller.scrollHeight <= scroller.clientHeight + 2) return;
       const before = scroller.scrollTop;
-      const maxTop = scroller.scrollHeight - scroller.clientHeight;
-      const next = Math.max(0, Math.min(maxTop, before + e.deltaY));
-      if (next !== before) {
-        scroller.scrollTop = next;
+      scroller.scrollTop += e.deltaY;
+      if (scroller.scrollTop !== before) {
         e.preventDefault();
         e.stopPropagation();
       }
-    }, { passive:false });
+    }, { passive: false });
 
-    let __btTouchY = null;
-    let __btTouchX = null;
-    scroller.addEventListener('touchstart', function(e){
-      if (!e.touches || !e.touches.length) return;
-      __btTouchY = e.touches[0].clientY;
-      __btTouchX = e.touches[0].clientX;
-    }, { passive:true });
-
-    scroller.addEventListener('touchmove', function(e){
-      if (!scrollerCanScrollY() || __btTouchY === null || !e.touches || !e.touches.length) return;
+    let btTouchY = null;
+    scroller.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length === 1) btTouchY = e.touches[0].clientY;
+    }, { passive: true });
+    scroller.addEventListener('touchmove', (e) => {
+      if (btTouchY === null || !e.touches || e.touches.length !== 1) return;
+      if (scroller.scrollHeight <= scroller.clientHeight + 2) return;
       const y = e.touches[0].clientY;
-      const x = e.touches[0].clientX;
-      const dy = __btTouchY - y;
-      const dx = __btTouchX === null ? 0 : (__btTouchX - x);
-      if (Math.abs(dx) > Math.abs(dy)) return;
+      const dy = btTouchY - y;
       const before = scroller.scrollTop;
-      const maxTop = scroller.scrollHeight - scroller.clientHeight;
-      const next = Math.max(0, Math.min(maxTop, before + dy));
-      if (next !== before) {
-        scroller.scrollTop = next;
+      scroller.scrollTop += dy;
+      btTouchY = y;
+      if (scroller.scrollTop !== before) {
         e.preventDefault();
         e.stopPropagation();
       }
-      __btTouchY = y;
-      __btTouchX = x;
-    }, { passive:false });
-
-    scroller.addEventListener('touchend', function(){
-      __btTouchY = null;
-      __btTouchX = null;
-    }, { passive:true });
+    }, { passive: false });
+    scroller.addEventListener('touchend', () => { btTouchY = null; }, { passive: true });
 
     const heads = Array.from(table.tHead.rows[0].cells);
 
@@ -9460,7 +9362,7 @@ if main_tab == "Create New Table":
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=PREVIEW_COMPONENT_HEIGHT_PX,
-                                scrolling=False,
+                                scrolling=True,
                             )
                 else:
                     # Clear any previously mounted preview so it does NOT persist visually
