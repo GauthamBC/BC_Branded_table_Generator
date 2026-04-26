@@ -3405,6 +3405,105 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   overscroll-behavior:contain !important;
 }
 
+
+/* ======================================================
+   ✅ Final mobile/iframe scroll correction
+   ====================================================== */
+#bt-block .dw-card{ overflow:hidden !important; }
+#bt-block .dw-scroll{
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  touch-action:pan-x pan-y !important;
+  overscroll-behavior:contain !important;
+  scrollbar-gutter:stable both-edges;
+}
+#bt-block .dw-scroll.compact-fit{ overflow-y:hidden !important; }
+#bt-block .dw-scroll:not(.compact-fit){ cursor:grab; }
+#bt-block .dw-scroll:not(.compact-fit):active{ cursor:grabbing; }
+@media (max-width: 640px){
+  .vi-table-embed{
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+  #bt-block{ flex:0 0 auto !important; padding-bottom:0 !important; }
+  #bt-block .dw-controls{
+    display:grid !important;
+    grid-template-columns:minmax(110px, 1fr) auto !important;
+    gap:6px !important;
+    padding:0 10px !important;
+    margin:4px 0 8px !important;
+    align-items:center !important;
+  }
+  #bt-block .left{ min-width:0 !important; }
+  #bt-block .right{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:6px !important;
+    min-width:0 !important;
+    justify-content:flex-end !important;
+  }
+  #bt-block .dw-field{ width:100% !important; min-width:0 !important; }
+  #bt-block .dw-input{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    height:34px !important;
+    font-size:12px !important;
+    padding:7px 24px 7px 10px !important;
+  }
+  #bt-block .dw-pager{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:5px !important;
+    min-width:0 !important;
+  }
+  #bt-block .dw-status{ display:none !important; }
+  #bt-block .dw-select{
+    width:50px !important;
+    height:34px !important;
+    font-size:12px !important;
+    padding:6px 8px !important;
+  }
+  #bt-block .dw-btn[data-page]{
+    width:34px !important;
+    height:34px !important;
+    min-width:34px !important;
+  }
+  .vi-table-embed .dw-btn.dw-download,
+  .vi-table-embed button.dw-btn.dw-download{
+    width:54px !important;
+    min-width:54px !important;
+    max-width:54px !important;
+    height:34px !important;
+    padding:0 8px !important;
+    font-size:0 !important;
+    overflow:hidden !important;
+    white-space:nowrap !important;
+  }
+  .vi-table-embed .dw-btn.dw-download::after,
+  .vi-table-embed button.dw-btn.dw-download::after{
+    content:'Embed';
+    font-size:12px !important;
+    line-height:1 !important;
+  }
+  #bt-block .dw-scroll{
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch !important;
+    touch-action:pan-x pan-y !important;
+  }
+  .vi-table-embed .vi-footer{
+    min-height:76px !important;
+    height:76px !important;
+    flex-basis:76px !important;
+    padding:8px 14px !important;
+  }
+  .vi-table-embed .footer-logo{ min-width:0 !important; justify-content:center !important; }
+  .vi-table-embed .vi-footer img{ max-height:38px !important; }
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
@@ -3666,10 +3765,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
       const rowCap = Math.min(Math.max(visibleRows.length, 1), 10);
       const rowCapH = measuredRowsH || (rowCap * fallbackRowH);
-      const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
-      const horizontalReserve = needsXScroll ? 12 : 0;
+      // Do not add a vertical reserve for the horizontal scrollbar here.
+      // Adding that reserve is what allowed row 11 to peek through on mobile.
+      const horizontalReserve = 0;
 
-      // Hard rule: the viewport is table header + max 10 visible rows.
+      // Hard rule: the viewport is table header + exactly max 10 visible rows.
       // Rows 11+ remain inside this fixed viewport and are reached by vertical scroll.
       const desiredH = Math.max(140, Math.min(maxScrollerH, headerTableH + rowCapH + horizontalReserve));
 
@@ -3700,6 +3800,58 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
+
+    // ✅ Robust nested scrolling for iframes, desktop trackpads, and mobile touch.
+    // Some CMS/iframe contexts swallow native overflow scrolling; this keeps rows 11+
+    // reachable without changing the fixed 10-row viewport height.
+    function scrollerCanScrollY(){
+      return scroller && (scroller.scrollHeight > scroller.clientHeight + 2);
+    }
+
+    scroller.addEventListener('wheel', function(e){
+      if (!scrollerCanScrollY()) return;
+      if (Math.abs(e.deltaY || 0) <= Math.abs(e.deltaX || 0)) return;
+      const before = scroller.scrollTop;
+      const maxTop = scroller.scrollHeight - scroller.clientHeight;
+      const next = Math.max(0, Math.min(maxTop, before + e.deltaY));
+      if (next !== before) {
+        scroller.scrollTop = next;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { passive:false });
+
+    let __btTouchY = null;
+    let __btTouchX = null;
+    scroller.addEventListener('touchstart', function(e){
+      if (!e.touches || !e.touches.length) return;
+      __btTouchY = e.touches[0].clientY;
+      __btTouchX = e.touches[0].clientX;
+    }, { passive:true });
+
+    scroller.addEventListener('touchmove', function(e){
+      if (!scrollerCanScrollY() || __btTouchY === null || !e.touches || !e.touches.length) return;
+      const y = e.touches[0].clientY;
+      const x = e.touches[0].clientX;
+      const dy = __btTouchY - y;
+      const dx = __btTouchX === null ? 0 : (__btTouchX - x);
+      if (Math.abs(dx) > Math.abs(dy)) return;
+      const before = scroller.scrollTop;
+      const maxTop = scroller.scrollHeight - scroller.clientHeight;
+      const next = Math.max(0, Math.min(maxTop, before + dy));
+      if (next !== before) {
+        scroller.scrollTop = next;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      __btTouchY = y;
+      __btTouchX = x;
+    }, { passive:false });
+
+    scroller.addEventListener('touchend', function(){
+      __btTouchY = null;
+      __btTouchX = null;
+    }, { passive:true });
 
     const heads = Array.from(table.tHead.rows[0].cells);
 
