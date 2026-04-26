@@ -1055,53 +1055,12 @@ def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> in
 
 
 def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Estimate a tight outer iframe/preview height without touching row scrolling.
+    """Return the fixed preview/embed height.
 
-    The table body itself still shows a maximum of 10 rows and scrolls internally.
-    This function only controls the *outer* preview/iframe height so hiding the
-    header/footer/logo does not leave a big dead area at the bottom.
+    The old auto-height estimator was intentionally removed because the generated
+    iframe should now stay consistent at 800px across all tables.
     """
-    try:
-        row_count = int(row_count)
-    except Exception:
-        row_count = 0
-
-    cfg = cfg or {}
-    if df is not None and isinstance(df, pd.DataFrame):
-        row_count = len(df.index)
-        columns = list(df.columns)
-    else:
-        columns = []
-
-    show_header = bool(cfg.get("show_header", True))
-    show_footer = bool(cfg.get("show_footer", True))
-    show_search = bool(cfg.get("show_search", True))
-    show_pager = bool(cfg.get("show_pager", True))
-    show_page_numbers = bool(cfg.get("show_page_numbers", True)) and show_pager
-    show_embed = bool(cfg.get("show_embed", True))
-    embed_position = str(cfg.get("embed_position", "Body") or "Body")
-
-    header_h = 92 if show_header else 0
-    controls_h = 0
-    if show_search or show_pager or (show_embed and embed_position == "Body"):
-        controls_h = 72
-
-    max_header_lines = _estimate_header_line_count(columns, cfg=cfg, df=df)
-    table_head_h = 56 + max(0, max_header_lines - 1) * 16
-
-    # Keep the visual body capped at 10 rows. Rows 11+ are handled by the
-    # existing internal .dw-scroll logic; do not expand the outer iframe for them.
-    visible_rows = min(max(row_count, 1), 10)
-    row_h = 44
-    horizontal_scrollbar_h = 12
-    table_body_h = table_head_h + (visible_rows * row_h) + horizontal_scrollbar_h
-
-    page_status_h = 28 if show_page_numbers else 0
-    footer_h = 88 if show_footer else 0
-
-    # Small safety allowance for borders/rounding without creating a visible gap.
-    total = header_h + controls_h + table_body_h + page_status_h + footer_h + 8
-    return max(360, min(1200, int(total)))
+    return FIXED_IFRAME_HEIGHT_PX
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -1122,9 +1081,8 @@ FIXED_IFRAME_HEIGHT_PX = 800
 # Kept for backward compatibility only. The live widget now uses flex sizing
 # inside the fixed 800px frame so the footer is never pushed out of view.
 FIXED_TABLE_SCROLL_HEIGHT_PX = 588
-# Streamlit preview height is computed from the current header/footer/table controls.
-# This prevents dead space when the header/footer/logo is hidden.
-PREVIEW_COMPONENT_HEIGHT_PX = None
+# Streamlit preview gets a tiny safety allowance so the iframe border/footer is not clipped.
+PREVIEW_COMPONENT_HEIGHT_PX = FIXED_IFRAME_HEIGHT_PX
 
 PREVIEW_IFRAME_BUFFER_PX = 0
 
@@ -2169,9 +2127,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
 
-      height: auto;
-      min-height: 0;
-      max-height: none;
+      height: 800px;
+      min-height: 800px;
+      max-height: 800px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -3717,8 +3675,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }, 0);
 
       const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
-      const rowCap = Math.min(Math.max(visibleRows.length, 1), 10);
-      const rowCapH = measuredRowsH || (rowCap * fallbackRowH);
+      // Keep the table viewport consistent across all pages, including the last page.
+      // Even when a page has fewer than 10 rows (e.g. Bottom 10/last page),
+      // reserve the same 10-row body height so the footer does not jump upward.
+      const rowCap = 10;
+      const averageMeasuredRowH = firstTenRows.length
+        ? Math.ceil(measuredRowsH / firstTenRows.length)
+        : fallbackRowH;
+      const rowCapH = averageMeasuredRowH * rowCap;
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const horizontalReserve = needsXScroll ? 12 : 0;
 
@@ -4401,19 +4365,32 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         cloneScroller.classList.add('no-scroll');
       }
 
-        // ✅ Export width = the full visible selected-column table width.
+      // ✅ PNG export only: fully unlock the layout so Top 10 / Bottom 10
+      // captures are based on the actual rendered content, not the live scroller box.
+      const exportBlock = clone.querySelector('#bt-block');
+      const exportCard = clone.querySelector('#bt-block .dw-card');
+      const exportFooter = clone.querySelector('.vi-footer');
+      [clone, exportBlock, exportCard, cloneScroller, exportFooter].filter(Boolean).forEach(el => {
+        el.style.height = 'auto';
+        el.style.maxHeight = 'none';
+        el.style.minHeight = '0';
+        el.style.overflow = 'visible';
+      });
+
+      // ✅ Export width = the full visible selected-column table width.
       // This prevents the 5th selected image column from being clipped in PNG downloads.
       clone.style.maxWidth = "none";
       clone.style.width = Math.max(900, Math.ceil(targetWidth || 1200)) + "px";
       clone.style.margin = "0";
       clone.style.paddingTop = "0";
+      clone.style.paddingBottom = "0";
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
       await waitForFontsAndImages(clone);
 
       const exportTable = clone.querySelector('#bt-block table.dw-table');
-      const exportCard = clone.querySelector('#bt-block .dw-card');
+      const exportCard2 = clone.querySelector('#bt-block .dw-card');
       const naturalTableW = exportTable ? Math.ceil(exportTable.scrollWidth || exportTable.getBoundingClientRect().width || 0) : 0;
-      const naturalCardW = exportCard ? Math.ceil(exportCard.scrollWidth || exportCard.getBoundingClientRect().width || 0) : 0;
+      const naturalCardW = exportCard2 ? Math.ceil(exportCard2.scrollWidth || exportCard2.getBoundingClientRect().width || 0) : 0;
       const w = Math.max(
         900,
         Math.min(2400, Math.max(Math.ceil(targetWidth || 1200), naturalTableW, naturalCardW))
@@ -4421,11 +4398,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       clone.style.width = w + "px";
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
 
-      const fullH = Math.ceil(Math.max(
-        clone.scrollHeight || 0,
-        clone.offsetHeight || 0,
-        clone.getBoundingClientRect().height || 0
-      ));
+      // ✅ Use the actual rendered box height, not scrollHeight. scrollHeight can include
+      // hidden/slack areas in the export clone and creates the huge white gap on Bottom 10.
+      const rectH = clone.getBoundingClientRect().height || 0;
+      const offsetH = clone.offsetHeight || 0;
+      const contentH = Math.max(rectH, offsetH);
+      const EXPORT_SAFETY_PX = 18; // prevents the 10th row/footer border being clipped in PNGs
+      const fullH = Math.ceil(contentH + EXPORT_SAFETY_PX);
 
       const MAX_CAPTURE_AREA = 28_000_000;
       const area = Math.ceil(w) * Math.ceil(fullH);
@@ -4455,22 +4434,27 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         scrollY: 0,
       });
 
-      canvas.toBlob((blob)=>{
-        if(!blob){
-          stage.remove();
-          console.warn("PNG export failed: no blob returned.");
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename + '.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 1500);
-        stage.remove();
-      }, 'image/png');
+      await new Promise((resolve)=>{
+        canvas.toBlob((blob)=>{
+          try{
+            if(!blob){
+              console.warn("PNG export failed: no blob returned.");
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename + '.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(()=>URL.revokeObjectURL(url), 1500);
+          } finally {
+            stage.remove();
+            resolve();
+          }
+        }, 'image/png');
+      });
     }
 
     async function downloadDomPng(mode){
@@ -4486,7 +4470,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         stage.style.left = '-100000px';
         stage.style.top = '0';
         stage.style.background = '#ffffff';
-        stage.style.zIndex = '-1';
+        stage.style.zIndex = '2147483647';
+        stage.style.opacity = '0';
+        stage.style.pointerEvents = 'none';
         stage.style.margin = '0';
         stage.style.padding = '0';
         stage.style.overflow = 'visible';
@@ -4528,6 +4514,25 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
             padding:0 !important;
             border-top:0 !important;
             overflow:visible !important;
+            height:auto !important;
+            min-height:0 !important;
+            max-height:none !important;
+          }
+          .vi-table-embed.export-mode #bt-block,
+          .vi-table-embed.export-mode #bt-block .dw-card,
+          .vi-table-embed.export-mode #bt-block .dw-scroll{
+            height:auto !important;
+            min-height:0 !important;
+            max-height:none !important;
+            overflow:visible !important;
+            flex:none !important;
+          }
+          .vi-table-embed.export-mode .vi-footer{
+            min-height:88px !important;
+            height:88px !important;
+            flex:0 0 88px !important;
+            padding-top:10px !important;
+            padding-bottom:10px !important;
           }
           /* ✅ PNG export only: remove the little top breathing room above the table */
           .vi-table-embed.export-mode #bt-block{
@@ -5987,16 +5992,8 @@ def measure_rendered_html_height_playwright(html: str, min_height: int = 320, ex
 
 
 def resolve_final_iframe_height(html: str, fallback_height: int, min_height: int = 320, extra_padding: int = PREVIEW_IFRAME_BUFFER_PX) -> tuple[int, str]:
-    """Use the current layout estimate as the published iframe height.
-
-    This keeps the inner table scroll behaviour untouched while preventing dead
-    space when optional sections such as the header/footer are hidden.
-    """
-    try:
-        h = int(fallback_height or FIXED_IFRAME_HEIGHT_PX) + int(extra_padding or 0)
-    except Exception:
-        h = FIXED_IFRAME_HEIGHT_PX
-    return max(int(min_height or 320), min(1200, h)), 'layout-estimate'
+    """Use the fixed iframe height instead of measuring/estimating dynamically."""
+    return FIXED_IFRAME_HEIGHT_PX, 'fixed'
 
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
@@ -6013,12 +6010,8 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    # Use the height passed from the current layout estimate.
-    # Desktop/mobile table scrolling is handled inside the widget, not by forcing 800px.
-    try:
-        h = max(320, min(1200, int(height or FIXED_IFRAME_HEIGHT_PX)))
-    except Exception:
-        h = FIXED_IFRAME_HEIGHT_PX
+    # Height is intentionally locked for consistency; users can edit the snippet manually if needed.
+    h = FIXED_IFRAME_HEIGHT_PX
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
@@ -9199,7 +9192,7 @@ if main_tab == "Create New Table":
                                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                     if live:
-                                        published_iframe_height = int(final_publish_height)
+                                        published_iframe_height = FIXED_IFRAME_HEIGHT_PX
                                         st.session_state["bt_iframe_height"] = published_iframe_height
                                         st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                             pages_url,
@@ -9211,7 +9204,7 @@ if main_tab == "Create New Table":
                                         st.session_state["bt_publish_in_progress"] = False
                                         st.session_state["bt_live_confirmed"] = True
 
-                                        st.success(f"✅ Page is live. IFrame is ready. Height: {published_iframe_height}px.")
+                                        st.success(f"✅ Page is live. IFrame is ready. Fixed height: {published_iframe_height}px.")
                                     else:
                                         st.session_state["bt_iframe_code"] = ""
                                 
@@ -9415,7 +9408,7 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=int(preview_height),
+                                height=PREVIEW_COMPONENT_HEIGHT_PX,
                                 scrolling=True,
                             )
                 else:
