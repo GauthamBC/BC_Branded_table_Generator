@@ -3189,6 +3189,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       width:100%;
       min-width:0;
     }
+    /* Fills any leftover iframe viewport below the footer with the same footer tint.
+       This removes white dead-space from fixed/mobile iframe heights without
+       changing table rows, footer height, or scroll logic. */
+    .vi-table-embed .bt-bottom-fill{
+      display:block;
+      height:0;
+      flex:0 0 auto;
+      background:rgba(var(--brand-500-rgb), .055);
+      overflow:hidden;
+    }
     .vi-table-embed .footer-inner{
       display:flex;
       justify-content:flex-end;
@@ -3525,6 +3535,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 </div>
 </div>
 </div>
+<div aria-hidden="true" class="bt-bottom-fill"></div>
 <div aria-hidden="true" class="dw-modal-backdrop vi-hide" id="dw-embed-modal">
 <div aria-labelledby="dw-modal-title" aria-modal="true" class="dw-modal" role="dialog">
 <div class="dw-modal-head">
@@ -4878,11 +4889,36 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
     if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
-    window.addEventListener('resize', syncMeasuredScrollerHeight);
-    window.addEventListener('load', syncMeasuredScrollerHeight);
+    function syncBottomFill(){
+      if (!widgetRoot) return;
+      const fill = widgetRoot.querySelector('.bt-bottom-fill');
+      const footer = widgetRoot.querySelector('.vi-footer:not(.vi-hide)');
+      if (!fill) return;
+
+      // Reset before measuring so repeated calls do not compound the filler height.
+      fill.style.height = '0px';
+
+      const footerBg = footer ? window.getComputedStyle(footer).backgroundColor : 'rgba(233,27,42,.055)';
+      fill.style.background = footerBg;
+
+      const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+      const bottom = widgetRoot.getBoundingClientRect().bottom;
+      const needed = Math.max(0, Math.floor(viewportH - bottom - 1));
+
+      fill.style.height = needed + 'px';
+    }
+
+    function syncLayout(){
+      syncMeasuredScrollerHeight();
+      requestAnimationFrame(syncBottomFill);
+      setTimeout(syncBottomFill, 120);
+    }
+
+    window.addEventListener('resize', syncLayout);
+    window.addEventListener('load', syncLayout);
     renderPage();
     syncMenuOptions();
-    syncMeasuredScrollerHeight();
+    syncLayout();
   })();
   </script>
 </section>
@@ -5999,7 +6035,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
-    scrolling="yes"
+    scrolling="auto"
     style="border:0; border-radius:0; overflow:auto; display:block; height:clamp({mobile_h}px, 100vw, {h}px); -webkit-overflow-scrolling:touch;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
