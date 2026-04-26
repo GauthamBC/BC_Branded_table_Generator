@@ -2459,17 +2459,22 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         gap: 6px !important;
       }
       .vi-table-embed .vi-table-header .title{
-        font-size: clamp(22px, 7.2vw, 30px) !important;
-        line-height: 0.98 !important;
-        letter-spacing: -0.035em !important;
+        font-size: clamp(18px, 5.4vw, 22px) !important;
+        line-height: 1.08 !important;
+        letter-spacing: -0.025em !important;
         max-width: 100% !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
       }
       .vi-table-embed .vi-table-header .subtitle{
-        font-size: clamp(13px, 4vw, 16px) !important;
-        line-height: 1.18 !important;
+        font-size: clamp(11.5px, 3.3vw, 13px) !important;
+        line-height: 1.22 !important;
         max-width: 100% !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
       }
 
+      /* Mobile title/subtitle deliberately ignore desktop Large/Extra large settings. */
       /* Mobile controls: keep search, rows/page, pager and embed on ONE row */
       #bt-block{
         padding-top: 10px !important;
@@ -2568,10 +2573,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     @media (max-width: 390px){
       .vi-table-embed .vi-table-header .title{
-        font-size: clamp(20px, 6.6vw, 26px) !important;
+        font-size: clamp(17px, 5.1vw, 20px) !important;
+        line-height: 1.08 !important;
       }
       .vi-table-embed .vi-table-header .subtitle{
-        font-size: 13px !important;
+        font-size: 11.5px !important;
+        line-height: 1.22 !important;
       }
       #bt-block .right{
         gap: 5px !important;
@@ -3382,15 +3389,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 #bt-block .dw-scroll{
   margin: 0;
-  height: var(--bt-scroll-h, 520px) !important;
-  max-height: var(--bt-scroll-h, 520px) !important;
+  height: auto !important;
+  max-height: none !important;
   min-height: 0 !important;
   flex: 0 0 auto !important;
-  overflow-x: auto !important;
-  overflow-y: scroll !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
-  overscroll-behavior: contain !important;
+  overflow-y: auto !important;
 }
 
 #bt-block .dw-page-status{
@@ -3402,18 +3405,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 /* ✅ Hard scroll guard: the table body itself must remain scrollable */
 #bt-block .dw-card{ overflow:hidden !important; }
 #bt-block .dw-scroll{
-  height: var(--bt-scroll-h, 520px) !important;
-  max-height: var(--bt-scroll-h, 520px) !important;
   overflow-x:auto !important;
-  overflow-y:scroll !important;
+  overflow-y:auto;
   -webkit-overflow-scrolling:touch !important;
   touch-action:pan-x pan-y !important;
   overscroll-behavior:contain !important;
-}
-#bt-block thead th{
-  position: sticky;
-  top: 0;
-  z-index: 6;
 }
 
 </style>
@@ -3685,33 +3681,21 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const desiredH = Math.max(140, Math.min(maxScrollerH, headerTableH + rowCapH + horizontalReserve));
 
       if (card){
-        card.style.setProperty('flex', '0 0 auto', 'important');
-        card.style.setProperty('height', desiredH + 'px', 'important');
-        card.style.setProperty('max-height', desiredH + 'px', 'important');
-        card.style.setProperty('min-height', '0', 'important');
-        card.style.setProperty('overflow', 'hidden', 'important');
+        card.style.flex = '0 0 auto';
+        card.style.height = desiredH + 'px';
+        card.style.maxHeight = desiredH + 'px';
+        card.style.minHeight = '0';
+        card.style.overflow = 'hidden';
       }
 
-      // Use an !important CSS variable because a later responsive CSS block also
-      // targets .dw-scroll. This was the bit that made 15/20/All show extra rows
-      // but prevented the scroll container from actually scrolling.
-      scroller.style.setProperty('--bt-scroll-h', desiredH + 'px');
-      scroller.style.setProperty('height', desiredH + 'px', 'important');
-      scroller.style.setProperty('max-height', desiredH + 'px', 'important');
-      scroller.style.setProperty('min-height', '0', 'important');
-      scroller.style.setProperty('overflow-x', 'auto', 'important');
-      scroller.style.setProperty('overflow-y', 'scroll', 'important');
-      scroller.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
-      scroller.style.setProperty('touch-action', 'pan-x pan-y', 'important');
-      scroller.style.setProperty('overscroll-behavior', 'contain', 'important');
+      scroller.style.height = desiredH + 'px';
+      scroller.style.maxHeight = desiredH + 'px';
+      scroller.style.minHeight = '0';
 
       requestAnimationFrame(() => {
         const overflowsVertically = table.scrollHeight > scroller.clientHeight + 2;
         const hasExtraRows = visibleRows.length > 10;
-        // Keep the scroll container active whenever the selected page has more
-        // than 10 rows. Do not switch back to hidden, otherwise Rows/Page 15+
-        // looks right but cannot actually scroll.
-        scroller.style.setProperty('overflow-y', (hasExtraRows || overflowsVertically) ? 'scroll' : 'hidden', 'important');
+        scroller.style.overflowY = (hasExtraRows || overflowsVertically) ? 'auto' : 'hidden';
         scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
       });
     }
@@ -3723,37 +3707,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     const onScrollShadow = ()=> scroller.classList.toggle('scrolled', scroller.scrollTop > 0);
     scroller.addEventListener('scroll', onScrollShadow); onScrollShadow();
-
-    // Fallback for embedded iframes/WordPress/mobile browsers: keep wheel and
-    // touch gestures attached to the actual table scroller, not the outer page.
-    scroller.addEventListener('wheel', (e) => {
-      if (scroller.scrollHeight <= scroller.clientHeight + 2) return;
-      const before = scroller.scrollTop;
-      scroller.scrollTop += e.deltaY;
-      if (scroller.scrollTop !== before) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, { passive: false });
-
-    let btTouchY = null;
-    scroller.addEventListener('touchstart', (e) => {
-      if (e.touches && e.touches.length === 1) btTouchY = e.touches[0].clientY;
-    }, { passive: true });
-    scroller.addEventListener('touchmove', (e) => {
-      if (btTouchY === null || !e.touches || e.touches.length !== 1) return;
-      if (scroller.scrollHeight <= scroller.clientHeight + 2) return;
-      const y = e.touches[0].clientY;
-      const dy = btTouchY - y;
-      const before = scroller.scrollTop;
-      scroller.scrollTop += dy;
-      btTouchY = y;
-      if (scroller.scrollTop !== before) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, { passive: false });
-    scroller.addEventListener('touchend', () => { btTouchY = null; }, { passive: true });
 
     const heads = Array.from(table.tHead.rows[0].cells);
 
@@ -9362,7 +9315,7 @@ if main_tab == "Create New Table":
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=PREVIEW_COMPONENT_HEIGHT_PX,
-                                scrolling=True,
+                                scrolling=False,
                             )
                 else:
                     # Clear any previously mounted preview so it does NOT persist visually
