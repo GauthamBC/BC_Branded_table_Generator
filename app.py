@@ -1055,12 +1055,53 @@ def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> in
 
 
 def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Return the fixed preview/embed height.
+    """Estimate a tight outer iframe/preview height without touching row scrolling.
 
-    The old auto-height estimator was intentionally removed because the generated
-    iframe should now stay consistent at 800px across all tables.
+    The table body itself still shows a maximum of 10 rows and scrolls internally.
+    This function only controls the *outer* preview/iframe height so hiding the
+    header/footer/logo does not leave a big dead area at the bottom.
     """
-    return FIXED_IFRAME_HEIGHT_PX
+    try:
+        row_count = int(row_count)
+    except Exception:
+        row_count = 0
+
+    cfg = cfg or {}
+    if df is not None and isinstance(df, pd.DataFrame):
+        row_count = len(df.index)
+        columns = list(df.columns)
+    else:
+        columns = []
+
+    show_header = bool(cfg.get("show_header", True))
+    show_footer = bool(cfg.get("show_footer", True))
+    show_search = bool(cfg.get("show_search", True))
+    show_pager = bool(cfg.get("show_pager", True))
+    show_page_numbers = bool(cfg.get("show_page_numbers", True)) and show_pager
+    show_embed = bool(cfg.get("show_embed", True))
+    embed_position = str(cfg.get("embed_position", "Body") or "Body")
+
+    header_h = 92 if show_header else 0
+    controls_h = 0
+    if show_search or show_pager or (show_embed and embed_position == "Body"):
+        controls_h = 72
+
+    max_header_lines = _estimate_header_line_count(columns, cfg=cfg, df=df)
+    table_head_h = 56 + max(0, max_header_lines - 1) * 16
+
+    # Keep the visual body capped at 10 rows. Rows 11+ are handled by the
+    # existing internal .dw-scroll logic; do not expand the outer iframe for them.
+    visible_rows = min(max(row_count, 1), 10)
+    row_h = 44
+    horizontal_scrollbar_h = 12
+    table_body_h = table_head_h + (visible_rows * row_h) + horizontal_scrollbar_h
+
+    page_status_h = 28 if show_page_numbers else 0
+    footer_h = 88 if show_footer else 0
+
+    # Small safety allowance for borders/rounding without creating a visible gap.
+    total = header_h + controls_h + table_body_h + page_status_h + footer_h + 8
+    return max(360, min(1200, int(total)))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -1081,8 +1122,9 @@ FIXED_IFRAME_HEIGHT_PX = 800
 # Kept for backward compatibility only. The live widget now uses flex sizing
 # inside the fixed 800px frame so the footer is never pushed out of view.
 FIXED_TABLE_SCROLL_HEIGHT_PX = 588
-# Streamlit preview gets a tiny safety allowance so the iframe border/footer is not clipped.
-PREVIEW_COMPONENT_HEIGHT_PX = FIXED_IFRAME_HEIGHT_PX
+# Streamlit preview height is computed from the current header/footer/table controls.
+# This prevents dead space when the header/footer/logo is hidden.
+PREVIEW_COMPONENT_HEIGHT_PX = None
 
 PREVIEW_IFRAME_BUFFER_PX = 0
 
@@ -2069,7 +2111,7 @@ def get_brand_meta(brand: str) -> dict:
 HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
 <!DOCTYPE html>
 
-<html lang="en" class="[[BRAND_CLASS]]">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
@@ -2084,30 +2126,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <style>
     html, body { height:100%; }
     body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
-
-    /* Fill any iframe viewport slack with the footer tint instead of white.
-       This is a presentation-only fix and does not touch table/row scrolling. */
-    html, body{ background:var(--page-scroll-track, #FFF1F1) !important; }
-
-    /* ✅ Mobile outer-iframe scroll styling.
-       The table body scroller is untouched; this only styles the page scrollbar
-       that appears when the iframe is intentionally shorter on phones. */
-    html{
-      --page-scroll-thumb:#E91B2A;
-      --page-scroll-track:rgba(233,27,42,.10);
-      scrollbar-width:thin;
-      scrollbar-color:var(--page-scroll-thumb) var(--page-scroll-track);
-    }
-    html.brand-canadasb{ --page-scroll-thumb:#FF3B1F; --page-scroll-track:#FFF1F1; }
-    html.brand-vegasinsider{ --page-scroll-thumb:#F2C23A; --page-scroll-track:#FFF8E3; }
-    html.brand-actionnetwork{ --page-scroll-thumb:#56C257; --page-scroll-track:#F3FCF5; }
-    html.brand-rotogrinders{ --page-scroll-thumb:#1B64D8; --page-scroll-track:#F0F6FF; }
-    html.brand-aceodds{ --page-scroll-thumb:#1F2937; --page-scroll-track:#F4F6FA; }
-    html.brand-bolavip{ --page-scroll-thumb:#E91B2A; --page-scroll-track:#FFF1F2; }
-    body::-webkit-scrollbar{ width:6px; height:6px; }
-    body::-webkit-scrollbar-track{ background:var(--page-scroll-track); }
-    body::-webkit-scrollbar-thumb{ background:var(--page-scroll-thumb); border-radius:999px; }
-
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -2151,9 +2169,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
 
-      height: 800px;
-      min-height: 800px;
-      max-height: 800px;
+      height: auto;
+      min-height: 0;
+      max-height: none;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -2268,10 +2286,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     .vi-table-embed.brand-bolavip .vi-table-header,
     .vi-table-embed.brand-bolavip .vi-footer{ background:#FFF1F2; }
-
-    /* Keep any unused fixed-iframe area visually attached to the footer. */
-    .vi-table-embed{ background:rgba(var(--brand-500-rgb), .055) !important; }
-    .vi-table-embed #bt-block{ background:#ffffff !important; }
 
     /* Header block - clean editorial flat tint, no gradient */
     .vi-table-embed .vi-table-header{
@@ -3197,17 +3211,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       width:100%;
       min-width:0;
     }
-    /* Fills any leftover iframe viewport below the footer with the same footer tint.
-       This removes white dead-space from fixed/mobile iframe heights without
-       changing table rows, footer height, or scroll logic. */
-    .vi-table-embed .bt-bottom-fill{
-      display:block;
-      height:auto;
-      min-height:0;
-      flex:1 1 auto;
-      background:rgba(var(--brand-500-rgb), .055);
-      overflow:hidden;
-    }
     .vi-table-embed .footer-inner{
       display:flex;
       justify-content:flex-end;
@@ -3544,7 +3547,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 </div>
 </div>
 </div>
-<div aria-hidden="true" class="bt-bottom-fill"></div>
 <div aria-hidden="true" class="dw-modal-backdrop vi-hide" id="dw-embed-modal">
 <div aria-labelledby="dw-modal-title" aria-modal="true" class="dw-modal" role="dialog">
 <div class="dw-modal-head">
@@ -4898,36 +4900,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
     if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
-    function syncBottomFill(){
-      if (!widgetRoot) return;
-      const fill = widgetRoot.querySelector('.bt-bottom-fill');
-      const footer = widgetRoot.querySelector('.vi-footer:not(.vi-hide)');
-      if (!fill) return;
-
-      // Reset before measuring so repeated calls do not compound the filler height.
-      fill.style.height = '0px';
-
-      const footerBg = footer ? window.getComputedStyle(footer).backgroundColor : 'rgba(233,27,42,.055)';
-      fill.style.background = footerBg;
-
-      const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
-      const bottom = widgetRoot.getBoundingClientRect().bottom;
-      const needed = Math.max(0, Math.floor(viewportH - bottom - 1));
-
-      fill.style.height = needed + 'px';
-    }
-
-    function syncLayout(){
-      syncMeasuredScrollerHeight();
-      requestAnimationFrame(syncBottomFill);
-      setTimeout(syncBottomFill, 120);
-    }
-
-    window.addEventListener('resize', syncLayout);
-    window.addEventListener('load', syncLayout);
+    window.addEventListener('resize', syncMeasuredScrollerHeight);
+    window.addEventListener('load', syncMeasuredScrollerHeight);
     renderPage();
     syncMenuOptions();
-    syncLayout();
+    syncMeasuredScrollerHeight();
   })();
   </script>
 </section>
@@ -6010,8 +5987,16 @@ def measure_rendered_html_height_playwright(html: str, min_height: int = 320, ex
 
 
 def resolve_final_iframe_height(html: str, fallback_height: int, min_height: int = 320, extra_padding: int = PREVIEW_IFRAME_BUFFER_PX) -> tuple[int, str]:
-    """Use the fixed iframe height instead of measuring/estimating dynamically."""
-    return FIXED_IFRAME_HEIGHT_PX, 'fixed'
+    """Use the current layout estimate as the published iframe height.
+
+    This keeps the inner table scroll behaviour untouched while preventing dead
+    space when optional sections such as the header/footer are hidden.
+    """
+    try:
+        h = int(fallback_height or FIXED_IFRAME_HEIGHT_PX) + int(extra_padding or 0)
+    except Exception:
+        h = FIXED_IFRAME_HEIGHT_PX
+    return max(int(min_height or 320), min(1200, h)), 'layout-estimate'
 
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
@@ -6028,24 +6013,24 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    # Desktop remains locked at 800px.
-    # On narrow screens, the iframe viewport becomes shorter and scrollable so
-    # mobile does not show dead white space under the footer. The widget/table
-    # scroll logic inside the iframe is intentionally untouched.
-    h = FIXED_IFRAME_HEIGHT_PX
-    mobile_h = 720
+    # Use the height passed from the current layout estimate.
+    # Desktop/mobile table scrolling is handled inside the widget, not by forcing 800px.
+    try:
+        h = max(320, min(1200, int(height or FIXED_IFRAME_HEIGHT_PX)))
+    except Exception:
+        h = FIXED_IFRAME_HEIGHT_PX
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
 
-    return f"""<!-- ✅ {embed_label} embed (desktop 800px; mobile scrollable, no dead space) -->
+    return f"""<!-- ✅ {embed_label} embed (max-width: {max_width}px, centered, aligned to article text) -->
 <div style="max-width: {max_width}px; margin: 0 auto; padding: 0;">
   <iframe
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
-    scrolling="auto"
-    style="border:0; border-radius:0; overflow:auto; display:block; height:clamp({mobile_h}px, 100vw, {h}px); -webkit-overflow-scrolling:touch;"
+    scrolling="no"
+    style="border:0; border-radius:0; overflow:hidden; display:block;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
     allow="clipboard-write"
@@ -9214,7 +9199,7 @@ if main_tab == "Create New Table":
                                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                     if live:
-                                        published_iframe_height = FIXED_IFRAME_HEIGHT_PX
+                                        published_iframe_height = int(final_publish_height)
                                         st.session_state["bt_iframe_height"] = published_iframe_height
                                         st.session_state["bt_iframe_code"] = build_iframe_snippet(
                                             pages_url,
@@ -9226,7 +9211,7 @@ if main_tab == "Create New Table":
                                         st.session_state["bt_publish_in_progress"] = False
                                         st.session_state["bt_live_confirmed"] = True
 
-                                        st.success(f"✅ Page is live. IFrame is ready. Fixed height: {published_iframe_height}px.")
+                                        st.success(f"✅ Page is live. IFrame is ready. Height: {published_iframe_height}px.")
                                     else:
                                         st.session_state["bt_iframe_code"] = ""
                                 
@@ -9430,7 +9415,7 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=PREVIEW_COMPONENT_HEIGHT_PX,
+                                height=int(preview_height),
                                 scrolling=True,
                             )
                 else:
