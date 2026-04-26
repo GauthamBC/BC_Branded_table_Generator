@@ -2069,7 +2069,7 @@ def get_brand_meta(brand: str) -> dict:
 HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" class="[[BRAND_CLASS]]">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
@@ -2084,6 +2084,26 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <style>
     html, body { height:100%; }
     body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+
+    /* ✅ Mobile outer-iframe scroll styling.
+       The table body scroller is untouched; this only styles the page scrollbar
+       that appears when the iframe is intentionally shorter on phones. */
+    html{
+      --page-scroll-thumb:#E91B2A;
+      --page-scroll-track:rgba(233,27,42,.10);
+      scrollbar-width:thin;
+      scrollbar-color:var(--page-scroll-thumb) var(--page-scroll-track);
+    }
+    html.brand-canadasb{ --page-scroll-thumb:#FF3B1F; --page-scroll-track:#FFF1F1; }
+    html.brand-vegasinsider{ --page-scroll-thumb:#F2C23A; --page-scroll-track:#FFF8E3; }
+    html.brand-actionnetwork{ --page-scroll-thumb:#56C257; --page-scroll-track:#F3FCF5; }
+    html.brand-rotogrinders{ --page-scroll-thumb:#1B64D8; --page-scroll-track:#F0F6FF; }
+    html.brand-aceodds{ --page-scroll-thumb:#1F2937; --page-scroll-track:#F4F6FA; }
+    html.brand-bolavip{ --page-scroll-thumb:#E91B2A; --page-scroll-track:#FFF1F2; }
+    body::-webkit-scrollbar{ width:6px; height:6px; }
+    body::-webkit-scrollbar-track{ background:var(--page-scroll-track); }
+    body::-webkit-scrollbar-thumb{ background:var(--page-scroll-thumb); border-radius:999px; }
+
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -5963,20 +5983,24 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    # Height is intentionally locked for consistency; users can edit the snippet manually if needed.
+    # Desktop remains locked at 800px.
+    # On narrow screens, the iframe viewport becomes shorter and scrollable so
+    # mobile does not show dead white space under the footer. The widget/table
+    # scroll logic inside the iframe is intentionally untouched.
     h = FIXED_IFRAME_HEIGHT_PX
+    mobile_h = 720
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
 
-    return f"""<!-- ✅ {embed_label} embed (max-width: {max_width}px, centered, aligned to article text) -->
+    return f"""<!-- ✅ {embed_label} embed (desktop 800px; mobile scrollable, no dead space) -->
 <div style="max-width: {max_width}px; margin: 0 auto; padding: 0;">
   <iframe
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
-    scrolling="no"
-    style="border:0; border-radius:0; overflow:hidden; display:block;"
+    scrolling="yes"
+    style="border:0; border-radius:0; overflow:auto; display:block; height:clamp({mobile_h}px, 100vw, {h}px); -webkit-overflow-scrolling:touch;"
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
     allow="clipboard-write"
