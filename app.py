@@ -1082,7 +1082,7 @@ FIXED_IFRAME_HEIGHT_PX = 800
 # inside the fixed 800px frame so the footer is never pushed out of view.
 FIXED_TABLE_SCROLL_HEIGHT_PX = 588
 # Streamlit preview gets a tiny safety allowance so the iframe border/footer is not clipped.
-PREVIEW_COMPONENT_HEIGHT_PX = 820
+PREVIEW_COMPONENT_HEIGHT_PX = FIXED_IFRAME_HEIGHT_PX
 
 PREVIEW_IFRAME_BUFFER_PX = 0
 
@@ -2085,6 +2085,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     html, body { height:100%; }
     body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 
+    /* Fill any iframe viewport slack with the footer tint instead of white.
+       This is a presentation-only fix and does not touch table/row scrolling. */
+    html, body{ background:var(--page-scroll-track, #FFF1F1) !important; }
+
     /* ✅ Mobile outer-iframe scroll styling.
        The table body scroller is untouched; this only styles the page scrollbar
        that appears when the iframe is intentionally shorter on phones. */
@@ -2264,6 +2268,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     .vi-table-embed.brand-bolavip .vi-table-header,
     .vi-table-embed.brand-bolavip .vi-footer{ background:#FFF1F2; }
+
+    /* Keep any unused fixed-iframe area visually attached to the footer. */
+    .vi-table-embed{ background:rgba(var(--brand-500-rgb), .055) !important; }
+    .vi-table-embed #bt-block{ background:#ffffff !important; }
 
     /* Header block - clean editorial flat tint, no gradient */
     .vi-table-embed .vi-table-header{
@@ -3194,8 +3202,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
        changing table rows, footer height, or scroll logic. */
     .vi-table-embed .bt-bottom-fill{
       display:block;
-      height:0;
-      flex:0 0 auto;
+      height:auto;
+      min-height:0;
+      flex:1 1 auto;
       background:rgba(var(--brand-500-rgb), .055);
       overflow:hidden;
     }
