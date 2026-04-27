@@ -2140,13 +2140,13 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow:hidden; background:#ffffff;">
+<body style="margin:0; overflow:hidden; background:transparent;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
-    html, body { height:100%; }
+    html, body { height:auto; min-height:0; overflow:hidden; margin:0; padding:0; background:transparent; }
     body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
@@ -3785,8 +3785,32 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         // looks right but cannot actually scroll.
         scroller.style.setProperty('overflow-y', (hasExtraRows || overflowsVertically) ? 'scroll' : 'hidden', 'important');
         scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
+        syncOuterIframeToWidget();
       });
     }
+
+    // Keep the outer iframe/component trimmed to the actual widget height.
+    // This removes the white/bordered dead-space that can appear below the footer
+    // when Streamlit or WordPress gives the iframe a slightly taller fixed height.
+    function syncOuterIframeToWidget(){
+      try {
+        if (!widgetRoot || !window.frameElement) return;
+        const rect = widgetRoot.getBoundingClientRect();
+        const h = Math.ceil(rect.height || widgetRoot.offsetHeight || 0);
+        if (!h || h < 120) return;
+        window.frameElement.style.height = h + 'px';
+        window.frameElement.style.minHeight = h + 'px';
+        window.frameElement.style.maxHeight = h + 'px';
+        window.frameElement.setAttribute('height', String(h));
+        window.frameElement.style.overflow = 'hidden';
+      } catch(e) {}
+    }
+
+    window.addEventListener('load', () => {
+      window.setTimeout(syncOuterIframeToWidget, 0);
+      window.setTimeout(syncOuterIframeToWidget, 120);
+      window.setTimeout(syncOuterIframeToWidget, 350);
+    });
 
     window.addEventListener('resize', () => {
       window.clearTimeout(window.__btResizeT);
