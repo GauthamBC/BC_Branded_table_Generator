@@ -1055,12 +1055,63 @@ def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> in
 
 
 def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Return the fixed preview/embed height.
+    """Estimate the preview/embed height so compact tables do not leave a bordered blank gap.
 
-    The old auto-height estimator was intentionally removed because the generated
-    iframe should now stay consistent at 800px across all tables.
+    The table viewport still caps at 10 visible rows and keeps the internal branded
+    scrollbar for larger tables, but the outer widget/iframe can now shrink for
+    compact layouts instead of always reserving 800px.
     """
-    return FIXED_IFRAME_HEIGHT_PX
+    cfg = cfg or {}
+
+    try:
+        row_count = int(row_count or 0)
+    except Exception:
+        row_count = 0
+
+    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
+
+    show_header = bool(cfg.get("show_header", True))
+    show_footer = bool(cfg.get("show_footer", True))
+    show_search = bool(cfg.get("show_search", True))
+    show_pager = bool(cfg.get("show_pager", True))
+    show_embed = bool(cfg.get("show_embed", True))
+    show_page_numbers = bool(cfg.get("show_page_numbers", True))
+    embed_position = str(cfg.get("embed_position", "Body") or "Body").strip().lower()
+
+    body_embed_active = show_embed and embed_position == "body"
+    controls_active = bool(show_search or show_pager or body_embed_active)
+    page_status_active = bool(show_page_numbers and show_pager)
+
+    # These mirror the CSS sizing in HTML_TEMPLATE_TABLE.
+    header_h = 88 if show_header else 0
+    footer_h = 88 if show_footer else 0
+    root_vertical_padding = 22
+    controls_h = 48 if controls_active else 0
+    page_status_h = 28 if page_status_active else 0
+
+    header_lines = _estimate_header_line_count(
+        list(getattr(df, "columns", []) or []),
+        cfg=cfg,
+        df=df,
+    ) if df is not None else 1
+    table_head_h = 40 + max(0, header_lines - 1) * 14
+
+    # CSS rows are fairly compact; use a conservative estimate and cap at 10 rows.
+    row_h = 42
+    table_viewport_h = table_head_h + (visible_rows * row_h) + 12
+
+    total_h = (
+        header_h
+        + root_vertical_padding
+        + controls_h
+        + table_viewport_h
+        + page_status_h
+        + footer_h
+        + 10  # small safety buffer for borders/rounding
+    )
+
+    # Keep enough room for tiny tables, while avoiding the old forced 800px gap.
+    return max(420, min(900, int(total_h)))
 
 
 def compute_widget_table_max_height(row_count: int) -> int:
@@ -1075,13 +1126,12 @@ def compute_widget_table_max_height(row_count: int) -> int:
 # =========================================================
 # ✅ Fixed iframe/table body sizing
 # =========================================================
-# Keep generated embeds consistent. The outer iframe stays fixed at 800px,
-# while the table body uses an internal branded vertical scrollbar for extra rows.
+# Default/fallback height. Actual preview/embed height is now estimated per table.
 FIXED_IFRAME_HEIGHT_PX = 800
 # Kept for backward compatibility only. The live widget now uses flex sizing
-# inside the fixed 800px frame so the footer is never pushed out of view.
+# inside the widget frame so the footer is never pushed out of view.
 FIXED_TABLE_SCROLL_HEIGHT_PX = 588
-# Streamlit preview gets a tiny safety allowance so the iframe border/footer is not clipped.
+# Fallback only; live preview now passes the calculated preview_height directly.
 PREVIEW_COMPONENT_HEIGHT_PX = FIXED_IFRAME_HEIGHT_PX
 
 PREVIEW_IFRAME_BUFFER_PX = 0
@@ -2127,9 +2177,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
 
-      height: 800px;
-      min-height: 800px;
-      max-height: 800px;
+      height: [[WIDGET_MAX_H]]px;
+      min-height: [[WIDGET_MAX_H]]px;
+      max-height: [[WIDGET_MAX_H]]px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -5056,6 +5106,19 @@ def generate_table_html_from_df(
 
     # Dynamic heights based on row count
     row_count = len(df.index)
+    widget_height_cfg = {
+        "show_header": show_header,
+        "show_footer": show_footer,
+        "show_search": show_search,
+        "show_pager": show_pager,
+        "show_embed": show_embed,
+        "embed_position": embed_position,
+        "show_page_numbers": show_page_numbers,
+        "col_header_overrides": col_header_overrides or {},
+        "header_wrap_target": header_wrap_target,
+        "header_wrap_words": header_wrap_words,
+    }
+    widget_max_h = compute_preview_height(row_count, cfg=widget_height_cfg, df=df)
     table_max_h = compute_widget_table_max_height(row_count)
     bar_columns_set = set(bar_columns or [])
     bar_max_overrides = bar_max_overrides or {}
@@ -5601,7 +5664,7 @@ def generate_table_html_from_df(
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
-        .replace("[[WIDGET_MAX_H]]", str(compute_preview_height(row_count)))
+        .replace("[[WIDGET_MAX_H]]", str(widget_max_h))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -5992,8 +6055,20 @@ def measure_rendered_html_height_playwright(html: str, min_height: int = 320, ex
 
 
 def resolve_final_iframe_height(html: str, fallback_height: int, min_height: int = 320, extra_padding: int = PREVIEW_IFRAME_BUFFER_PX) -> tuple[int, str]:
-    """Use the fixed iframe height instead of measuring/estimating dynamically."""
-    return FIXED_IFRAME_HEIGHT_PX, 'fixed'
+    """Use the estimated height instead of forcing every iframe to 800px."""
+    try:
+        h = int(fallback_height or FIXED_IFRAME_HEIGHT_PX)
+    except Exception:
+        h = FIXED_IFRAME_HEIGHT_PX
+    try:
+        min_height = int(min_height or 320)
+    except Exception:
+        min_height = 320
+    try:
+        extra_padding = int(extra_padding or 0)
+    except Exception:
+        extra_padding = 0
+    return max(min_height, min(900, h + max(0, extra_padding))), 'estimated'
 
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
@@ -6010,8 +6085,11 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     if not url:
         return ""
 
-    # Height is intentionally locked for consistency; users can edit the snippet manually if needed.
-    h = FIXED_IFRAME_HEIGHT_PX
+    try:
+        h = int(height or FIXED_IFRAME_HEIGHT_PX)
+    except Exception:
+        h = FIXED_IFRAME_HEIGHT_PX
+    h = max(320, min(900, h))
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
@@ -6130,7 +6208,7 @@ def build_published_iframe_snippet(
                     resolved_height = int(compute_preview_height(len(bundle_df.index), cfg=cfg, df=bundle_df))
 
     resolved_height = max(320, int(resolved_height or 800))
-    return build_iframe_snippet(pages_url, height=FIXED_IFRAME_HEIGHT_PX, brand=resolved_brand)
+    return build_iframe_snippet(pages_url, height=resolved_height, brand=resolved_brand)
 
 
 def extract_iframe_height_from_snippet(snippet: str, fallback: int = 800) -> int:
@@ -9192,19 +9270,39 @@ if main_tab == "Create New Table":
                                         live = wait_until_pages_live(pages_url, timeout_sec=90, interval_sec=2)
 
                                     if live:
-                                        published_iframe_height = FIXED_IFRAME_HEIGHT_PX
+
+
+                                        published_iframe_height = int(final_publish_height or estimated_publish_height or FIXED_IFRAME_HEIGHT_PX)
+
+
+                                        published_iframe_height = max(320, min(900, published_iframe_height))
+
+
                                         st.session_state["bt_iframe_height"] = published_iframe_height
+
+
                                         st.session_state["bt_iframe_code"] = build_iframe_snippet(
+
+
                                             pages_url,
+
+
                                             height=published_iframe_height,
+
+
                                             brand=current_brand,
+
+
                                         )
                                 
                                         # ✅ IMPORTANT: mark the page live + stop "in progress" state
                                         st.session_state["bt_publish_in_progress"] = False
                                         st.session_state["bt_live_confirmed"] = True
 
-                                        st.success(f"✅ Page is live. IFrame is ready. Fixed height: {published_iframe_height}px.")
+
+
+
+                                        st.success(f"✅ Page is live. IFrame is ready. Height: {published_iframe_height}px.")
                                     else:
                                         st.session_state["bt_iframe_code"] = ""
                                 
@@ -9408,7 +9506,7 @@ if main_tab == "Create New Table":
 
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
-                                height=PREVIEW_COMPONENT_HEIGHT_PX,
+                                height=preview_height,
                                 scrolling=True,
                             )
                 else:
