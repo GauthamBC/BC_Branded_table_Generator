@@ -1089,11 +1089,20 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     controls_h = 48 if controls_active else 0
     page_status_h = 28 if page_status_active else 0
 
-    header_lines = _estimate_header_line_count(
-        list(getattr(df, "columns", []) or []),
-        cfg=cfg,
-        df=df,
-    ) if df is not None else 1
+    if df is not None:
+        # pandas Index objects cannot be used with `or []` because their truth value
+        # is ambiguous. Convert directly to a list instead.
+        try:
+            df_columns = list(getattr(df, "columns", []))
+        except Exception:
+            df_columns = []
+        header_lines = _estimate_header_line_count(
+            df_columns,
+            cfg=cfg,
+            df=df,
+        )
+    else:
+        header_lines = 1
     table_head_h = 40 + max(0, header_lines - 1) * 14
 
     # CSS rows are fairly compact; use a conservative estimate and cap at 10 rows.
