@@ -1055,11 +1055,11 @@ def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> in
 
 
 def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Estimate the preview/embed height so compact tables do not leave a bordered blank gap.
+    """Estimate the exact outer iframe height without creating a bordered blank gap.
 
-    The table viewport still caps at 10 visible rows and keeps the internal branded
-    scrollbar for larger tables, but the outer widget/iframe can now shrink for
-    compact layouts instead of always reserving 800px.
+    The widget itself now wraps its real content instead of forcing 800px.
+    This function only estimates the iframe/component height so Streamlit/WordPress
+    does not add an outer vertical scrollbar.
     """
     cfg = cfg or {}
 
@@ -1082,32 +1082,39 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     controls_active = bool(show_search or show_pager or body_embed_active)
     page_status_active = bool(show_page_numbers and show_pager)
 
-    # These mirror the CSS sizing in HTML_TEMPLATE_TABLE.
     header_h = 88 if show_header else 0
-    footer_h = 88 if show_footer else 0
+
+    footer_logo_h = cfg.get("footer_logo_h", 36)
+    try:
+        footer_logo_h = int(footer_logo_h or 36)
+    except Exception:
+        footer_logo_h = 36
+    footer_logo_h = max(22, min(80, footer_logo_h))
+    footer_h = max(88, footer_logo_h + 46) if show_footer else 0
+
     root_vertical_padding = 22
     controls_h = 48 if controls_active else 0
     page_status_h = 28 if page_status_active else 0
 
     if df is not None:
-        # pandas Index objects cannot be used with `or []` because their truth value
-        # is ambiguous. Convert directly to a list instead.
         try:
             df_columns = list(getattr(df, "columns", []))
         except Exception:
             df_columns = []
-        header_lines = _estimate_header_line_count(
-            df_columns,
-            cfg=cfg,
-            df=df,
-        )
+        header_lines = _estimate_header_line_count(df_columns, cfg=cfg, df=df)
     else:
         header_lines = 1
-    table_head_h = 40 + max(0, header_lines - 1) * 14
 
-    # CSS rows are fairly compact; use a conservative estimate and cap at 10 rows.
-    row_h = 42
-    table_viewport_h = table_head_h + (visible_rows * row_h) + 12
+    table_head_h = 40 + max(0, header_lines - 1) * 14
+    row_h = 44
+
+    try:
+        col_count = len(list(getattr(df, "columns", []))) if df is not None else 0
+    except Exception:
+        col_count = 0
+    horizontal_reserve = 14 if col_count >= 6 else 0
+
+    table_viewport_h = table_head_h + (visible_rows * row_h) + horizontal_reserve
 
     total_h = (
         header_h
@@ -1116,12 +1123,10 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
         + table_viewport_h
         + page_status_h
         + footer_h
-        + 10  # small safety buffer for borders/rounding
+        + 4
     )
 
-    # Keep enough room for tiny tables, while avoiding the old forced 800px gap.
-    return max(420, min(900, int(total_h)))
-
+    return max(320, min(900, int(total_h)))
 
 def compute_widget_table_max_height(row_count: int) -> int:
     """Return a fixed scroller height for the table body.
@@ -2135,7 +2140,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
-<body style="margin:0; overflow-x:hidden; overflow-y:auto; background:#ffffff;">
+<body style="margin:0; overflow:hidden; background:#ffffff;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
@@ -2186,9 +2191,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
 
-      height: [[WIDGET_MAX_H]]px;
-      min-height: [[WIDGET_MAX_H]]px;
-      max-height: [[WIDGET_MAX_H]]px;
+      /* The widget must wrap the actual content. Do not force a tall fixed box here,
+         otherwise short tables leave a bordered blank area below the footer. */
+      height: auto;
+      min-height: 0;
+      max-height: none;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -9516,7 +9523,7 @@ if main_tab == "Create New Table":
                             components.html(
                                 st.session_state.get("bt_preview_html", ""),
                                 height=preview_height,
-                                scrolling=True,
+                                scrolling=False,
                             )
                 else:
                     # Clear any previously mounted preview so it does NOT persist visually
