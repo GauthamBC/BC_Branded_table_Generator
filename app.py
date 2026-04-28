@@ -1054,12 +1054,88 @@ def _estimate_header_line_count(columns, cfg: dict | None = None, df=None) -> in
     return max_lines
 
 
-def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
-    """Estimate the exact outer iframe height without creating a bordered blank gap.
+def _estimate_visible_row_heights_for_embed(df=None, visible_rows: int = 10, col_count: int = 0) -> int:
+    """Estimate the rendered height of the first 10 visible rows.
 
-    The widget itself now wraps its real content instead of forcing 800px.
-    This function only estimates the iframe/component height so Streamlit/WordPress
-    does not add an outer vertical scrollbar.
+    This intentionally errs slightly tall because published iframes cannot reliably
+    auto-resize on every CMS/domain. It prevents the footer being clipped on narrow
+    embeds where long city names wrap over multiple lines.
+    """
+    try:
+        visible_rows = max(1, int(visible_rows or 10))
+    except Exception:
+        visible_rows = 10
+
+    fallback_single_line = 44
+    if df is None or not hasattr(df, "head"):
+        return visible_rows * fallback_single_line
+
+    try:
+        df_head = df.head(visible_rows)
+    except Exception:
+        return visible_rows * fallback_single_line
+
+    if df_head is None or getattr(df_head, "empty", True):
+        return visible_rows * fallback_single_line
+
+    try:
+        col_count = int(col_count or len(list(getattr(df_head, "columns", []))))
+    except Exception:
+        col_count = 0
+
+    # Wider tables have narrower cells in a 920px embed, so text wraps sooner.
+    # This is only a sizing estimate; the browser still measures the exact row
+    # heights again after load.
+    if col_count >= 8:
+        chars_per_line = 24
+    elif col_count >= 6:
+        chars_per_line = 28
+    else:
+        chars_per_line = 36
+
+    total = 0
+    for _, row in df_head.iterrows():
+        max_lines = 1
+        for value in row.tolist():
+            txt = "" if value is None else str(value)
+            txt = re.sub(r"<[^>]+>", " ", txt)
+            pieces = []
+            for part in txt.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n").splitlines():
+                part = re.sub(r"\s+", " ", part).strip()
+                if part:
+                    pieces.append(part)
+            if not pieces:
+                pieces = [re.sub(r"\s+", " ", txt).strip()]
+            line_count = 0
+            for part in pieces:
+                if not part:
+                    line_count += 1
+                    continue
+                # Estimate wrapped lines without splitting words mid-way.
+                line_count += max(1, int((len(part) + chars_per_line - 1) / chars_per_line))
+            max_lines = max(max_lines, min(6, line_count))
+
+        # Approximate browser row height: base padding + line-height per line.
+        # 1 line ≈ 44px, 2 lines ≈ 58px, 3 lines ≈ 76px, 4 lines ≈ 94px.
+        total += max(fallback_single_line, 26 + (max_lines * 17))
+
+    # If fewer than 10 rows exist on a page, keep the same 10-row viewport so the
+    # footer position does not jump between pages.
+    rendered = len(df_head.index)
+    if rendered < visible_rows:
+        avg = int(total / max(1, rendered)) if rendered else fallback_single_line
+        total += (visible_rows - rendered) * max(fallback_single_line, avg)
+
+    return int(total)
+
+
+def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> int:
+    """Estimate the full iframe/component height for a stable 10-row viewport.
+
+    The published iframe needs a reliable fixed height because many CMS embeds do
+    not allow cross-origin auto-resizing. This keeps the table viewport large enough
+    to show 10 rows, then rows/page 15/20/30 scroll *inside* the table body instead
+    of pushing the footer down or clipping it.
     """
     cfg = cfg or {}
 
@@ -1068,7 +1144,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     except Exception:
         row_count = 0
 
-    visible_rows = max(1, min(row_count if row_count > 0 else 1, 10))
+    visible_rows = 10 if row_count != 0 else 10
 
     show_header = bool(cfg.get("show_header", True))
     show_footer = bool(cfg.get("show_footer", True))
@@ -1082,7 +1158,11 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     controls_active = bool(show_search or show_pager or body_embed_active)
     page_status_active = bool(show_page_numbers and show_pager)
 
-    header_h = 88 if show_header else 0
+    title = str(cfg.get("title", "") or "")
+    subtitle = str(cfg.get("subtitle", "") or "")
+    title_lines = _estimate_wrapped_line_count(title, max_chars_per_line=56) if title else 1
+    subtitle_lines = _estimate_wrapped_line_count(subtitle, max_chars_per_line=78) if subtitle else 0
+    header_h = max(88, 34 + (title_lines * 22) + (subtitle_lines * 17)) if show_header else 0
 
     footer_logo_h = cfg.get("footer_logo_h", 36)
     try:
@@ -1093,8 +1173,8 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     footer_h = max(88, footer_logo_h + 46) if show_footer else 0
 
     root_vertical_padding = 22
-    controls_h = 48 if controls_active else 0
-    page_status_h = 28 if page_status_active else 0
+    controls_h = 58 if controls_active else 0
+    page_status_h = 30 if page_status_active else 0
 
     if df is not None:
         try:
@@ -1103,18 +1183,15 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
             df_columns = []
         header_lines = _estimate_header_line_count(df_columns, cfg=cfg, df=df)
     else:
+        df_columns = []
         header_lines = 1
 
-    table_head_h = 40 + max(0, header_lines - 1) * 14
-    row_h = 44
+    table_head_h = 42 + max(0, header_lines - 1) * 15
+    col_count = len(df_columns)
+    horizontal_reserve = 16 if col_count >= 6 else 0
+    rows_h = _estimate_visible_row_heights_for_embed(df=df, visible_rows=visible_rows, col_count=col_count)
 
-    try:
-        col_count = len(list(getattr(df, "columns", []))) if df is not None else 0
-    except Exception:
-        col_count = 0
-    horizontal_reserve = 14 if col_count >= 6 else 0
-
-    table_viewport_h = table_head_h + (visible_rows * row_h) + horizontal_reserve
+    table_viewport_h = table_head_h + rows_h + horizontal_reserve
 
     total_h = (
         header_h
@@ -1123,10 +1200,12 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
         + table_viewport_h
         + page_status_h
         + footer_h
-        + 4
+        + 10
     )
 
-    return max(320, min(900, int(total_h)))
+    # Let mobile/wrapped tables be taller when needed. No blank gap should appear
+    # because the widget itself ends at the footer and the table viewport is fixed.
+    return max(420, min(1400, int(total_h)))
 
 def compute_widget_table_max_height(row_count: int) -> int:
     """Return a fixed scroller height for the table body.
@@ -3717,19 +3796,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scroller.style.touchAction = 'pan-x pan-y';
       scroller.style.overscrollBehavior = 'contain';
 
-      const widgetH = widgetRoot.clientHeight || 800;
-      const headerH = header ? header.offsetHeight : 0;
-      const footerH = footer ? footer.offsetHeight : 0;
-      const controlsH = controlsRow ? controlsRow.offsetHeight : 0;
-      const statusH = statusRow ? statusRow.offsetHeight : 0;
-
-      const rootStyle = window.getComputedStyle(root);
-      const rootPad = (parseFloat(rootStyle.paddingTop) || 0) + (parseFloat(rootStyle.paddingBottom) || 0);
-      const cardBorder = card ? 2 : 0;
-      const safety = 6;
-
-      const maxScrollerH = Math.max(180, widgetH - headerH - footerH - controlsH - statusH - rootPad - cardBorder - safety);
-
       const visibleRows = Array.from(tb.rows).filter(r =>
         !r.classList.contains('dw-empty') && r.style.display !== 'none'
       );
@@ -3752,9 +3818,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const horizontalReserve = needsXScroll ? 12 : 0;
 
-      // Hard rule: the viewport is table header + max 10 visible rows.
-      // Rows 11+ remain inside this fixed viewport and are reached by vertical scroll.
-      const desiredH = Math.max(140, Math.min(maxScrollerH, headerTableH + rowCapH + horizontalReserve));
+      // Hard rule: the viewport is table header + exactly 10 measured rows.
+      // Do NOT clamp this to the current iframe height. On narrower embeds/mobile,
+      // rows can wrap to 2–4 lines, so the iframe must grow to fit 10 rows while
+      // rows 11+ remain inside this fixed viewport and scroll internally.
+      const desiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
@@ -3811,6 +3879,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       window.setTimeout(syncOuterIframeToWidget, 120);
       window.setTimeout(syncOuterIframeToWidget, 350);
     });
+
+    if (window.ResizeObserver && widgetRoot) {
+      const ro = new ResizeObserver(() => {
+        window.clearTimeout(window.__btRO);
+        window.__btRO = window.setTimeout(syncOuterIframeToWidget, 40);
+      });
+      ro.observe(widgetRoot);
+    }
 
     window.addEventListener('resize', () => {
       window.clearTimeout(window.__btResizeT);
@@ -6108,7 +6184,7 @@ def resolve_final_iframe_height(html: str, fallback_height: int, min_height: int
         extra_padding = int(extra_padding or 0)
     except Exception:
         extra_padding = 0
-    return max(min_height, min(900, h + max(0, extra_padding))), 'estimated'
+    return max(min_height, min(1400, h + max(0, extra_padding))), 'estimated'
 
 
 def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
@@ -6129,14 +6205,23 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
         h = int(height or FIXED_IFRAME_HEIGHT_PX)
     except Exception:
         h = FIXED_IFRAME_HEIGHT_PX
-    h = max(320, min(900, h))
+    h = max(420, min(1400, h))
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
 
+    mobile_h = min(1600, max(h + 120, int(h * 1.18)))
+
     return f"""<!-- ✅ {embed_label} embed (max-width: {max_width}px, centered, aligned to article text) -->
-<div style="max-width: {max_width}px; margin: 0 auto; padding: 0;">
+<style>
+  .bt-responsive-iframe-wrap iframe.bt-responsive-iframe {{ height: {h}px; }}
+  @media (max-width: 640px) {{
+    .bt-responsive-iframe-wrap iframe.bt-responsive-iframe {{ height: {mobile_h}px; }}
+  }}
+</style>
+<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">
   <iframe
+    class="bt-responsive-iframe"
     src="{html_mod.escape(url, quote=True)}"
     width="100%"
     height="{h}"
