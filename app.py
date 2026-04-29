@@ -797,7 +797,7 @@ def render_embed_output_panel():
 
     # Fallback: if the page is live but iframe text was not persisted, rebuild it from the URL.
     if published_url_val and not iframe_val:
-        iframe_h = FIXED_IFRAME_HEIGHT_PX
+        iframe_h = int(st.session_state.get("bt_iframe_height") or FIXED_IFRAME_HEIGHT_PX)
         try:
             iframe_val = build_iframe_snippet(
                 published_url_val,
@@ -1119,12 +1119,13 @@ def _estimate_visible_row_heights_for_embed(df=None, visible_rows: int = 10, col
         # 1 line ≈ 44px, 2 lines ≈ 58px, 3 lines ≈ 76px, 4 lines ≈ 94px.
         total += max(fallback_single_line, 26 + (max_lines * 17))
 
-    # If fewer than 10 rows exist on a page, keep the same 10-row viewport so the
-    # footer position does not jump between pages.
+    # ✅ Short-table logic:
+    # Do not pad tables with fewer than 10 rows up to a 10-row viewport.
+    # This keeps the footer immediately after the final visible row and lets the
+    # generated iframe height shrink for short landing-page tables.
     rendered = len(df_head.index)
-    if rendered < visible_rows:
-        avg = int(total / max(1, rendered)) if rendered else fallback_single_line
-        total += (visible_rows - rendered) * max(fallback_single_line, avg)
+    if rendered <= 0:
+        return fallback_single_line
 
     return int(total)
 
@@ -1144,7 +1145,14 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     except Exception:
         row_count = 0
 
-    visible_rows = 10 if row_count != 0 else 10
+    # ✅ Short-table logic:
+    # Tables with 1-9 rows use their actual row count so the footer follows the
+    # final row. Tables with 10+ rows keep the fixed 10-row viewport and scroll
+    # internally, which avoids shrinking/jumping on larger tables.
+    if row_count > 0 and row_count < 10:
+        visible_rows = row_count
+    else:
+        visible_rows = 10
 
     show_header = bool(cfg.get("show_header", True))
     show_footer = bool(cfg.get("show_footer", True))
@@ -1203,16 +1211,26 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
         + 10
     )
 
-    # Let mobile/wrapped tables be taller when needed. No blank gap should appear
-    # because the widget itself ends at the footer and the table viewport is fixed.
-    return max(420, min(1400, int(total_h)))
+    # Let short tables publish with a compact iframe height, while larger tables
+    # keep the stable minimum needed for a 10-row scrolling viewport.
+    min_height = 320 if row_count > 0 and row_count < 10 else 420
+    return max(min_height, min(1400, int(total_h)))
 
 def compute_widget_table_max_height(row_count: int) -> int:
-    """Return a fixed scroller height for the table body.
+    """Return the initial scroller height for the table body.
 
-    This keeps the table body the same size whether the user selects 10, 15,
-    20, 30, or All rows. Extra rows scroll inside the branded table area.
+    Short tables use a compact estimated height so the footer can sit directly
+    after the last row. Tables with 10+ rows keep the standard 10-row viewport;
+    extra rows scroll inside the branded table area.
     """
+    try:
+        row_count = int(row_count or 0)
+    except Exception:
+        row_count = 0
+
+    if row_count > 0 and row_count < 10:
+        return 42 + (row_count * 44)
+
     return FIXED_TABLE_SCROLL_HEIGHT_PX
 
 
@@ -3807,12 +3825,19 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }, 0);
 
       const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
-      // Keep the table viewport consistent across all pages, including the last page.
-      // Even when a page has fewer than 10 rows (e.g. Bottom 10/last page),
-      // reserve the same 10-row body height so the footer does not jump upward.
-      const rowCap = 10;
-      const averageMeasuredRowH = firstTenRows.length
-        ? Math.ceil(measuredRowsH / firstTenRows.length)
+
+      // ✅ Short-table logic:
+      // If the FULL table has fewer than 10 rows, size the viewport to the actual
+      // number of rows so the footer sits immediately after the last row.
+      // If the FULL table has 10+ rows, keep the stable 10-row viewport so paged
+      // views and long tables do not shrink/jump around.
+      const rowCap = (ALL_ROWS.length > 0 && ALL_ROWS.length < 10) ? ALL_ROWS.length : 10;
+      const measuredCapRows = visibleRows.slice(0, rowCap);
+      const measuredCapRowsH = measuredCapRows.reduce((sum, row) => {
+        return sum + Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0);
+      }, 0);
+      const averageMeasuredRowH = measuredCapRows.length
+        ? Math.ceil(measuredCapRowsH / measuredCapRows.length)
         : fallbackRowH;
       const rowCapH = averageMeasuredRowH * rowCap;
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
@@ -6205,7 +6230,7 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
         h = int(height or FIXED_IFRAME_HEIGHT_PX)
     except Exception:
         h = FIXED_IFRAME_HEIGHT_PX
-    h = max(420, min(1400, h))
+    h = max(320, min(1400, h))
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
     embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
