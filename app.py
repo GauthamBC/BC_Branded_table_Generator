@@ -3336,9 +3336,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     .vi-table-embed .footer-inner{
       display:flex;
-      justify-content:flex-end;
+      justify-content:flex-start;
       align-items:center;
-      gap:16px;
+      gap:10px;
       min-height:100%;
       height:100%;
       width:100%;
@@ -3354,34 +3354,33 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       justify-content:space-between;
     }
     
-    /* ✅ Wrapper gives us “card” spacing + keeps layout stable */
+    /* Sleeker wrapper with no extra spacer gap */
     .vi-table-embed .footer-notes-wrap{
-      flex: 1 1 0;
+      flex: 1 1 auto;
       min-width: 0;
       display:flex;
       align-items:center;
-      padding-right: 10px;
+      padding: 0;
+      margin: 0;
     }
     
-    /* ✅ Auto-expand notes to all available width */
+    /* Sleek editorial pill-style note card that sits closer to the logo */
     .vi-table-embed .footer-notes{
-      flex: 1 1 0;
+      flex: 1 1 auto;
       width: 100%;
-      max-width: none;   /* ✅ THIS is the key change */
-    
-      padding: 10px 12px;
-      border-radius:0;
-    
+      max-width: none;
+      display:flex;
+      align-items:center;
+      min-height: 50px;
+      padding: 11px 18px;
+      border-radius: 18px;
       background: #ffffff;
-      border: 1px solid rgba(0,0,0,.10);
-      box-shadow: 0 10px 22px rgba(0,0,0,.08);
-    
-      border-left: 6px solid var(--brand-500);
-    
-      font: 12.5px/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-      color:#374151;
-    
-      max-height: 46px;
+      border: 1px solid rgba(17,24,39,.12);
+      box-shadow: 0 1px 2px rgba(0,0,0,.05);
+      border-left: 8px solid var(--brand-500);
+      font: italic 500 12.5px/1.3 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      color:#4b5563;
+      max-height: 62px;
       overflow:auto;
     }
         
@@ -3403,7 +3402,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       display:flex;
       justify-content:flex-start;
       align-items:center;
-      min-width:180px;
+      min-width: max-content;
+      width: auto;
+      margin: 0;
       min-height:100%;
       overflow:hidden;
     }
@@ -3433,7 +3434,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     .vi-table-embed.footer-with-embed .footer-logo{
       justify-content:flex-start;
-      margin-right:auto;
+      margin-right:0;
     }
     .vi-table-embed.footer-with-embed .footer-embed-wrap{
       margin-left:16px;
