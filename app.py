@@ -2283,6 +2283,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
       /* ✅ Footer logo height */
       --footer-logo-h: [[FOOTER_LOGO_H]]px;
+      --footer-h: max(88px, calc(var(--footer-logo-h) + 36px));
       --surface-shadow: 0 14px 34px rgba(17,24,39,.08);
       --accent-start: var(--brand-500);
       --accent-mid: var(--brand-600);
@@ -2412,8 +2413,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .vi-table-header{
       border-bottom:1px solid rgba(var(--brand-500-rgb), .18);
       padding:14px 18px;
-      min-height:88px;
-      height:88px;
+      min-height:var(--footer-h);
+      height:var(--footer-h);
       flex:0 0 88px;
       background:rgba(var(--brand-500-rgb), .045);
       backdrop-filter:none;
@@ -2725,7 +2726,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         padding: 14px 12px !important;
       }
       .vi-table-embed .vi-footer img{
-        max-height: 38px !important;
+        height: var(--footer-logo-h) !important;
+        max-height: var(--footer-logo-h) !important;
       }
     }
 
@@ -3321,12 +3323,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       display:flex;
       align-items:center;
       padding:10px 18px;
-      min-height:88px;
-      height:88px;
+      min-height:var(--footer-h);
+      height:var(--footer-h);
       border-top:1px solid rgba(var(--brand-500-rgb), .16);
       background:rgba(var(--brand-500-rgb), .055);
       backdrop-filter:none;
-      flex: 0 0 88px;
+      flex: 0 0 var(--footer-h);
       z-index: 30;
       overflow:hidden;
       width:100%;
@@ -3384,8 +3386,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
         
     /* Optional typographic polish */
-    .vi-table-embed .footer-notes strong{ color:#111827; font-weight:750; }
-    .vi-table-embed .footer-notes em{ color:#374151; }
+    .vi-table-embed .footer-notes strong{ color:#111827; font-weight:800 !important; }
+    .vi-table-embed .footer-notes em{ color:#374151; font-style:italic !important; }
+    .vi-table-embed .footer-notes strong em,
+    .vi-table-embed .footer-notes em strong{ font-weight:800 !important; font-style:italic !important; }
     
     /* nicer scrollbar */
     .vi-table-embed .footer-notes::-webkit-scrollbar{ width: 6px; height: 6px; }
@@ -3488,10 +3492,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* When centered requested but notes are enabled, we treat it like RIGHT (handled in Python) */
     .vi-table-embed .vi-footer img{
-      height: var(--footer-logo-h);
+      height: var(--footer-logo-h) !important;
       width: auto !important;
-      max-width: 190px;
-      max-height: 44px;
+      max-width: 260px;
+      max-height: var(--footer-logo-h) !important;
       display:inline-block;
       object-fit: contain;
       vertical-align: middle;
@@ -5169,6 +5173,31 @@ def remove_markdown_formatting(text: str) -> str:
     return s
 
 
+def simple_markdown_to_html(text: str) -> str:
+    """Convert a tiny, safe markdown subset to HTML for subtitles/footer notes.
+
+    Supports:
+    - **bold** / __bold__
+    - *italic* / _italic_
+    - ***bold italic*** / ___bold italic___
+    - line breaks
+    """
+    escaped = html_mod.escape("" if text is None else str(text))
+
+    # Bold + italic first, so ***text*** does not get split by later rules.
+    escaped = re.sub(r"\*\*\*(.+?)\*\*\*", r"<strong><em>\1</em></strong>", escaped, flags=re.S)
+    escaped = re.sub(r"___(.+?)___", r"<strong><em>\1</em></strong>", escaped, flags=re.S)
+
+    # Bold.
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped, flags=re.S)
+    escaped = re.sub(r"__(.+?)__", r"<strong>\1</strong>", escaped, flags=re.S)
+
+    # Italic. The lookarounds stop this from catching leftover bold markers.
+    escaped = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", escaped, flags=re.S)
+    escaped = re.sub(r"(?<!_)_(?!_)(.+?)(?<!_)_(?!_)", r"<em>\1</em>", escaped, flags=re.S)
+
+    return escaped.replace("\n", "<br>")
+
 
 def _bt_clear_formatting(state_key: str) -> None:
     """Clear formatting for a given session_state key (Ctrl+\ equivalent).
@@ -5297,11 +5326,7 @@ def generate_table_html_from_df(
     footer_notes = (footer_notes or "").strip()
     footer_notes_html = ""
     if show_footer_notes and footer_notes:
-        escaped = html_mod.escape(footer_notes)
-        escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
-        escaped = re.sub(r"\*(.+?)\*", r"<em>\1</em>", escaped)
-        escaped = escaped.replace("\n", "<br>")
-        footer_notes_html = escaped
+        footer_notes_html = simple_markdown_to_html(footer_notes)
     # ✅ Heatmap scale (mutually exclusive with footer notes)
     show_heat_scale = bool(show_heat_scale)
     if show_footer_notes:
@@ -5725,10 +5750,7 @@ def generate_table_html_from_df(
     # Subtitle supports simple markdown (**bold** and *italic*) like footer notes
     subtitle_html = ""
     if (subtitle_display or "").strip():
-        _s = html_mod.escape(subtitle_display)
-        _s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", _s)
-        _s = re.sub(r"\*(.+?)\*", r"<em>\1</em>", _s)
-        subtitle_html = _s
+        subtitle_html = simple_markdown_to_html(subtitle_display)
 
 
     embed_position = (embed_position or "Body").strip().lower()
