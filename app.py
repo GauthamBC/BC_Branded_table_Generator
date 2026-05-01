@@ -3690,6 +3690,48 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   padding: 0 !important;
 }
 
+
+/* ✅ Final bottom scrollbar spacing fix
+   Match the cleaned-up top scrollbar: keep the bottom/native horizontal
+   scrollbar usable, but remove the visible box/gap between it and the footer. */
+#bt-block .dw-scroll{
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  border-bottom: 0 !important;
+  scrollbar-color: var(--scroll-thumb) transparent !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar{
+  width: 8px !important;
+  height: 10px !important;
+  background: transparent !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar-track{
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar-corner{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+#bt-block .dw-page-status.vi-hide,
+#bt-block .dw-page-status:has(#dw-page-status-text:empty){
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  flex: 0 0 0 !important;
+}
+#bt-block .dw-card{
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
