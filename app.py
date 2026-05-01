@@ -1200,7 +1200,7 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     horizontal_reserve = 16 if col_count >= 6 else 0
     rows_h = _estimate_visible_row_heights_for_embed(df=df, visible_rows=visible_rows, col_count=col_count)
 
-    top_horizontal_scroll_h = 18 if col_count >= 5 else 0
+    top_horizontal_scroll_h = 10 if col_count >= 5 else 0
     table_viewport_h = table_head_h + rows_h + horizontal_reserve
 
     total_h = (
@@ -3112,13 +3112,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* Optional top horizontal scroller test. Sits between the widget header/controls and the table header row. */
     #bt-block .dw-top-scroll{
-      height: 18px; min-height: 18px; max-height: 18px;
+      /* Keep the top scroller tight so the thumb sits directly under the header box. */
+      height: 10px; min-height: 10px; max-height: 10px;
       overflow-x: auto; overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
-      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
-      background: rgba(255,255,255,.74);
-      border-top: 1px solid rgba(var(--brand-500-rgb), .10);
+      scrollbar-color: var(--scroll-thumb) transparent;
+      background: transparent;
+      border-top: 0;
       border-bottom: 1px solid rgba(var(--brand-500-rgb), .10);
       position: relative; z-index: 6; flex: 0 0 auto;
     }
