@@ -1178,7 +1178,8 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     except Exception:
         footer_logo_h = 36
     footer_logo_h = max(22, min(80, footer_logo_h))
-    footer_h = max(88, footer_logo_h + 46) if show_footer else 0
+    # Footer and header use the same chrome height in CSS so the blocks stay visually balanced.
+    footer_h = max(88, footer_logo_h + 36) if show_footer else 0
 
     root_vertical_padding = 22
     controls_h = 58 if controls_active else 0
@@ -2443,7 +2444,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       padding:14px 18px;
       min-height:var(--footer-h);
       height:var(--footer-h);
-      flex:0 0 88px;
+      flex:0 0 var(--footer-h);
       background:rgba(var(--brand-500-rgb), .045);
       backdrop-filter:none;
       display:flex;
@@ -3350,7 +3351,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .vi-footer {
       display:flex;
       align-items:center;
-      padding:10px 18px;
+      padding:14px 18px;
       min-height:var(--footer-h);
       height:var(--footer-h);
       border-top:1px solid rgba(var(--brand-500-rgb), .16);
@@ -4755,11 +4756,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
             flex:none !important;
           }
           .vi-table-embed.export-mode .vi-footer{
-            min-height:88px !important;
-            height:88px !important;
-            flex:0 0 88px !important;
-            padding-top:10px !important;
-            padding-bottom:10px !important;
+            min-height:var(--footer-h) !important;
+            height:var(--footer-h) !important;
+            flex:0 0 var(--footer-h) !important;
+            padding-top:14px !important;
+            padding-bottom:14px !important;
           }
           /* ✅ PNG export only: remove the little top breathing room above the table */
           .vi-table-embed.export-mode #bt-block{
@@ -4769,6 +4770,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           .vi-table-embed.export-mode #bt-block .dw-card,
           .vi-table-embed.export-mode #bt-block .dw-scroll{
             margin-top:0 !important;
+          }
+          .vi-table-embed.export-mode .vi-table-header{
+            min-height:var(--footer-h) !important;
+            height:var(--footer-h) !important;
+            flex:0 0 var(--footer-h) !important;
           }
           .vi-table-embed.export-mode .vi-table-header{
             background:rgba(var(--brand-500-rgb), .045) !important;
