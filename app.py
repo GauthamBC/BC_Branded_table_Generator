@@ -3649,6 +3649,47 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   z-index: 6;
 }
 
+
+/* ✅ Final top scrollbar spacing fix
+   The old visible "box" was caused by #bt-block top padding above the
+   top horizontal scrollbar when controls/search/pager were hidden.
+   Keep the scrollbar itself, but remove the padded container space so it
+   sits directly between the header and the table header row. */
+#bt-block{
+  padding-top: 0 !important;
+}
+#bt-block .dw-controls:not(.vi-hide){
+  margin-top: 12px !important;
+}
+#bt-block .dw-controls.vi-hide{
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+#bt-block .dw-controls.vi-hide + .dw-top-scroll,
+#bt-block .dw-top-scroll{
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  height: 10px !important;
+  min-height: 10px !important;
+  max-height: 10px !important;
+  flex: 0 0 10px !important;
+  line-height: 0 !important;
+}
+#bt-block .dw-top-scroll-inner{
+  height: 1px !important;
+  min-height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
