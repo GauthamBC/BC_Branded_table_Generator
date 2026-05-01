@@ -1293,7 +1293,8 @@ def sync_table_control_defaults_for_row_count(df) -> int:
         st.session_state["bt_table_controls_auto_sig"] = data_sig
     elif compact_defaults and st.session_state.get("bt_embed_position", "Body") == "Body":
         # Existing sessions may still have Body saved from an older run. For
-        # short tables, that creates a visible controls-row gap; keep it Header.
+        # short tables, keep it Header by default. If the header is later
+        # disabled, the Export button stays hidden rather than moving to Body.
         st.session_state["bt_embed_position"] = "Header"
 
     return row_count
@@ -1302,9 +1303,10 @@ def sync_table_control_defaults_for_row_count(df) -> int:
 def apply_compact_table_embed_guard(cfg: dict, row_count: int) -> dict:
     """Keep short-table previews/published HTML compact and gap-free.
 
-    When a table has 10 rows or fewer, the Export button should stay
-    in the header. If it falls back to Body, the controls row becomes visible and
-    creates the white gap above the table header.
+    When a table has 10 rows or fewer, the Export button defaults to the
+    header only while the header is enabled. If the selected target is hidden
+    because Header/Footer is disabled, the Export button should disappear
+    instead of falling back into the body and creating a blank controls row.
     """
     cfg = dict(cfg or {})
     try:
@@ -1313,10 +1315,9 @@ def apply_compact_table_embed_guard(cfg: dict, row_count: int) -> dict:
         row_count = 0
 
     if 0 < row_count <= 10 and cfg.get("show_embed", True):
-        if cfg.get("show_header", True):
+        current_pos = str(cfg.get("embed_position", "Body") or "Body").strip()
+        if current_pos == "Body" and cfg.get("show_header", True):
             cfg["embed_position"] = "Header"
-        else:
-            cfg["embed_position"] = "Body"
 
     return cfg
 
