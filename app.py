@@ -3067,11 +3067,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: contain;
-      scrollbar-gutter: stable;
+      scrollbar-gutter: auto;
       scrollbar-width: thin;
-      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
+      scrollbar-color: var(--scroll-thumb) transparent;
       position: relative;
-      background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.96));
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
+      background: transparent !important;
+      border-bottom: 0 !important;
+      box-shadow: none !important;
     }
 
     #bt-block .dw-scroll::before,
@@ -3088,9 +3092,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     
 
     #bt-block .dw-scroll::after{
-      bottom: 0;
-      height: 8px;
-      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.98));
+      display: none !important;
+      content: none !important;
+      height: 0 !important;
+      background: none !important;
     }
 
     #bt-block .dw-scroll.compact-fit::after{
@@ -3099,8 +3104,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       background:none;
     }
 
-    #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
-    #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent; }
+    #bt-block .dw-scroll::-webkit-scrollbar{ width: 8px; height: 10px; background: transparent !important; }
+    #bt-block .dw-scroll::-webkit-scrollbar-track{ background: transparent !important; border: 0 !important; box-shadow: none !important; }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px;
@@ -3688,6 +3693,47 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   min-height: 1px !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* ✅ Footer-side horizontal scrollbar: make it visually match the top scrollbar */
+#bt-block .dw-scroll{
+  scrollbar-gutter: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--scroll-thumb) transparent !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+#bt-block .dw-scroll::after{
+  display: none !important;
+  content: none !important;
+  height: 0 !important;
+  background: none !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar{
+  width: 8px !important;
+  height: 10px !important;
+  background: transparent !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar-track{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%) !important;
+  border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22) !important;
+  background-clip: content-box !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{
+  background: var(--brand-600) !important;
+}
+#bt-block .dw-scroll::-webkit-scrollbar-corner{
+  background: transparent !important;
 }
 
 </style>
