@@ -3783,6 +3783,69 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 #bt-block .dw-bottom-scroll::-webkit-scrollbar-corner{ background: transparent !important; }
 
+/* ✅ FINAL VISUAL FIX: bottom scrollbar should not create its own strip/box.
+   It is visually overlaid on the bottom edge of the table body, so it behaves
+   like the top thin scrollbar instead of adding a separate grey row above the footer. */
+#bt-block .dw-bottom-scroll{
+  height: 10px !important;
+  min-height: 10px !important;
+  max-height: 10px !important;
+  flex: 0 0 10px !important;
+  margin-top: -10px !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  position: relative !important;
+  z-index: 20 !important;
+  line-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--scroll-thumb) transparent !important;
+}
+#bt-block .dw-bottom-scroll.vi-hide{
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  flex-basis: 0 !important;
+  margin-top: 0 !important;
+}
+#bt-block .dw-bottom-scroll-inner{
+  height: 1px !important;
+  min-height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+#bt-block .dw-bottom-scroll::-webkit-scrollbar{
+  height: 10px !important;
+  width: 8px !important;
+  background: transparent !important;
+}
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-track{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%) !important;
+  border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22) !important;
+  background-clip: content-box !important;
+}
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-corner{
+  background: transparent !important;
+}
+#bt-block .dw-page-status{
+  margin-top: 0 !important;
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
