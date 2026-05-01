@@ -3062,7 +3062,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       max-height: none;
       min-height: 0;
       flex: 1 1 auto;
-      overflow-x: auto;
+      overflow-x: hidden; /* external top/bottom bars handle horizontal scroll */
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
@@ -3116,7 +3116,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     /* Optional top horizontal scroller test. Sits between the widget header/controls and the table header row. */
-    #bt-block .dw-top-scroll{
+    #bt-block .dw-top-scroll,
+    #bt-block .dw-bottom-scroll{
       /* No separate visual box: keep only the actual scrollbar strip visible. */
       height: 10px; min-height: 10px; max-height: 10px;
       margin: 0 !important;
@@ -3132,20 +3133,26 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       box-shadow: none !important;
       position: relative; z-index: 6; flex: 0 0 10px;
     }
-    #bt-block .dw-top-scroll.vi-hide{ display:none !important; }
-    #bt-block .dw-top-scroll-inner{ height: 1px; min-height: 1px; width: 100%; margin:0 !important; padding:0 !important; }
-    #bt-block .dw-top-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
-    #bt-block .dw-top-scroll::-webkit-scrollbar-track{
+    #bt-block .dw-top-scroll.vi-hide,
+    #bt-block .dw-bottom-scroll.vi-hide{ display:none !important; }
+    #bt-block .dw-top-scroll-inner,
+    #bt-block .dw-bottom-scroll-inner{ height: 1px; min-height: 1px; width: 100%; margin:0 !important; padding:0 !important; }
+    #bt-block .dw-top-scroll::-webkit-scrollbar,
+    #bt-block .dw-bottom-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-track,
+    #bt-block .dw-bottom-scroll::-webkit-scrollbar-track{
       background: transparent !important;
       border: 0 !important;
       box-shadow: none !important;
     }
-    #bt-block .dw-top-scroll::-webkit-scrollbar-thumb{
+    #bt-block .dw-top-scroll::-webkit-scrollbar-thumb,
+    #bt-block .dw-bottom-scroll::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px; border: 2px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.22); background-clip: content-box;
     }
-    #bt-block .dw-top-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-thumb:hover,
+    #bt-block .dw-bottom-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     #bt-block table.dw-table {
       width: max-content;   /* allow columns to grow so headers can fit */
@@ -3624,7 +3631,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   max-height: var(--bt-scroll-h, 520px) !important;
   min-height: 0 !important;
   flex: 0 0 auto !important;
-  overflow-x: auto !important;
+  overflow-x: hidden !important;
   overflow-y: scroll !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
@@ -3642,7 +3649,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 #bt-block .dw-scroll{
   height: var(--bt-scroll-h, 520px) !important;
   max-height: var(--bt-scroll-h, 520px) !important;
-  overflow-x:auto !important;
+  overflow-x:hidden !important;
   overflow-y:scroll !important;
   -webkit-overflow-scrolling:touch !important;
   touch-action:pan-x pan-y !important;
@@ -3674,7 +3681,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   min-height: 0 !important;
 }
 #bt-block .dw-controls.vi-hide + .dw-top-scroll,
-#bt-block .dw-top-scroll{
+#bt-block .dw-top-scroll,
+#bt-block .dw-bottom-scroll{
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   padding: 0 !important;
@@ -3688,7 +3696,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   flex: 0 0 10px !important;
   line-height: 0 !important;
 }
-#bt-block .dw-top-scroll-inner{
+#bt-block .dw-top-scroll-inner,
+#bt-block .dw-bottom-scroll-inner{
   height: 1px !important;
   min-height: 1px !important;
   margin: 0 !important;
@@ -3735,6 +3744,44 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 #bt-block .dw-scroll::-webkit-scrollbar-corner{
   background: transparent !important;
 }
+
+
+/* ✅ FINAL FIX: hide the native footer-side scrollbar on the table body.
+   The clean external .dw-bottom-scroll now mirrors the top scrollbar, so no
+   grey native scrollbar box can appear between the body and footer. */
+#bt-block .dw-scroll{
+  overflow-x: hidden !important;
+  scrollbar-gutter: auto !important;
+}
+#bt-block .dw-bottom-scroll{
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  height: 10px !important;
+  min-height: 10px !important;
+  max-height: 10px !important;
+  flex: 0 0 10px !important;
+  line-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--scroll-thumb) transparent !important;
+}
+#bt-block .dw-bottom-scroll::-webkit-scrollbar{ width: 8px !important; height: 10px !important; background: transparent !important; }
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-track{ background: transparent !important; border: 0 !important; box-shadow: none !important; }
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%) !important;
+  border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22) !important;
+  background-clip: content-box !important;
+}
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-corner{ background: transparent !important; }
 
 </style>
 <!-- Header -->
@@ -3805,6 +3852,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 </table>
 </div>
 </div>
+<div class="dw-bottom-scroll" aria-label="Horizontal table scroll"><div class="dw-bottom-scroll-inner"></div></div>
 <div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 4px 0; margin:0; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
 <span id="dw-page-status-text"></span>
 </div>
@@ -3858,34 +3906,52 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     const scroller = root.querySelector('.dw-scroll');
     const topScroller = root.querySelector('.dw-top-scroll');
     const topScrollerInner = topScroller ? topScroller.querySelector('.dw-top-scroll-inner') : null;
+    const bottomScroller = root.querySelector('.dw-bottom-scroll');
+    const bottomScrollerInner = bottomScroller ? bottomScroller.querySelector('.dw-bottom-scroll-inner') : null;
     const controls = root.querySelector('.dw-controls');
     if(!table || !tb || !scroller || !controls) return;
 
     const controlsHidden = controls.classList.contains('vi-hide');
 
     function syncTopHorizontalScroller(){
-      if(!topScroller || !topScrollerInner || !table || !scroller) return;
+      if(!table || !scroller) return;
       const tableWidth = Math.ceil(table.scrollWidth || table.getBoundingClientRect().width || 0);
       const viewportWidth = Math.ceil(scroller.clientWidth || scroller.getBoundingClientRect().width || 0);
       const hasHorizontalOverflow = tableWidth > viewportWidth + 2;
-      topScrollerInner.style.width = Math.max(tableWidth, viewportWidth) + 'px';
-      topScroller.classList.toggle('vi-hide', !hasHorizontalOverflow);
-      if (Math.abs(topScroller.scrollLeft - scroller.scrollLeft) > 1){ topScroller.scrollLeft = scroller.scrollLeft; }
+      const scrollWidth = Math.max(tableWidth, viewportWidth);
+
+      const bars = [
+        {el: topScroller, inner: topScrollerInner},
+        {el: bottomScroller, inner: bottomScrollerInner}
+      ].filter(item => item.el && item.inner);
+
+      bars.forEach(({el, inner}) => {
+        inner.style.width = scrollWidth + 'px';
+        el.classList.toggle('vi-hide', !hasHorizontalOverflow);
+        if (Math.abs(el.scrollLeft - scroller.scrollLeft) > 1){
+          el.scrollLeft = scroller.scrollLeft;
+        }
+      });
     }
 
     let syncingHorizontalScroll = false;
-    if(topScroller){
-      topScroller.addEventListener('scroll', () => {
+    [topScroller, bottomScroller].filter(Boolean).forEach((bar) => {
+      bar.addEventListener('scroll', () => {
         if(syncingHorizontalScroll) return;
         syncingHorizontalScroll = true;
-        scroller.scrollLeft = topScroller.scrollLeft;
+        scroller.scrollLeft = bar.scrollLeft;
+        [topScroller, bottomScroller].filter(Boolean).forEach((other) => {
+          if(other !== bar) other.scrollLeft = bar.scrollLeft;
+        });
         requestAnimationFrame(() => { syncingHorizontalScroll = false; });
       }, {passive:true});
-    }
+    });
     scroller.addEventListener('scroll', () => {
-      if(!topScroller || syncingHorizontalScroll) return;
+      if(syncingHorizontalScroll) return;
       syncingHorizontalScroll = true;
-      topScroller.scrollLeft = scroller.scrollLeft;
+      [topScroller, bottomScroller].filter(Boolean).forEach((bar) => {
+        bar.scrollLeft = scroller.scrollLeft;
+      });
       requestAnimationFrame(() => { syncingHorizontalScroll = false; });
     }, {passive:true});
     window.addEventListener('resize', syncTopHorizontalScroller, {passive:true});
@@ -4032,7 +4098,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         : fallbackRowH;
       const rowCapH = averageMeasuredRowH * rowCap;
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
-      const horizontalReserve = needsXScroll ? 12 : 0;
+      const horizontalReserve = 0; // native bottom scrollbar is hidden; external bottom bar uses its own 10px strip
 
       // Hard rule: the viewport is table header + exactly 10 measured rows.
       // Do NOT clamp this to the current iframe height. On narrower embeds/mobile,
@@ -4055,7 +4121,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scroller.style.setProperty('height', desiredH + 'px', 'important');
       scroller.style.setProperty('max-height', desiredH + 'px', 'important');
       scroller.style.setProperty('min-height', '0', 'important');
-      scroller.style.setProperty('overflow-x', 'auto', 'important');
+      scroller.style.setProperty('overflow-x', 'hidden', 'important');
       scroller.style.setProperty('overflow-y', 'scroll', 'important');
       scroller.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
       scroller.style.setProperty('touch-action', 'pan-x pan-y', 'important');
@@ -4069,6 +4135,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         // looks right but cannot actually scroll.
         scroller.style.setProperty('overflow-y', (hasExtraRows || overflowsVertically) ? 'scroll' : 'hidden', 'important');
         scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
+        syncTopHorizontalScroller();
         syncOuterIframeToWidget();
       });
     }
