@@ -3112,21 +3112,29 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     /* Optional top horizontal scroller test. Sits between the widget header/controls and the table header row. */
     #bt-block .dw-top-scroll{
-      /* Keep the top scroller tight so the thumb sits directly under the header box. */
+      /* No separate visual box: keep only the actual scrollbar strip visible. */
       height: 10px; min-height: 10px; max-height: 10px;
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 0 !important;
       overflow-x: auto; overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) transparent;
-      background: transparent;
-      border-top: 0;
-      border-bottom: 1px solid rgba(var(--brand-500-rgb), .10);
-      position: relative; z-index: 6; flex: 0 0 auto;
+      background: transparent !important;
+      border: 0 !important;
+      outline: 0 !important;
+      box-shadow: none !important;
+      position: relative; z-index: 6; flex: 0 0 10px;
     }
     #bt-block .dw-top-scroll.vi-hide{ display:none !important; }
-    #bt-block .dw-top-scroll-inner{ height: 1px; min-height: 1px; width: 100%; }
+    #bt-block .dw-top-scroll-inner{ height: 1px; min-height: 1px; width: 100%; margin:0 !important; padding:0 !important; }
     #bt-block .dw-top-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
-    #bt-block .dw-top-scroll::-webkit-scrollbar-track{ background: transparent; }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-track{
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+    }
     #bt-block .dw-top-scroll::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px; border: 2px solid transparent;
