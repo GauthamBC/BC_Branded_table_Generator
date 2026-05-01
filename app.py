@@ -566,7 +566,7 @@ st.markdown(
 
 # =========================================================
 # ✅ Final button layout override
-# - Left tabs stay full-width (Edit table contents / Get Embed Script)
+# - Left tabs stay full-width (Customise table / Get Embed Script)
 # - Auth + right preview buttons stay compact and adjacent
 # =========================================================
 st.markdown(
@@ -6575,9 +6575,9 @@ def restore_draft_state_from_confirmed():
         return
 
     # Only run "snapback to defaults" restoration when returning from Embed tab.
-    current_view = st.session_state.get("bt_left_view", "Edit table contents")
+    current_view = st.session_state.get("bt_left_view", "Customise table")
     prev_view = st.session_state.get("__bt_prev_left_view")
-    coming_back_from_embed = (current_view == "Edit table contents" and prev_view == "Get Embed Script")
+    coming_back_from_embed = (current_view == "Customise table" and prev_view == "Get Embed Script")
 
     # Confirmed cfg keys -> session_state keys used by the editor/preview
     mapping = {
@@ -8053,19 +8053,19 @@ if main_tab == "Create New Table":
                 # =====================================================
                 # Full-width control rows above the editor/preview area
                 # =====================================================
-                st.session_state.setdefault("bt_left_view", "Edit table contents")
+                st.session_state.setdefault("bt_left_view", "Customise table")
                 st.session_state.setdefault("bt_right_view", "Preview")
 
                 _left_btn_col1, _left_btn_col2 = st.columns(2, gap="small")
                 with _left_btn_col1:
                     if st.button(
-                        "Edit table contents",
+                        "Customise table",
                         key="bt_left_edit_btn",
                         use_container_width=True,
-                        type="primary" if st.session_state.get("bt_left_view") == "Edit table contents" else "secondary",
+                        type="primary" if st.session_state.get("bt_left_view") == "Customise table" else "secondary",
                     ):
                         _cache_header_draft()
-                        st.session_state["bt_left_view"] = "Edit table contents"
+                        st.session_state["bt_left_view"] = "Customise table"
                         st.rerun()
                 with _left_btn_col2:
                     if st.button(
@@ -8079,7 +8079,7 @@ if main_tab == "Create New Table":
                         st.rerun()
 
                 # Right-side Preview / Edit body buttons removed.
-                left_view = st.session_state.get("bt_left_view", "Edit table contents")
+                left_view = st.session_state.get("bt_left_view", "Customise table")
                 right_view = "Preview"
                 st.session_state["bt_right_view"] = "Preview"
 
@@ -8314,8 +8314,8 @@ if main_tab == "Create New Table":
                 # ===================== Left: Tabs =====================
                 with left_col:
                     # ---------- EDIT TAB ----------
-                    if left_view == "Edit table contents":
-                        st.markdown("#### Edit table contents")
+                    if left_view == "Customise table":
+                        st.markdown("#### Customise table")
 
                         # ✅ Confirm & Save at the top
                         if st.button(
@@ -9533,13 +9533,13 @@ if main_tab == "Create New Table":
                         render_embed_output_panel()
 
                 # ✅ Render preview LAST (HARD-GATED: do NOT run on Get embed script)
-                _left_view = st.session_state.get("bt_left_view", "Edit table contents")
+                _left_view = st.session_state.get("bt_left_view", "Customise table")
                 _right_view = st.session_state.get("bt_right_view", "Preview")
                 
                 # Only render preview when:
-                # - Left view is "Edit table contents"
+                # - Left view is "Customise table"
                 # - Right view is "Preview"
-                if _left_view == "Edit table contents" and _right_view == "Preview":
+                if _left_view == "Customise table" and _right_view == "Preview":
                     with preview_slot:
                         st.session_state.setdefault("bt_show_preview", False)
 
