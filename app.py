@@ -3846,6 +3846,109 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   margin-top: 0 !important;
 }
 
+/* ✅ EXACT MATCH FIX: top and bottom horizontal scrollbars now share ONE final geometry.
+   This deliberately overrides every earlier top/bottom/native scrollbar rule, including
+   the previous bottom negative-margin overlay. Both bars get the same strip height,
+   same background, same native scrollbar dimensions, same thumb, same track, and
+   same spacing behaviour. */
+#bt-block{
+  --bt-xbar-strip-h: 10px;
+  --bt-xbar-native-h: 10px;
+  --bt-xbar-bg: rgba(var(--brand-500-rgb), .035);
+}
+#bt-block .dw-scroll{
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  scrollbar-gutter: auto !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+#bt-block .dw-scroll::after{
+  display: none !important;
+  content: none !important;
+  height: 0 !important;
+  background: none !important;
+}
+#bt-block .dw-top-scroll,
+#bt-block .dw-bottom-scroll{
+  box-sizing: border-box !important;
+  display: block !important;
+  width: 100% !important;
+  height: var(--bt-xbar-strip-h) !important;
+  min-height: var(--bt-xbar-strip-h) !important;
+  max-height: var(--bt-xbar-strip-h) !important;
+  flex: 0 0 var(--bt-xbar-strip-h) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: var(--bt-xbar-bg) !important;
+  line-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--scroll-thumb) transparent !important;
+  -webkit-overflow-scrolling: touch !important;
+  position: relative !important;
+  z-index: 20 !important;
+  transform: none !important;
+}
+#bt-block .dw-top-scroll.vi-hide,
+#bt-block .dw-bottom-scroll.vi-hide{
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  flex-basis: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#bt-block .dw-top-scroll-inner,
+#bt-block .dw-bottom-scroll-inner{
+  height: 1px !important;
+  min-height: 1px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+#bt-block .dw-top-scroll::-webkit-scrollbar,
+#bt-block .dw-bottom-scroll::-webkit-scrollbar{
+  width: 8px !important;
+  height: var(--bt-xbar-native-h) !important;
+  background: transparent !important;
+}
+#bt-block .dw-top-scroll::-webkit-scrollbar-track,
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-track{
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+#bt-block .dw-top-scroll::-webkit-scrollbar-thumb,
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%) !important;
+  border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22) !important;
+  background-clip: content-box !important;
+}
+#bt-block .dw-top-scroll::-webkit-scrollbar-thumb:hover,
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-thumb:hover{
+  background: var(--brand-600) !important;
+}
+#bt-block .dw-top-scroll::-webkit-scrollbar-corner,
+#bt-block .dw-bottom-scroll::-webkit-scrollbar-corner{
+  background: transparent !important;
+}
+/* Keep the bottom bar as a normal 10px bar, not an overlay/negative-margin strip. */
+#bt-block .dw-card + .dw-bottom-scroll{
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 </style>
 <!-- Header -->
 <div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
