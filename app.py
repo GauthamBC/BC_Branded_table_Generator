@@ -8381,12 +8381,28 @@ if main_tab == "Create New Table":
                             st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
                             st.session_state["bt_confirm_flash"] = False
 
-                        # Keep the left settings panel aligned with the live preview height.
-                        # This prevents the page itself from scrolling away from the table while
-                        # users are adjusting header/footer/body settings.
+                        # Keep the left settings panel ending at the same visual point as the live preview footer.
+                        # The settings box starts lower than the preview iframe because the left side has
+                        # the title, save button and tabs above it. So we size the box to the preview
+                        # height minus that above-panel offset instead of using the full preview height.
                         def _dynamic_settings_panel_height() -> int:
-                            base_h = 590
+                            min_h = 360
                             max_h = 1400
+
+                            def _preview_to_panel_height(preview_h: int) -> int:
+                                try:
+                                    preview_h = int(preview_h or 0)
+                                except Exception:
+                                    preview_h = 0
+
+                                # Approximate vertical UI before the settings box, net of the preview checkbox area.
+                                # This keeps the bottom of the bordered settings panel aligned with the bottom
+                                # of the preview/footer instead of running below it.
+                                above_panel_offset = 150
+                                if st.session_state.get("bt_confirm_flash", False):
+                                    above_panel_offset += 80
+
+                                return max(min_h, min(max_h, preview_h - above_panel_offset))
 
                             try:
                                 df_panel = st.session_state.get("bt_df_uploaded")
@@ -8405,15 +8421,15 @@ if main_tab == "Create New Table":
                                     panel_rows = len(df_panel_preview.index) if isinstance(df_panel_preview, pd.DataFrame) else 0
                                     panel_cfg = apply_compact_table_embed_guard(panel_cfg, panel_rows)
                                     preview_h = int(compute_preview_height(panel_rows, cfg=panel_cfg, df=df_panel_preview))
-                                    return max(base_h, min(max_h, preview_h))
+                                    return _preview_to_panel_height(preview_h)
                             except Exception:
                                 pass
 
                             try:
-                                previous_preview_h = int(st.session_state.get("bt_preview_total_height", base_h) or base_h)
-                                return max(base_h, min(max_h, previous_preview_h))
+                                previous_preview_h = int(st.session_state.get("bt_preview_total_height", min_h) or min_h)
+                                return _preview_to_panel_height(previous_preview_h)
                             except Exception:
-                                return base_h
+                                return min_h
 
                         SETTINGS_PANEL_HEIGHT = _dynamic_settings_panel_height()
 
