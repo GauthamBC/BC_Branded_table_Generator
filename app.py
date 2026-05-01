@@ -1200,12 +1200,14 @@ def compute_preview_height(row_count: int, cfg: dict | None = None, df=None) -> 
     horizontal_reserve = 16 if col_count >= 6 else 0
     rows_h = _estimate_visible_row_heights_for_embed(df=df, visible_rows=visible_rows, col_count=col_count)
 
+    top_horizontal_scroll_h = 18 if col_count >= 5 else 0
     table_viewport_h = table_head_h + rows_h + horizontal_reserve
 
     total_h = (
         header_h
         + root_vertical_padding
         + controls_h
+        + top_horizontal_scroll_h
         + table_viewport_h
         + page_status_h
         + footer_h
@@ -3108,6 +3110,29 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
+    /* Optional top horizontal scroller test. Sits between the widget header/controls and the table header row. */
+    #bt-block .dw-top-scroll{
+      height: 18px; min-height: 18px; max-height: 18px;
+      overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
+      background: rgba(255,255,255,.74);
+      border-top: 1px solid rgba(var(--brand-500-rgb), .10);
+      border-bottom: 1px solid rgba(var(--brand-500-rgb), .10);
+      position: relative; z-index: 6; flex: 0 0 auto;
+    }
+    #bt-block .dw-top-scroll.vi-hide{ display:none !important; }
+    #bt-block .dw-top-scroll-inner{ height: 1px; min-height: 1px; width: 100%; }
+    #bt-block .dw-top-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-track{ background: transparent; }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-thumb{
+      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
+      border-radius: 9999px; border: 2px solid transparent;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22); background-clip: content-box;
+    }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
+
     #bt-block table.dw-table {
       width: max-content;   /* allow columns to grow so headers can fit */
       min-width: 100%;      /* still fill container at minimum */
@@ -3550,6 +3575,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{ display:none !important; }
+    .vi-table-embed.export-mode #bt-block .dw-top-scroll{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-scroll{ max-height:none !important; height:auto !important; overflow:visible !important; }
     .vi-table-embed.export-mode #bt-block thead th{ position:static !important; }
     .vi-table-embed.export-mode #bt-block tbody tr:hover,
@@ -3667,6 +3693,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 </div></div>
 </div>
 </div>
+<div class="dw-top-scroll" aria-label="Horizontal table scroll"><div class="dw-top-scroll-inner"></div></div>
 <div class="dw-card">
 <div class="dw-scroll">
 <table class="dw-table">
@@ -3733,10 +3760,40 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     const PREVIEW_ROWS = ALL_ROWS;             // full table
     ALL_ROWS.forEach((r, i) => { r.dataset.idx = String(i); });
     const scroller = root.querySelector('.dw-scroll');
+    const topScroller = root.querySelector('.dw-top-scroll');
+    const topScrollerInner = topScroller ? topScroller.querySelector('.dw-top-scroll-inner') : null;
     const controls = root.querySelector('.dw-controls');
     if(!table || !tb || !scroller || !controls) return;
 
     const controlsHidden = controls.classList.contains('vi-hide');
+
+    function syncTopHorizontalScroller(){
+      if(!topScroller || !topScrollerInner || !table || !scroller) return;
+      const tableWidth = Math.ceil(table.scrollWidth || table.getBoundingClientRect().width || 0);
+      const viewportWidth = Math.ceil(scroller.clientWidth || scroller.getBoundingClientRect().width || 0);
+      const hasHorizontalOverflow = tableWidth > viewportWidth + 2;
+      topScrollerInner.style.width = Math.max(tableWidth, viewportWidth) + 'px';
+      topScroller.classList.toggle('vi-hide', !hasHorizontalOverflow);
+      if (Math.abs(topScroller.scrollLeft - scroller.scrollLeft) > 1){ topScroller.scrollLeft = scroller.scrollLeft; }
+    }
+
+    let syncingHorizontalScroll = false;
+    if(topScroller){
+      topScroller.addEventListener('scroll', () => {
+        if(syncingHorizontalScroll) return;
+        syncingHorizontalScroll = true;
+        scroller.scrollLeft = topScroller.scrollLeft;
+        requestAnimationFrame(() => { syncingHorizontalScroll = false; });
+      }, {passive:true});
+    }
+    scroller.addEventListener('scroll', () => {
+      if(!topScroller || syncingHorizontalScroll) return;
+      syncingHorizontalScroll = true;
+      topScroller.scrollLeft = scroller.scrollLeft;
+      requestAnimationFrame(() => { syncingHorizontalScroll = false; });
+    }, {passive:true});
+    window.addEventListener('resize', syncTopHorizontalScroller, {passive:true});
+    requestAnimationFrame(syncTopHorizontalScroller);
 
     const searchFieldWrap = controls.querySelector('.dw-field');
     const searchInput = controls.querySelector('.dw-input');
