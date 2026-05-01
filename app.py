@@ -1274,22 +1274,50 @@ def sync_table_control_defaults_for_row_count(df) -> int:
     - hide Page Numbers
     - place the Embed / Download button in the Header
 
-    Users can still override these after the defaults are applied.
+    Users can still override search/pager after the defaults are applied. The
+    Embed / Download button is kept in the header for compact tables so the
+    hidden controls row does not create a blank gap above the table.
     """
     row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
     col_count = len(df.columns) if isinstance(df, pd.DataFrame) else 0
     data_sig = f"{row_count}x{col_count}"
+    compact_defaults = row_count <= 10 and row_count > 0
 
     prev_sig = st.session_state.get("bt_table_controls_auto_sig")
     if prev_sig != data_sig:
-        compact_defaults = row_count <= 10 and row_count > 0
         st.session_state["bt_show_search"] = not compact_defaults
         st.session_state["bt_show_pager"] = not compact_defaults
         st.session_state["bt_show_page_numbers"] = not compact_defaults
         st.session_state["bt_embed_position"] = "Header" if compact_defaults else "Body"
         st.session_state["bt_table_controls_auto_sig"] = data_sig
+    elif compact_defaults and st.session_state.get("bt_embed_position", "Body") == "Body":
+        # Existing sessions may still have Body saved from an older run. For
+        # short tables, that creates a visible controls-row gap; keep it Header.
+        st.session_state["bt_embed_position"] = "Header"
 
     return row_count
+
+
+def apply_compact_table_embed_guard(cfg: dict, row_count: int) -> dict:
+    """Keep short-table previews/published HTML compact and gap-free.
+
+    When a table has 10 rows or fewer, the Embed / Download button should stay
+    in the header. If it falls back to Body, the controls row becomes visible and
+    creates the white gap above the table header.
+    """
+    cfg = dict(cfg or {})
+    try:
+        row_count = int(row_count or 0)
+    except Exception:
+        row_count = 0
+
+    if 0 < row_count <= 10 and cfg.get("show_embed", True):
+        if cfg.get("show_header", True):
+            cfg["embed_position"] = "Header"
+        else:
+            cfg["embed_position"] = "Body"
+
+    return cfg
 
 # =========================================================
 # 0) Publishing Users + Secrets (GITHUB APP)
@@ -6807,6 +6835,11 @@ def do_confirm_snapshot():
     if hidden_cols:
         df_confirm_for_html = df_confirm_for_html.drop(columns=hidden_cols, errors="ignore")
 
+    cfg = apply_compact_table_embed_guard(
+        cfg,
+        len(df_confirm_for_html.index) if isinstance(df_confirm_for_html, pd.DataFrame) else 0,
+    )
+
     # ✅ Lock PNG export columns at Confirm & Save time.
     # If >5 visible columns, users choose up to 5 in the dialog; default = first 5.
     available_image_cols = [str(c) for c in df_confirm_for_html.columns]
@@ -9627,6 +9660,7 @@ if main_tab == "Create New Table":
                         live_cfg["image_columns"] = st.session_state.get("bt_image_columns", []) or []
 
                         preview_rows = len(df_preview.index) if isinstance(df_preview, pd.DataFrame) else 0
+                        live_cfg = apply_compact_table_embed_guard(live_cfg, preview_rows)
                         preview_height = compute_preview_height(preview_rows, cfg=live_cfg, df=df_preview)
                         st.session_state["bt_preview_total_height"] = int(preview_height)
 
