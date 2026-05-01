@@ -6975,9 +6975,12 @@ st.markdown(
         position: sticky;
         top: 72px;
         align-self: flex-start;
-        height: calc(100vh - 92px);
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: calc(100vh - 92px);
         overflow: auto;
-        padding-bottom: 8px;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
       }
       div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
         align-self: flex-start;
@@ -6988,6 +6991,13 @@ st.markdown(
       div[data-testid="block-container"]{
         padding-bottom:0 !important;
         margin-bottom:0 !important;
+      }
+      div[data-testid="stAppViewContainer"],
+      div[data-testid="stMain"],
+      div[data-testid="stMainBlockContainer"]{
+        padding-bottom:0 !important;
+        margin-bottom:0 !important;
+        min-height:0 !important;
       }
       div[data-testid="stVerticalBlock"],
       div[data-testid="element-container"],
