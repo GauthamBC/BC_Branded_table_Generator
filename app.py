@@ -4242,6 +4242,30 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
+    function syncStreamlitFrameHeight(){
+      // Tighten the Streamlit iframe to the actual widget content height, so no
+      // blank white space appears after the footer in the app page.
+      try{
+        const root = document.querySelector('#bt-block') || document.body;
+        const rect = root.getBoundingClientRect();
+        const bodyH = Math.max(0, document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0);
+        const h = Math.max(180, Math.ceil(Math.max(rect.bottom, bodyH)));
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: 'streamlit:setFrameHeight',
+          height: h
+        }, '*');
+      }catch(e){}
+    }
+
+    function scheduleStreamlitFrameHeight(){
+      requestAnimationFrame(()=>{
+        syncStreamlitFrameHeight();
+        setTimeout(syncStreamlitFrameHeight, 80);
+        setTimeout(syncStreamlitFrameHeight, 260);
+      });
+    }
+
     function renderPage(){
       // Always operate on CURRENT DOM order (after sortBy re-inserts rows)
       const ordered = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
@@ -4265,6 +4289,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         applyVisibleZebra();
         syncMenuOptions();
         requestAnimationFrame(syncMeasuredScrollerHeight);
+        scheduleStreamlitFrameHeight();
         return;
       }
     
@@ -4299,6 +4324,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       applyVisibleZebra();
       syncMenuOptions();
       requestAnimationFrame(syncMeasuredScrollerHeight);
+      scheduleStreamlitFrameHeight();
     }
 
     if(hasSearch){
@@ -5138,11 +5164,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
     if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
-    window.addEventListener('resize', syncMeasuredScrollerHeight);
-    window.addEventListener('load', syncMeasuredScrollerHeight);
+    window.addEventListener('resize', ()=>{ syncMeasuredScrollerHeight(); scheduleStreamlitFrameHeight(); });
+    window.addEventListener('load', ()=>{ syncMeasuredScrollerHeight(); scheduleStreamlitFrameHeight(); });
     renderPage();
     syncMenuOptions();
     syncMeasuredScrollerHeight();
+    scheduleStreamlitFrameHeight();
   })();
   </script>
 </section>
@@ -6954,6 +6981,22 @@ st.markdown(
       }
       div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2){
         align-self: flex-start;
+      }
+
+      /* ✅ Remove Streamlit's default bottom padding/blank tail so the page ends after the preview */
+      section.main > div.block-container,
+      div[data-testid="block-container"]{
+        padding-bottom:0 !important;
+        margin-bottom:0 !important;
+      }
+      div[data-testid="stVerticalBlock"],
+      div[data-testid="element-container"],
+      div[data-testid="stIFrame"]{
+        margin-bottom:0 !important;
+      }
+      iframe{
+        margin-bottom:0 !important;
+        display:block !important;
       }
     </style>
     """,
