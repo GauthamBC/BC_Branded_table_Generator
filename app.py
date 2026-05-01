@@ -1273,10 +1273,10 @@ def sync_table_control_defaults_for_row_count(df) -> int:
     - hide Search
     - hide Pager
     - hide Page Numbers
-    - place the Embed / Download button in the Header
+    - place the Export button in the Header
 
     Users can still override search/pager after the defaults are applied. The
-    Embed / Download button is kept in the header for compact tables so the
+    Export button is kept in the header for compact tables so the
     hidden controls row does not create a blank gap above the table.
     """
     row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
@@ -1302,7 +1302,7 @@ def sync_table_control_defaults_for_row_count(df) -> int:
 def apply_compact_table_embed_guard(cfg: dict, row_count: int) -> dict:
     """Keep short-table previews/published HTML compact and gap-free.
 
-    When a table has 10 rows or fewer, the Embed / Download button should stay
+    When a table has 10 rows or fewer, the Export button should stay
     in the header. If it falls back to Body, the controls row becomes visible and
     creates the white gap above the table header.
     """
@@ -2830,7 +2830,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
 
-    /* Embed/Download button — source of truth for body, header, and footer */
+    /* Export button — source of truth for body, header, and footer */
     .vi-table-embed button.dw-btn.dw-download,
     .vi-table-embed .dw-btn.dw-download,
     .vi-table-embed .dw-download,
@@ -3621,7 +3621,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <span class="subtitle">[[SUBTITLE]]</span>
 </div>
 <div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
-<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Embed / Download</button>
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Export</button>
 </div>
 </div>
 <!-- Table block -->
@@ -3648,9 +3648,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
 <button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
 </div>
-<!-- Embed/Download -->
+<!-- Export -->
 <div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
-<button class="dw-btn dw-download" id="dw-download-png" type="button">Embed / Download</button>
+<button class="dw-btn dw-download" id="dw-download-png" type="button">Export</button>
 <div aria-label="Download Menu" class="dw-download-menu vi-hide" id="dw-download-menu">
 <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
 <!-- Full table options -->
@@ -3698,7 +3698,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="160"/>
 </div>
 <div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
-<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed / Download</button>
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Export</button>
 </div>
 </div>
 </div>
@@ -8860,7 +8860,7 @@ if main_tab == "Create New Table":
                                 )
                         
                                 st.checkbox(
-                                    "Show Embed / Download Button",
+                                    "Show Export Button",
                                     key="bt_show_embed",
                                 )
 
@@ -9661,7 +9661,7 @@ if main_tab == "Create New Table":
                                         st.success("Image columns locked for Top 10 / Bottom 10 PNG exports.")
 
                         live_cfg = draft_config_from_state()
-                        # ✅ Force the preview to include the Embed / Download menu so PNGs
+                        # ✅ Force the preview to include the Export menu so PNGs
                         # can be downloaded unlimited times without Confirm & Save.
                         live_cfg["show_embed"] = True
                         if str(live_cfg.get("embed_position", "Body") or "Body") not in ("Header", "Footer", "Body"):
