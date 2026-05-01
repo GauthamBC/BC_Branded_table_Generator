@@ -3810,18 +3810,21 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     
     function syncMenuOptions(){
       const filtered = isFilterActive();
-    
+      const enoughRowsForBottom10 = ALL_ROWS.length >= 20;
+
       // Full-table options
       if (btnTop10)   btnTop10.classList.toggle('vi-hide', filtered);
-      if (btnBottom10) btnBottom10.classList.toggle('vi-hide', filtered);
+      // Only show Bottom 10 when the table has 20+ rows. For 19 or fewer rows,
+      // the bottom 10 overlaps too much with the top rows and is not useful.
+      if (btnBottom10) btnBottom10.classList.toggle('vi-hide', filtered || !enoughRowsForBottom10);
       if (btnCsv)     btnCsv.classList.toggle('vi-hide', filtered);
       if (btnEmbed)   btnEmbed.classList.toggle('vi-hide', filtered);
-    
+
       // Current-view options
       if (btnCsvCurrent)  btnCsvCurrent.classList.toggle('vi-hide', !filtered);
       if (btnImgCurrent)  btnImgCurrent.classList.toggle('vi-hide', !filtered);
       if (btnHtmlCurrent) btnHtmlCurrent.classList.toggle('vi-hide', !filtered);
-    
+
       // Optional title clarity
       if (menuTitle){
         menuTitle.textContent = filtered ? 'Current view actions' : 'Choose action';
