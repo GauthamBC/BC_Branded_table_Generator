@@ -8381,7 +8381,41 @@ if main_tab == "Create New Table":
                             st.success("Saved. Confirmed snapshot updated and HTML regenerated.")
                             st.session_state["bt_confirm_flash"] = False
 
-                        SETTINGS_PANEL_HEIGHT = 590  # px
+                        # Keep the left settings panel aligned with the live preview height.
+                        # This prevents the page itself from scrolling away from the table while
+                        # users are adjusting header/footer/body settings.
+                        def _dynamic_settings_panel_height() -> int:
+                            base_h = 590
+                            max_h = 1400
+
+                            try:
+                                df_panel = st.session_state.get("bt_df_uploaded")
+                                if isinstance(df_panel, pd.DataFrame) and not df_panel.empty:
+                                    df_panel_preview = df_panel.copy()
+                                    hidden_cols_panel = st.session_state.get("bt_hidden_cols", []) or []
+                                    if hidden_cols_panel:
+                                        df_panel_preview = df_panel_preview.drop(columns=hidden_cols_panel, errors="ignore")
+
+                                    panel_cfg = draft_config_from_state()
+                                    panel_cfg["show_embed"] = True
+                                    if str(panel_cfg.get("embed_position", "Body") or "Body") not in ("Header", "Footer", "Body"):
+                                        panel_cfg["embed_position"] = "Body"
+                                    panel_cfg["image_columns"] = st.session_state.get("bt_image_columns", []) or []
+
+                                    panel_rows = len(df_panel_preview.index) if isinstance(df_panel_preview, pd.DataFrame) else 0
+                                    panel_cfg = apply_compact_table_embed_guard(panel_cfg, panel_rows)
+                                    preview_h = int(compute_preview_height(panel_rows, cfg=panel_cfg, df=df_panel_preview))
+                                    return max(base_h, min(max_h, preview_h))
+                            except Exception:
+                                pass
+
+                            try:
+                                previous_preview_h = int(st.session_state.get("bt_preview_total_height", base_h) or base_h)
+                                return max(base_h, min(max_h, previous_preview_h))
+                            except Exception:
+                                return base_h
+
+                        SETTINGS_PANEL_HEIGHT = _dynamic_settings_panel_height()
 
                         sub_head, sub_footer, sub_body, sub_bars, sub_heat = st.tabs(["Header", "Footer", "Body", "Bars", "Heat"])
 
