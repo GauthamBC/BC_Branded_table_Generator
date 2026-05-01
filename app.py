@@ -9541,7 +9541,7 @@ if main_tab == "Create New Table":
                 # - Right view is "Preview"
                 if _left_view == "Customise table" and _right_view == "Preview":
                     with preview_slot:
-                        st.session_state.setdefault("bt_show_preview", False)
+                        st.session_state.setdefault("bt_show_preview", True)
 
                         live_rules = st.session_state.get("bt_col_format_rules", {})
 
@@ -9568,7 +9568,7 @@ if main_tab == "Create New Table":
                             st.session_state["bt_image_columns"] = current_preview_cols
 
                             if len(preview_available_cols) > 5:
-                                with st.expander("🖼️ Image export columns", expanded=True):
+                                with st.expander("🖼️ Image export columns", expanded=False):
                                     st.caption(
                                         "Choose up to five columns for Top 10 / Bottom 10 PNG downloads. "
                                         "This is the only place you need to manage image columns; Confirm & Save will use the same selection."
