@@ -2274,7 +2274,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body style="margin:0; overflow:hidden; background:transparent;">
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:min(100%, [[WIDGET_MAX_W]]px);max-width:[[WIDGET_MAX_W]]px;margin:0 auto;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
@@ -2321,18 +2321,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --footer-logo-h: [[FOOTER_LOGO_H]]px;
       --footer-h: max(88px, calc(var(--footer-logo-h) + 36px));
       --surface-shadow: 0 14px 34px rgba(17,24,39,.08);
-      --widget-max-w: [[WIDGET_MAX_W]]px;
-      --mobile-side-gutter: 12px;
       --accent-start: var(--brand-500);
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
-
-      /* Keep the widget on the same editorial width as the iframe on desktop,
-         while allowing a small mobile gutter so it does not stretch edge-to-edge. */
-      width: min(100%, var(--widget-max-w)) !important;
-      max-width: var(--widget-max-w) !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
 
       /* The widget must wrap the actual content. Do not force a tall fixed box here,
          otherwise short tables leave a bordered blank area below the footer. */
@@ -2653,10 +2644,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     @media (max-width: 640px){
       .vi-table-embed{
         --gutter: 8px;
-        width: calc(100% - (var(--mobile-side-gutter) * 2)) !important;
-        max-width: calc(100% - (var(--mobile-side-gutter) * 2)) !important;
-        margin-left: var(--mobile-side-gutter) !important;
-        margin-right: var(--mobile-side-gutter) !important;
       }
 
       /* Header can breathe on mobile, but text is scaled down so it does not crop */
@@ -3632,8 +3619,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 #bt-block .dw-scroll{
   margin: 0;
-  height: var(--bt-scroll-h, var(--table-max-h, 520px)) !important;
-  max-height: var(--bt-scroll-h, var(--table-max-h, 520px)) !important;
+  height: var(--bt-scroll-h, 520px) !important;
+  max-height: var(--bt-scroll-h, 520px) !important;
   min-height: 0 !important;
   flex: 0 0 auto !important;
   overflow-x: auto !important;
@@ -3652,8 +3639,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 /* ✅ Hard scroll guard: the table body itself must remain scrollable */
 #bt-block .dw-card{ overflow:hidden !important; }
 #bt-block .dw-scroll{
-  height: var(--bt-scroll-h, var(--table-max-h, 520px)) !important;
-  max-height: var(--bt-scroll-h, var(--table-max-h, 520px)) !important;
+  height: var(--bt-scroll-h, 520px) !important;
+  max-height: var(--bt-scroll-h, 520px) !important;
   overflow-x:auto !important;
   overflow-y:scroll !important;
   -webkit-overflow-scrolling:touch !important;
@@ -4019,35 +4006,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       // rows 11+ remain inside this fixed viewport and scroll internally.
       const desiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
 
-      // Desktop rule: compact tables must show every available row (up to 10)
-      // with the widget header and footer intact. Do not clamp the table body to
-      // the current iframe height on desktop, because the iframe height can be
-      // adjusted by the user/CMS. Clamping here was causing 5-row tables to show
-      // only 2 rows plus a vertical scrollbar.
-      const isMobileViewport = window.matchMedia('(max-width: 640px)').matches;
-      const isCompactTable = ALL_ROWS.length > 0 && ALL_ROWS.length <= 10;
-
-      let finalScrollerH = desiredH;
-
-      // Mobile can still protect the header/footer by allowing only the table body
-      // to scroll if the available iframe viewport is genuinely too short. Desktop
-      // keeps the full measured row height so 5/6/10-row tables are fully visible.
-      if (isMobileViewport && !isCompactTable) {
-        const widgetHeaderH = widgetRoot ? Math.ceil((widgetRoot.querySelector('.vi-table-header') || {}).getBoundingClientRect?.().height || 0) : 0;
-        const widgetFooterH = widgetRoot ? Math.ceil((widgetRoot.querySelector('.vi-footer') || {}).getBoundingClientRect?.().height || 0) : 0;
-        const controlsH = Math.ceil((root.querySelector('.dw-controls') || {}).getBoundingClientRect?.().height || 0);
-        const topScrollH = Math.ceil((root.querySelector('.dw-top-scroll:not(.vi-hide)') || {}).getBoundingClientRect?.().height || 0);
-        const pageStatusH = Math.ceil((root.querySelector('.dw-page-status:not(.vi-hide)') || {}).getBoundingClientRect?.().height || 0);
-        const iframeViewportH = Math.ceil(window.innerHeight || document.documentElement.clientHeight || 0);
-        const reservedH = widgetHeaderH + widgetFooterH + controlsH + topScrollH + pageStatusH + 26;
-        const viewportLimitedH = iframeViewportH > 260 ? Math.max(150, iframeViewportH - reservedH) : desiredH;
-        finalScrollerH = Math.min(desiredH, viewportLimitedH);
-      }
-
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
-        card.style.setProperty('height', finalScrollerH + 'px', 'important');
-        card.style.setProperty('max-height', finalScrollerH + 'px', 'important');
+        card.style.setProperty('height', desiredH + 'px', 'important');
+        card.style.setProperty('max-height', desiredH + 'px', 'important');
         card.style.setProperty('min-height', '0', 'important');
         card.style.setProperty('overflow', 'hidden', 'important');
       }
@@ -4055,9 +4017,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       // Use an !important CSS variable because a later responsive CSS block also
       // targets .dw-scroll. This was the bit that made 15/20/All show extra rows
       // but prevented the scroll container from actually scrolling.
-      scroller.style.setProperty('--bt-scroll-h', finalScrollerH + 'px');
-      scroller.style.setProperty('height', finalScrollerH + 'px', 'important');
-      scroller.style.setProperty('max-height', finalScrollerH + 'px', 'important');
+      scroller.style.setProperty('--bt-scroll-h', desiredH + 'px');
+      scroller.style.setProperty('height', desiredH + 'px', 'important');
+      scroller.style.setProperty('max-height', desiredH + 'px', 'important');
       scroller.style.setProperty('min-height', '0', 'important');
       scroller.style.setProperty('overflow-x', 'auto', 'important');
       scroller.style.setProperty('overflow-y', 'scroll', 'important');
@@ -6013,11 +5975,6 @@ def generate_table_html_from_df(
         footer_align_class = ""  # default right
 
     cell_align = (cell_align or "Center").strip().lower()
-    if str(brand_class or "").strip() == "brand-canadasb":
-        widget_max_w = 920
-    else:
-        widget_max_w = 720
-
     if cell_align == "left":
         cell_align_class = "align-left"
     elif cell_align == "right":
@@ -6056,7 +6013,6 @@ def generate_table_html_from_df(
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
         .replace("[[WIDGET_MAX_H]]", str(widget_max_h))
-        .replace("[[WIDGET_MAX_W]]", str(widget_max_w))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
@@ -6473,12 +6429,12 @@ def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
         return False
 
 def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
-    """Build the copy/paste iframe snippet shown in the app.
+    """Build the clean copy/paste iframe snippet shown in the app.
 
-    Uses a responsive height style block again so the desktop iframe can stay
-    tight while mobile can receive a slightly taller height when text wraps.
-    The widget HTML itself also clamps the table body if the available iframe
-    viewport is shorter, keeping the header and footer visible.
+    The iframe height is already calculated by the app, so the snippet does not
+    need an extra <style> block or mobile height override. Keeping the snippet
+    inline-only makes it safer to paste into WordPress/custom HTML blocks without
+    adding page-level CSS.
     """
     url = (url or "").strip()
     if not url:
@@ -6492,34 +6448,19 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
 
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
-    embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
 
-    # Mobile usually needs a little more height because headings/cells wrap.
-    # This mirrors the earlier working behaviour: desktop = calculated height,
-    # mobile = calculated height + a safety buffer.
-    mobile_h = min(1600, max(h + 120, int(h * 1.18)))
+    return (
+        f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">'
+        f'<iframe class="bt-responsive-iframe" '
+        f'style="border: 0; border-radius: 0; overflow: hidden; display: block;" '
+        f'src="{html_mod.escape(url, quote=True)}" '
+        f'width="100%" '
+        f'height="{h}" '
+        f'scrolling="no" '
+        f'sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox">'
+        f'</iframe></div>'
+    )
 
-    return f"""<!-- ✅ {embed_label} embed (max-width: {max_width}px, centered, aligned to article text) -->
-<style>
-  .bt-responsive-iframe-wrap iframe.bt-responsive-iframe {{ height: {h}px; }}
-  @media (max-width: 640px) {{
-    .bt-responsive-iframe-wrap iframe.bt-responsive-iframe {{ height: {mobile_h}px; }}
-  }}
-</style>
-<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">
-  <iframe
-    class="bt-responsive-iframe"
-    src="{html_mod.escape(url, quote=True)}"
-    width="100%"
-    height="{h}"
-    scrolling="no"
-    style="border:0; border-radius:0; overflow:hidden; display:block;"
-    loading="lazy"
-    referrerpolicy="no-referrer-when-downgrade"
-    allow="clipboard-write"
-    sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox"
-  ></iframe>
-</div>"""
 
 
 def read_github_text(owner: str, repo: str, token: str, path: str, branch: str = "main") -> str:
@@ -9743,7 +9684,7 @@ if main_tab == "Create New Table":
                                         published_iframe_height = int(final_publish_height or estimated_publish_height or FIXED_IFRAME_HEIGHT_PX)
 
 
-                                        published_iframe_height = max(320, min(1400, published_iframe_height))
+                                        published_iframe_height = max(320, min(900, published_iframe_height))
 
 
                                         st.session_state["bt_iframe_height"] = published_iframe_height
