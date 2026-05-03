@@ -6425,6 +6425,13 @@ def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
         return False
 
 def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
+    """Build the clean copy/paste iframe snippet shown in the app.
+
+    The iframe height is already calculated by the app, so the snippet does not
+    need an extra <style> block or mobile height override. Keeping the snippet
+    inline-only makes it safer to paste into WordPress/custom HTML blocks without
+    adding page-level CSS.
+    """
     url = (url or "").strip()
     if not url:
         return ""
@@ -6434,33 +6441,21 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     except Exception:
         h = FIXED_IFRAME_HEIGHT_PX
     h = max(320, min(1400, h))
+
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
-    embed_label = "Canada Sports Betting" if brand_clean == "canada sports betting" else "Standard"
 
-    mobile_h = min(1600, max(h + 120, int(h * 1.18)))
-
-    return f"""<!-- ✅ {embed_label} embed (max-width: {max_width}px, centered, aligned to article text) -->
-<style>
-  .bt-responsive-iframe-wrap iframe.bt-responsive-iframe {{ height: {h}px; }}
-  @media (max-width: 640px) {{
-    .bt-responsive-iframe-wrap iframe.bt-responsive-iframe {{ height: {mobile_h}px; }}
-  }}
-</style>
-<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">
-  <iframe
-    class="bt-responsive-iframe"
-    src="{html_mod.escape(url, quote=True)}"
-    width="100%"
-    height="{h}"
-    scrolling="no"
-    style="border:0; border-radius:0; overflow:hidden; display:block;"
-    loading="lazy"
-    referrerpolicy="no-referrer-when-downgrade"
-    allow="clipboard-write"
-    sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox"
-  ></iframe>
-</div>"""
+    return (
+        f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">'
+        f'<iframe class="bt-responsive-iframe" '
+        f'style="border: 0; border-radius: 0; overflow: hidden; display: block;" '
+        f'src="{html_mod.escape(url, quote=True)}" '
+        f'width="100%" '
+        f'height="{h}" '
+        f'scrolling="no" '
+        f'sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox">'
+        f'</iframe></div>'
+    )
 
 
 
