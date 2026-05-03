@@ -4019,18 +4019,30 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       // rows 11+ remain inside this fixed viewport and scroll internally.
       const desiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
 
-      // If the iframe viewport is shorter than the full table body, keep
-      // the branded header/footer visible and let only the table body scroll.
-      // Desktop still uses the natural measured height when there is enough room.
-      const widgetHeaderH = widgetRoot ? Math.ceil((widgetRoot.querySelector('.vi-table-header') || {}).getBoundingClientRect?.().height || 0) : 0;
-      const widgetFooterH = widgetRoot ? Math.ceil((widgetRoot.querySelector('.vi-footer') || {}).getBoundingClientRect?.().height || 0) : 0;
-      const controlsH = Math.ceil((root.querySelector('.dw-controls') || {}).getBoundingClientRect?.().height || 0);
-      const topScrollH = Math.ceil((root.querySelector('.dw-top-scroll:not(.vi-hide)') || {}).getBoundingClientRect?.().height || 0);
-      const pageStatusH = Math.ceil((root.querySelector('.dw-page-status:not(.vi-hide)') || {}).getBoundingClientRect?.().height || 0);
-      const iframeViewportH = Math.ceil(window.innerHeight || document.documentElement.clientHeight || 0);
-      const reservedH = widgetHeaderH + widgetFooterH + controlsH + topScrollH + pageStatusH + 26;
-      const viewportLimitedH = iframeViewportH > 260 ? Math.max(150, iframeViewportH - reservedH) : desiredH;
-      const finalScrollerH = Math.min(desiredH, viewportLimitedH);
+      // Desktop rule: compact tables must show every available row (up to 10)
+      // with the widget header and footer intact. Do not clamp the table body to
+      // the current iframe height on desktop, because the iframe height can be
+      // adjusted by the user/CMS. Clamping here was causing 5-row tables to show
+      // only 2 rows plus a vertical scrollbar.
+      const isMobileViewport = window.matchMedia('(max-width: 640px)').matches;
+      const isCompactTable = ALL_ROWS.length > 0 && ALL_ROWS.length <= 10;
+
+      let finalScrollerH = desiredH;
+
+      // Mobile can still protect the header/footer by allowing only the table body
+      // to scroll if the available iframe viewport is genuinely too short. Desktop
+      // keeps the full measured row height so 5/6/10-row tables are fully visible.
+      if (isMobileViewport && !isCompactTable) {
+        const widgetHeaderH = widgetRoot ? Math.ceil((widgetRoot.querySelector('.vi-table-header') || {}).getBoundingClientRect?.().height || 0) : 0;
+        const widgetFooterH = widgetRoot ? Math.ceil((widgetRoot.querySelector('.vi-footer') || {}).getBoundingClientRect?.().height || 0) : 0;
+        const controlsH = Math.ceil((root.querySelector('.dw-controls') || {}).getBoundingClientRect?.().height || 0);
+        const topScrollH = Math.ceil((root.querySelector('.dw-top-scroll:not(.vi-hide)') || {}).getBoundingClientRect?.().height || 0);
+        const pageStatusH = Math.ceil((root.querySelector('.dw-page-status:not(.vi-hide)') || {}).getBoundingClientRect?.().height || 0);
+        const iframeViewportH = Math.ceil(window.innerHeight || document.documentElement.clientHeight || 0);
+        const reservedH = widgetHeaderH + widgetFooterH + controlsH + topScrollH + pageStatusH + 26;
+        const viewportLimitedH = iframeViewportH > 260 ? Math.max(150, iframeViewportH - reservedH) : desiredH;
+        finalScrollerH = Math.min(desiredH, viewportLimitedH);
+      }
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
