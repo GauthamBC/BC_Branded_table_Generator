@@ -2274,7 +2274,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body style="margin:0; overflow:hidden; background:transparent;">
-<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
+<section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:min(100%, [[WIDGET_MAX_W]]px);max-width:[[WIDGET_MAX_W]]px;margin:0 auto;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
@@ -2321,9 +2321,18 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       --footer-logo-h: [[FOOTER_LOGO_H]]px;
       --footer-h: max(88px, calc(var(--footer-logo-h) + 36px));
       --surface-shadow: 0 14px 34px rgba(17,24,39,.08);
+      --widget-max-w: [[WIDGET_MAX_W]]px;
+      --mobile-side-gutter: 12px;
       --accent-start: var(--brand-500);
       --accent-mid: var(--brand-600);
       --accent-end: var(--brand-700);
+
+      /* Keep the widget on the same editorial width as the iframe on desktop,
+         while allowing a small mobile gutter so it does not stretch edge-to-edge. */
+      width: min(100%, var(--widget-max-w)) !important;
+      max-width: var(--widget-max-w) !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
 
       /* The widget must wrap the actual content. Do not force a tall fixed box here,
          otherwise short tables leave a bordered blank area below the footer. */
@@ -2644,6 +2653,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     @media (max-width: 640px){
       .vi-table-embed{
         --gutter: 8px;
+        width: calc(100% - (var(--mobile-side-gutter) * 2)) !important;
+        max-width: calc(100% - (var(--mobile-side-gutter) * 2)) !important;
+        margin-left: var(--mobile-side-gutter) !important;
+        margin-right: var(--mobile-side-gutter) !important;
       }
 
       /* Header can breathe on mobile, but text is scaled down so it does not crop */
@@ -5975,6 +5988,11 @@ def generate_table_html_from_df(
         footer_align_class = ""  # default right
 
     cell_align = (cell_align or "Center").strip().lower()
+    if str(brand_class or "").strip() == "brand-canadasb":
+        widget_max_w = 920
+    else:
+        widget_max_w = 720
+
     if cell_align == "left":
         cell_align_class = "align-left"
     elif cell_align == "right":
@@ -6013,6 +6031,7 @@ def generate_table_html_from_df(
         .replace("[[BAR_FIXED_W]]", str(bar_fixed_w))
         .replace("[[TABLE_MAX_H]]", str(table_max_h))
         .replace("[[WIDGET_MAX_H]]", str(widget_max_h))
+        .replace("[[WIDGET_MAX_W]]", str(widget_max_w))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
         .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
