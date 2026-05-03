@@ -1269,17 +1269,12 @@ def apply_preview_height_buffer(height: int, buffer_px: int = PREVIEW_IFRAME_BUF
 
 
 def sync_table_control_defaults_for_row_count(df) -> int:
-    """Apply compact-table defaults when the uploaded table shape changes.
+    """Apply compact-table defaults for the currently uploaded table.
 
-    For tables with 10 rows or fewer, default the widget to a cleaner compact layout:
-    - hide Search
-    - hide Pager
-    - hide Page Numbers
-    - place the Export button in the Header
-
-    Users can still override search/pager after the defaults are applied. The
-    Export button is kept in the header for compact tables so the
-    hidden controls row does not create a blank gap above the table.
+    Tables with 10 rows or fewer should render as a simple static table by
+    default: no search, no rows-per-page controls, and no page numbers. The
+    Export button stays in the header when the header is visible so the body
+    controls row does not create an unnecessary blank gap.
     """
     row_count = len(df.index) if isinstance(df, pd.DataFrame) else 0
     col_count = len(df.columns) if isinstance(df, pd.DataFrame) else 0
@@ -1287,17 +1282,23 @@ def sync_table_control_defaults_for_row_count(df) -> int:
     compact_defaults = row_count <= 10 and row_count > 0
 
     prev_sig = st.session_state.get("bt_table_controls_auto_sig")
-    if prev_sig != data_sig:
-        st.session_state["bt_show_search"] = not compact_defaults
-        st.session_state["bt_show_pager"] = not compact_defaults
-        st.session_state["bt_show_page_numbers"] = not compact_defaults
-        st.session_state["bt_embed_position"] = "Header" if compact_defaults else "Body"
+
+    if compact_defaults:
+        # Keep compact tables clean on every rerun, including older sessions
+        # where these controls may already have been saved as True.
+        st.session_state["bt_show_search"] = False
+        st.session_state["bt_show_pager"] = False
+        st.session_state["bt_show_page_numbers"] = False
+        if st.session_state.get("bt_embed_position", "Body") == "Body":
+            st.session_state["bt_embed_position"] = "Header"
         st.session_state["bt_table_controls_auto_sig"] = data_sig
-    elif compact_defaults and st.session_state.get("bt_embed_position", "Body") == "Body":
-        # Existing sessions may still have Body saved from an older run. For
-        # short tables, keep it Header by default. If the header is later
-        # disabled, the Export button stays hidden rather than moving to Body.
-        st.session_state["bt_embed_position"] = "Header"
+    elif prev_sig != data_sig:
+        # Longer tables keep the original searchable/paginated behaviour.
+        st.session_state["bt_show_search"] = True
+        st.session_state["bt_show_pager"] = True
+        st.session_state["bt_show_page_numbers"] = True
+        st.session_state["bt_embed_position"] = "Body"
+        st.session_state["bt_table_controls_auto_sig"] = data_sig
 
     return row_count
 
@@ -1305,10 +1306,8 @@ def sync_table_control_defaults_for_row_count(df) -> int:
 def apply_compact_table_embed_guard(cfg: dict, row_count: int) -> dict:
     """Keep short-table previews/published HTML compact and gap-free.
 
-    When a table has 10 rows or fewer, the Export button defaults to the
-    header only while the header is enabled. If the selected target is hidden
-    because Header/Footer is disabled, the Export button should disappear
-    instead of falling back into the body and creating a blank controls row.
+    When a table has 10 rows or fewer, hide Search, Rows/Page, pagination
+    arrows, and page-number status in both the live preview and published HTML.
     """
     cfg = dict(cfg or {})
     try:
@@ -1316,10 +1315,15 @@ def apply_compact_table_embed_guard(cfg: dict, row_count: int) -> dict:
     except Exception:
         row_count = 0
 
-    if 0 < row_count <= 10 and cfg.get("show_embed", True):
-        current_pos = str(cfg.get("embed_position", "Body") or "Body").strip()
-        if current_pos == "Body" and cfg.get("show_header", True):
-            cfg["embed_position"] = "Header"
+    if 0 < row_count <= 10:
+        cfg["show_search"] = False
+        cfg["show_pager"] = False
+        cfg["show_page_numbers"] = False
+
+        if cfg.get("show_embed", True):
+            current_pos = str(cfg.get("embed_position", "Body") or "Body").strip()
+            if current_pos == "Body" and cfg.get("show_header", True):
+                cfg["embed_position"] = "Header"
 
     return cfg
 
@@ -9050,19 +9054,19 @@ if main_tab == "Create New Table":
                                 _compact_controls_default = _row_count_for_controls <= 10 and _row_count_for_controls > 0
 
                                 if _compact_controls_default:
-                                    st.caption("Compact tables (10 rows or fewer) default to Header embed + hidden search/pager.")
+                                    st.caption("Compact tables (10 rows or fewer) automatically hide Search, Rows/Page, pagination arrows and page numbers.")
 
                                 st.checkbox(
                                     "Show Search",
                                     value=st.session_state.get("bt_show_search", not _compact_controls_default),
                                     key="bt_show_search",
-                                    help="Defaults to off when the table has 10 rows or fewer, but you can enable it anytime.",
+                                    help="Automatically hidden when the table has 10 rows or fewer.",
                                 )
                                 st.checkbox(
                                     "Show Pager",
                                     value=st.session_state.get("bt_show_pager", not _compact_controls_default),
                                     key="bt_show_pager",
-                                    help="Defaults to off when the table has 10 rows or fewer, but you can enable it anytime.",
+                                    help="Automatically hidden when the table has 10 rows or fewer.",
                                 )
 
                                 st.checkbox(
@@ -9070,7 +9074,7 @@ if main_tab == "Create New Table":
                                     value=st.session_state.get("bt_show_page_numbers", not _compact_controls_default),
                                     key="bt_show_page_numbers",
                                     disabled=not st.session_state.get("bt_show_pager", True),
-                                    help="Only works when Pager is enabled.",
+                                    help="Only works when Pager is enabled. Automatically hidden when the table has 10 rows or fewer.",
                                 )
                         
                                 st.checkbox(
