@@ -3920,6 +3920,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     function syncMenuOptions(){
       const filtered = isFilterActive();
       const enoughRowsForBottom10 = ALL_ROWS.length >= 20;
+      const compactImageLabel = ALL_ROWS.length <= 10 ? 'Download Image' : 'Download Top 10';
+
+      // Keep the primary image-download label accurate for compact tables.
+      // The click handler still uses the existing top10 image export path;
+      // when there are 10 rows or fewer, that exports the full table image.
+      if (btnTop10) btnTop10.textContent = compactImageLabel;
+      const legacyTop10Btn = root.querySelector('#dw-dl-top10');
+      if (legacyTop10Btn) legacyTop10Btn.textContent = compactImageLabel;
 
       // Full-table options
       if (btnTop10)   btnTop10.classList.toggle('vi-hide', filtered);
