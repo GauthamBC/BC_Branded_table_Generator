@@ -11,6 +11,12 @@ import io
 import json
 from collections.abc import Mapping
 
+try:
+    from bs4 import BeautifulSoup, Comment
+except Exception:
+    BeautifulSoup = None
+    Comment = None
+
 def inject_global_radio_button_css():
     """Render all Streamlit radio controls like full-width rectangle button groups.
     This is intentionally global so no individual radio falls back to the native dot UI.
@@ -789,10 +795,59 @@ def _bt_copy_button(label: str, text: str, key_suffix: str):
     )
 
 
+def clean_saved_table_html_for_embed_output(html_code: str) -> str:
+    """Return a cleaner user-facing HTML export without changing the full publish HTML.
+
+    The app still keeps st.session_state["bt_html_code"] as the complete standalone
+    production file for GitHub publishing. This helper is only used for the visible
+    Get Embed Script panel, copy button, and HTML download so users do not have to
+    look at thousands of lines of inactive/hidden controls.
+    """
+    raw = (html_code or "").strip()
+    if not raw:
+        return ""
+
+    cleaned = raw
+
+    # Prefer structural cleanup when BeautifulSoup is available. If not, fall back
+    # to whitespace/comment cleanup so the app never breaks because of this helper.
+    if BeautifulSoup is not None:
+        try:
+            soup = BeautifulSoup(raw, "html.parser")
+
+            # Remove generator/hash comments from the user-facing copy. The full
+            # stored HTML keeps the publish hash separately when publishing.
+            if Comment is not None:
+                for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+                    comment.extract()
+
+            # Remove inactive optional UI elements. These are things the user did
+            # not enable in the confirmed table, e.g. hidden search, pager, footer
+            # notes, heat scale, alternate export slots, and hidden modal choices.
+            # This keeps the displayed/exported snippet closer to the final table.
+            for tag in list(soup.find_all(True)):
+                classes = tag.get("class") or []
+                if "vi-hide" in classes:
+                    tag.decompose()
+
+            cleaned = str(soup)
+        except Exception:
+            cleaned = raw
+
+    # Keep code compact but still readable enough in downloaded files.
+    cleaned = re.sub(r"<!--\s*BT_PUBLISH_HASH:[\s\S]*?-->", "", cleaned)
+    cleaned = re.sub(r"\n\s*\n+", "\n", cleaned)
+    cleaned = "\n".join(line.rstrip() for line in cleaned.splitlines() if line.strip())
+    return cleaned.strip()
+
+
 def render_embed_output_panel():
     """Render published URL plus generated HTML / iframe snippets in the right-side panel."""
     published_url_val = (st.session_state.get("bt_last_published_url") or "").strip()
     html_code_val = (st.session_state.get("bt_html_code") or "").strip()
+    clean_html_code_val = clean_saved_table_html_for_embed_output(html_code_val)
+    if clean_html_code_val:
+        st.session_state["bt_clean_html_code"] = clean_html_code_val
     iframe_val = (st.session_state.get("bt_iframe_code") or "").strip()
 
     # Fallback: if the page is live but iframe text was not persisted, rebuild it from the URL.
@@ -824,22 +879,17 @@ def render_embed_output_panel():
         html_tab, iframe_tab = st.tabs(["HTML", "Iframe"])
 
         with html_tab:
-            if html_code_val:
-                st.text_area(
-                    "HTML Code",
-                    value=html_code_val,
-                    height=320,
-                    label_visibility="collapsed",
-                    key="bt_html_code_view_right_panel",
-                )
-                _bt_copy_button("Copy HTML", html_code_val, "html-right-panel")
+            if clean_html_code_val:
+                st.success("Clean HTML is ready. The full production HTML is kept in the background for publishing.")
+                st.caption("The visible box is hidden now; copy or download the cleaned final HTML from here instead.")
+                _bt_copy_button("Copy clean HTML", clean_html_code_val, "clean-html-right-panel")
                 st.download_button(
-                    "Download HTML file",
-                    data=html_code_val,
-                    file_name="table.html",
+                    "Download clean HTML file",
+                    data=clean_html_code_val,
+                    file_name="table-clean.html",
                     mime="text/html",
                     use_container_width=True,
-                    key="bt_download_html_right_panel",
+                    key="bt_download_clean_html_right_panel",
                 )
             else:
                 st.info("Click **Confirm & Save** first to generate the latest HTML.")
