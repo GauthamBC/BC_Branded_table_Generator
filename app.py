@@ -2264,23 +2264,14 @@ def get_brand_meta(brand: str) -> dict:
 # HTML Template (UPDATED)
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
-<!DOCTYPE html>
-
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-</head>
-<body style="margin:0; overflow:hidden; background:transparent;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
-    html, body { height:auto; min-height:0; overflow:hidden; margin:0; padding:0; background:transparent; }
-    body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+    /* Page-safe embed: do not style html/body, because this HTML may be pasted directly into WordPress. */
+    .vi-table-embed{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -3070,7 +3061,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
-      overscroll-behavior: contain;
+      overscroll-behavior: auto;
       scrollbar-gutter: stable;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
@@ -3627,7 +3618,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   overflow-y: scroll !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: auto !important;
 }
 
 #bt-block .dw-page-status{
@@ -3645,7 +3636,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   overflow-y:scroll !important;
   -webkit-overflow-scrolling:touch !important;
   touch-action:pan-x pan-y !important;
-  overscroll-behavior:contain !important;
+  overscroll-behavior:auto !important;
 }
 #bt-block thead th{
   position: sticky;
@@ -4025,7 +4016,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scroller.style.setProperty('overflow-y', 'scroll', 'important');
       scroller.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
       scroller.style.setProperty('touch-action', 'pan-x pan-y', 'important');
-      scroller.style.setProperty('overscroll-behavior', 'contain', 'important');
+      scroller.style.setProperty('overscroll-behavior', 'auto', 'important');
 
       requestAnimationFrame(() => {
         const overflowsVertically = table.scrollHeight > scroller.clientHeight + 2;
@@ -5293,8 +5284,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   })();
   </script>
 </section>
-</body>
-</html>
 
 """
 
