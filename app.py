@@ -2264,14 +2264,23 @@ def get_brand_meta(brand: str) -> dict:
 # HTML Template (UPDATED)
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Table 1</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body style="margin:0; overflow:hidden; background:transparent;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
-    /* Page-safe embed: do not style html/body, because this HTML may be pasted directly into WordPress. */
-    .vi-table-embed{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+    html, body { height:auto; min-height:0; overflow:hidden; margin:0; padding:0; background:transparent; }
+    body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
     .vi-table-embed{
@@ -3061,7 +3070,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
-      overscroll-behavior: auto;
+      overscroll-behavior: contain;
       scrollbar-gutter: stable;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
@@ -3618,7 +3627,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   overflow-y: scroll !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
-  overscroll-behavior: auto !important;
+  overscroll-behavior: contain !important;
 }
 
 #bt-block .dw-page-status{
@@ -3636,7 +3645,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   overflow-y:scroll !important;
   -webkit-overflow-scrolling:touch !important;
   touch-action:pan-x pan-y !important;
-  overscroll-behavior:auto !important;
+  overscroll-behavior:contain !important;
 }
 #bt-block thead th{
   position: sticky;
@@ -3686,58 +3695,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 
 </style>
-<!-- Header -->
-<div class="vi-table-header [[HEADER_ALIGN_CLASS]] [[HEADER_VIS_CLASS]]">
-<div class="vi-header-main">
-<span class="title [[TITLE_CLASS]]">[[TITLE]]</span>
-<span class="subtitle">[[SUBTITLE]]</span>
-</div>
-<div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
-<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Export</button>
-</div>
-</div>
+[[HEADER_HTML]]
 <!-- Table block -->
 <div data-dw="table" id="bt-block">
-<div class="dw-controls [[CONTROLS_VIS_CLASS]]">
-<div class="left">
-<div class="dw-field [[SEARCH_VIS_CLASS]]">
-<input aria-label="Search Table" class="dw-input" placeholder="Search Table…" type="search"/>
-<button aria-label="Clear Search" class="dw-clear" type="button">×</button>
-</div>
-</div>
-<div class="right">
-<!-- Pager -->
-<div class="dw-pager [[PAGER_VIS_CLASS]]">
-<label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
-<select class="dw-select" id="bt-size">
-<option selected="" value="10">10</option>
-<option value="15">15</option>
-<option value="20">20</option>
-<option value="25">25</option>
-<option value="30">30</option>
-<option value="0">All</option>
-</select>
-<button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
-<button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
-</div>
-<!-- Export -->
-<div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
-<button class="dw-btn dw-download" id="dw-download-png" type="button">Export</button>
-<div aria-label="Download Menu" class="dw-download-menu vi-hide" id="dw-download-menu">
-<div class="dw-menu-title" id="dw-menu-title">Choose action</div>
-<!-- Full table options -->
-<button class="dw-menu-btn" id="dw-dl-top10" type="button">Download Top 10</button>
-<button class="dw-menu-btn" id="dw-dl-bottom10" type="button">Download Bottom 10</button>
-<button class="dw-menu-btn" id="dw-dl-csv" type="button">Download CSV</button>
-<button class="dw-menu-btn" id="dw-embed-script" type="button">Copy HTML</button>
-<!-- Current view options (shown only when filter is active) -->
-<button class="dw-menu-btn vi-hide" id="dw-dl-csv-current" type="button">Download Current View CSV</button>
-<button class="dw-menu-btn vi-hide" id="dw-dl-image-current" type="button">Download Current View Image</button>
-<button class="dw-menu-btn vi-hide" id="dw-copy-html-current" type="button">Copy Current View HTML</button>
-</div>
-</div></div>
-</div>
-</div>
+[[CONTROLS_HTML]]
 <div class="dw-top-scroll" aria-label="Horizontal table scroll"><div class="dw-top-scroll-inner"></div></div>
 <div class="dw-card">
 <div class="dw-scroll">
@@ -3754,44 +3715,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 </table>
 </div>
 </div>
-<div class="dw-page-status [[PAGE_STATUS_VIS_CLASS]]" style="padding:8px 4px 0; margin:0; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
-<span id="dw-page-status-text"></span>
+[[PAGE_STATUS_HTML]]
 </div>
-</div>
-<!-- Footer -->
-<div class="vi-footer [[FOOTER_VIS_CLASS]]" role="contentinfo">
-<div class="footer-inner">
-<div class="footer-scale-wrap [[FOOTER_SCALE_VIS_CLASS]]">
-[[FOOTER_SCALE_HTML]]
-</div>
-<div class="footer-notes-wrap [[FOOTER_NOTES_VIS_CLASS]]">
-<div class="footer-notes">[[FOOTER_NOTES_HTML]]</div>
-</div>
-<div class="footer-logo">
-<img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="160"/>
-</div>
-<div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
-<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Export</button>
-</div>
-</div>
-</div>
-<div aria-hidden="true" class="dw-modal-backdrop vi-hide" id="dw-embed-modal">
-<div aria-labelledby="dw-modal-title" aria-modal="true" class="dw-modal" role="dialog">
-<div class="dw-modal-head">
-<div class="dw-menu-title" id="dw-modal-title">Choose action</div>
-<button aria-label="Close" class="dw-modal-close" id="dw-modal-close" type="button">×</button>
-</div>
-<div class="dw-modal-actions">
-<button class="dw-menu-btn" id="dw-modal-top10" type="button">Download Top 10</button>
-<button class="dw-menu-btn" id="dw-modal-bottom10" type="button">Download Bottom 10</button>
-<button class="dw-menu-btn" id="dw-modal-csv" type="button">Download CSV</button>
-<button class="dw-menu-btn" id="dw-modal-embed" type="button">Copy HTML</button>
-<button class="dw-menu-btn vi-hide" id="dw-modal-csv-current" type="button">Download Current View CSV</button>
-<button class="dw-menu-btn vi-hide" id="dw-modal-image-current" type="button">Download Current View Image</button>
-<button class="dw-menu-btn vi-hide" id="dw-modal-html-current" type="button">Copy Current View HTML</button>
-</div>
-</div>
-</div>
+[[FOOTER_HTML]]
+[[EMBED_MODAL_HTML]]
 <script>
   (function(){
     const root = document.getElementById('bt-block');
@@ -3808,9 +3735,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     const topScroller = root.querySelector('.dw-top-scroll');
     const topScrollerInner = topScroller ? topScroller.querySelector('.dw-top-scroll-inner') : null;
     const controls = root.querySelector('.dw-controls');
-    if(!table || !tb || !scroller || !controls) return;
+    if(!table || !tb || !scroller) return;
 
-    const controlsHidden = controls.classList.contains('vi-hide');
+    const controlsHidden = !controls || controls.classList.contains('vi-hide');
 
     function syncTopHorizontalScroller(){
       if(!topScroller || !topScrollerInner || !table || !scroller) return;
@@ -3840,16 +3767,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     window.addEventListener('resize', syncTopHorizontalScroller, {passive:true});
     requestAnimationFrame(syncTopHorizontalScroller);
 
-    const searchFieldWrap = controls.querySelector('.dw-field');
-    const searchInput = controls.querySelector('.dw-input');
-    const clearBtn = controls.querySelector('.dw-clear');
+    const searchFieldWrap = controls ? controls.querySelector('.dw-field') : null;
+    const searchInput = controls ? controls.querySelector('.dw-input') : null;
+    const clearBtn = controls ? controls.querySelector('.dw-clear') : null;
 
-    const pagerWrap = controls.querySelector('.dw-pager');
+    const pagerWrap = controls ? controls.querySelector('.dw-pager') : null;
     const sizeSel = pagerWrap ? pagerWrap.querySelector('#bt-size') : null;
     const prevBtn = pagerWrap ? pagerWrap.querySelector('[data-page="prev"]') : null;
     const nextBtn = pagerWrap ? pagerWrap.querySelector('[data-page="next"]') : null;
 
-    const embedWrap = controls.querySelector('.dw-embed');
+    const embedWrap = controls ? controls.querySelector('.dw-embed') : null;
     const widgetRoot = document.querySelector('section.vi-table-embed');
     const downloadBtn = embedWrap ? embedWrap.querySelector('#dw-download-png') : null;
     const headerTrigger = widgetRoot ? widgetRoot.querySelector('.dw-embed-trigger-header') : null;
@@ -3960,7 +3887,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scroller.style.overflowY = 'auto';
       scroller.style.webkitOverflowScrolling = 'touch';
       scroller.style.touchAction = 'pan-x pan-y';
-      scroller.style.overscrollBehavior = 'contain';
+      scroller.style.overscrollBehavior = 'auto';
 
       const visibleRows = Array.from(tb.rows).filter(r =>
         !r.classList.contains('dw-empty') && r.style.display !== 'none'
@@ -5284,6 +5211,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   })();
   </script>
 </section>
+</body>
+</html>
 
 """
 
@@ -5971,6 +5900,132 @@ def generate_table_html_from_df(
     else:
         cell_align_class = "align-center"
 
+
+    # ✅ Output-cleanup: only include markup for options that are actually enabled.
+    # This keeps the published/downloaded HTML leaner and avoids shipping hidden
+    # controls such as Search, Rows/Page, footer notes, heat scale, or footer export
+    # when those options are turned off in the tool.
+    header_embed_html = ""
+    if header_embed_active:
+        header_embed_html = '''<div class="vi-header-actions" data-embed-target="header">
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Export</button>
+</div>'''
+
+    search_html = ""
+    if show_search:
+        search_html = '''<div class="dw-field">
+<input aria-label="Search Table" class="dw-input" placeholder="Search Table…" type="search"/>
+<button aria-label="Clear Search" class="dw-clear" type="button">×</button>
+</div>'''
+
+    pager_html = ""
+    if show_pager:
+        pager_html = '''<div class="dw-pager">
+<label class="dw-status" for="bt-size" style="margin-right:2px;">Rows/Page</label>
+<select class="dw-select" id="bt-size">
+<option selected="" value="10">10</option>
+<option value="15">15</option>
+<option value="20">20</option>
+<option value="25">25</option>
+<option value="30">30</option>
+<option value="0">All</option>
+</select>
+<button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
+<button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
+</div>'''
+
+    body_embed_html = ""
+    if body_embed_active:
+        body_embed_html = '''<div class="dw-embed-slot" data-embed-target="body"><div class="dw-embed">
+<button class="dw-btn dw-download" id="dw-download-png" type="button">Export</button>
+</div></div>'''
+
+    controls_html = ""
+    if show_search or show_pager or body_embed_active:
+        controls_html = f'''<div class="dw-controls">
+<div class="left">
+{search_html}
+</div>
+<div class="right">
+{pager_html}
+{body_embed_html}
+</div>
+</div>'''
+
+    footer_scale_block_html = ""
+    if show_heat_scale and footer_scale_html:
+        footer_scale_block_html = f'''<div class="footer-scale-wrap">
+{footer_scale_html}
+</div>'''
+
+    footer_notes_block_html = ""
+    if show_footer_notes and footer_notes_html:
+        footer_notes_block_html = f'''<div class="footer-notes-wrap">
+<div class="footer-notes">{footer_notes_html}</div>
+</div>'''
+
+    footer_embed_html = ""
+    if footer_embed_active:
+        footer_embed_html = '''<div class="footer-embed-wrap" data-embed-target="footer">
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Export</button>
+</div>'''
+
+    current_view_buttons_html = ""
+    if show_search:
+        current_view_buttons_html = '''<button class="dw-menu-btn vi-hide" id="dw-modal-csv-current" type="button">Download Current View CSV</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-image-current" type="button">Download Current View Image</button>
+<button class="dw-menu-btn vi-hide" id="dw-modal-html-current" type="button">Copy Current View HTML</button>'''
+
+    embed_modal_html = ""
+    if show_embed:
+        embed_modal_html = f'''<div aria-hidden="true" class="dw-modal-backdrop vi-hide" id="dw-embed-modal">
+<div aria-labelledby="dw-modal-title" aria-modal="true" class="dw-modal" role="dialog">
+<div class="dw-modal-head">
+<div class="dw-menu-title" id="dw-modal-title">Choose action</div>
+<button aria-label="Close" class="dw-modal-close" id="dw-modal-close" type="button">×</button>
+</div>
+<div class="dw-modal-actions">
+<button class="dw-menu-btn" id="dw-modal-top10" type="button">Download Top 10</button>
+<button class="dw-menu-btn" id="dw-modal-bottom10" type="button">Download Bottom 10</button>
+<button class="dw-menu-btn" id="dw-modal-csv" type="button">Download CSV</button>
+<button class="dw-menu-btn" id="dw-modal-embed" type="button">Copy HTML</button>
+{current_view_buttons_html}
+</div>
+</div>
+</div>'''
+
+
+    page_status_html = ""
+    if show_page_numbers and show_pager:
+        page_status_html = '''<div class="dw-page-status" style="padding:8px 4px 0; margin:0; color:#7a808d; font:12px/1.2 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+<span id="dw-page-status-text"></span>
+</div>'''
+
+    header_html = ""
+    if show_header:
+        header_html = f'''<!-- Header -->
+<div class="vi-table-header {header_class}">
+<div class="vi-header-main">
+<span class="title {title_class}">{html_mod.escape(title_display)}</span>
+<span class="subtitle">{subtitle_html}</span>
+</div>
+{header_embed_html}
+</div>'''
+
+    footer_html = ""
+    if show_footer:
+        footer_html = f'''<!-- Footer -->
+<div class="vi-footer" role="contentinfo">
+<div class="footer-inner">
+{footer_scale_block_html}
+{footer_notes_block_html}
+<div class="footer-logo">
+<img alt="{html_mod.escape(brand_logo_alt)}" decoding="async" height="auto" loading="lazy" src="{brand_logo_url}" width="160"/>
+</div>
+{footer_embed_html}
+</div>
+</div>'''
+
     html = (
         HTML_TEMPLATE_TABLE
         .replace("[[TABLE_HEAD]]", table_head_html)
@@ -5986,6 +6041,12 @@ def generate_table_html_from_df(
         .replace("[[TITLE_CLASS]]", title_class)
         .replace("[[TITLE_FONT_SIZE]]", title_size_to_css(title_size))
         .replace("[[HEADER_VIS_CLASS]]", header_vis)
+        .replace("[[HEADER_HTML]]", header_html)
+        .replace("[[PAGE_STATUS_HTML]]", page_status_html)
+        .replace("[[FOOTER_HTML]]", footer_html)
+        .replace("[[HEADER_EMBED_HTML]]", header_embed_html)
+        .replace("[[CONTROLS_HTML]]", controls_html)
+        .replace("[[EMBED_MODAL_HTML]]", embed_modal_html)
         .replace("[[FOOTER_VIS_CLASS]]", footer_vis)
         .replace("[[EMBED_POSITION]]", embed_position)
         .replace("[[CONTROLS_VIS_CLASS]]", controls_vis)
@@ -5996,6 +6057,7 @@ def generate_table_html_from_df(
         .replace("[[HEADER_EMBED_TARGET_VIS_CLASS]]", header_embed_target_vis)
         .replace("[[BODY_EMBED_TARGET_VIS_CLASS]]", body_embed_target_vis)
         .replace("[[FOOTER_EMBED_TARGET_VIS_CLASS]]", footer_embed_target_vis)
+        .replace("[[FOOTER_EMBED_HTML]]", footer_embed_html)
         .replace("[[FOOTER_ALIGN_CLASS]]", footer_align_class)
         .replace("[[FOOTER_EMBED_MODE_CLASS]]", "footer-with-embed" if footer_embed_active else "")
         .replace("[[CELL_ALIGN_CLASS]]", cell_align_class)
@@ -6004,9 +6066,9 @@ def generate_table_html_from_df(
         .replace("[[WIDGET_MAX_H]]", str(widget_max_h))
         .replace("[[FOOTER_LOGO_H]]", str(footer_logo_h))
         .replace("[[FOOTER_NOTES_VIS_CLASS]]", "" if (show_footer_notes and footer_notes_html) else "vi-hide")
-        .replace("[[FOOTER_NOTES_HTML]]", footer_notes_html)
+        .replace("[[FOOTER_NOTES_HTML]]", footer_notes_block_html)
         .replace("[[FOOTER_SCALE_VIS_CLASS]]", "" if show_heat_scale else "vi-hide")
-        .replace("[[FOOTER_SCALE_HTML]]", footer_scale_html)
+        .replace("[[FOOTER_SCALE_HTML]]", footer_scale_block_html)
     )
     return html
 
