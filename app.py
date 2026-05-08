@@ -2378,6 +2378,33 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       position: relative;
     }
 
+    /* ✅ Fixed-height iframe guard
+       The iframe height can be based on the desktop version of the widget.
+       On narrower/mobile embeds the table can become taller because text wraps.
+       When that happens, scroll the branded widget itself instead of stretching
+       the outer iframe or leaving white space below it. */
+    .vi-table-embed.bt-is-framed{
+      max-height: 100vh;
+      max-height: 100dvh;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
+    }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar{ width: 8px; height: 10px; }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar-track{ background: transparent; }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb{
+      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+      background-clip: content-box;
+    }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
+
     .vi-table-embed.align-left { --cell-align:left; }
     .vi-table-embed.align-center { --cell-align:center; }
     .vi-table-embed.align-right { --cell-align:right; }
@@ -4080,20 +4107,49 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
-    // Keep the outer iframe/component trimmed to the actual widget height.
-    // This removes the white/bordered dead-space that can appear below the footer
-    // when Streamlit or WordPress gives the iframe a slightly taller fixed height.
+    // Keep a fixed outer iframe height. If the widget becomes taller than the
+    // iframe viewport on mobile/narrow embeds, the branded widget scrolls inside
+    // the iframe instead of forcing the parent iframe taller.
     function syncOuterIframeToWidget(){
+      if (!widgetRoot) return;
+
+      let isFramed = false;
       try {
-        if (!widgetRoot || !window.frameElement) return;
-        const rect = widgetRoot.getBoundingClientRect();
-        const h = Math.ceil(rect.height || widgetRoot.offsetHeight || 0);
-        if (!h || h < 120) return;
-        window.frameElement.style.height = h + 'px';
-        window.frameElement.style.minHeight = h + 'px';
-        window.frameElement.style.maxHeight = h + 'px';
-        window.frameElement.setAttribute('height', String(h));
-        window.frameElement.style.overflow = 'hidden';
+        isFramed = !!window.frameElement || window.self !== window.top;
+      } catch(e) {
+        isFramed = true;
+      }
+
+      widgetRoot.classList.toggle('bt-is-framed', !!isFramed);
+
+      if (!isFramed) return;
+
+      try {
+        // Remove the browser's default body gap inside hosted iframe pages.
+        // This is applied only when framed, so direct WordPress paste remains scoped.
+        if (document.documentElement) {
+          document.documentElement.style.margin = '0';
+          document.documentElement.style.padding = '0';
+          document.documentElement.style.overflow = 'hidden';
+        }
+        if (document.body) {
+          document.body.style.margin = '0';
+          document.body.style.padding = '0';
+          document.body.style.overflow = 'hidden';
+        }
+      } catch(e) {}
+
+      widgetRoot.style.setProperty('max-height', '100dvh', 'important');
+      widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
+      widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+
+      try {
+        // Important: do NOT overwrite the iframe height here. The copied iframe
+        // snippet owns the desktop height; mobile/narrow overflow is handled by
+        // the branded internal scroller above.
+        if (window.frameElement) {
+          window.frameElement.style.overflow = 'hidden';
+        }
       } catch(e) {}
     }
 
