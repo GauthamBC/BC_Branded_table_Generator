@@ -2379,11 +2379,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
 
     /* ✅ Fixed-height iframe guard
-       The iframe height can be based on the desktop version of the widget.
-       On narrower/mobile embeds the table can become taller because text wraps.
-       When that happens, scroll the branded widget itself instead of stretching
-       the outer iframe or leaving white space below it. */
-    .vi-table-embed.bt-is-framed{
+       Desktop embeds should stay clean and fitted. Only narrow/mobile iframe
+       widths get a branded vertical widget scroller, because mobile text wraps
+       and can make the widget taller than the fixed iframe height. */
+    .vi-table-embed.bt-is-mobile-framed{
       max-height: 100vh;
       max-height: 100dvh;
       overflow-x: hidden !important;
@@ -2394,16 +2393,16 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
     }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar{ width: 8px; height: 10px; }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar-track{ background: transparent; }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb{
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar{ width: 8px; height: 10px; }
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-track{ background: transparent; }
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px;
       border: 2px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
       background-clip: content-box;
     }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     .vi-table-embed.align-left { --cell-align:left; }
     .vi-table-embed.align-center { --cell-align:center; }
@@ -4120,7 +4119,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         isFramed = true;
       }
 
+      const viewportW = Math.ceil(
+        (document.documentElement && document.documentElement.clientWidth) ||
+        window.innerWidth ||
+        0
+      );
+      const mobileFrameScroll = !!isFramed && viewportW > 0 && viewportW <= 640;
+
       widgetRoot.classList.toggle('bt-is-framed', !!isFramed);
+      widgetRoot.classList.toggle('bt-is-mobile-framed', !!mobileFrameScroll);
 
       if (!isFramed) return;
 
@@ -4139,9 +4146,19 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         }
       } catch(e) {}
 
-      widgetRoot.style.setProperty('max-height', '100dvh', 'important');
-      widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
-      widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      if (mobileFrameScroll) {
+        // Mobile/narrow iframe: branded internal vertical scroll if wrapping makes
+        // the widget taller than the fixed iframe height.
+        widgetRoot.style.setProperty('max-height', '100dvh', 'important');
+        widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
+        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      } else {
+        // Desktop iframe: do the opposite — no branded outer widget scroller.
+        // The fixed iframe height should match the desktop widget height.
+        widgetRoot.style.setProperty('max-height', 'none', 'important');
+        widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
+        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      }
 
       try {
         // Important: do NOT overwrite the iframe height here. The copied iframe
