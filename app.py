@@ -4067,11 +4067,44 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const horizontalReserve = needsXScroll ? 12 : 0;
 
-      // Hard rule: the viewport is table header + exactly 10 measured rows.
-      // Do NOT clamp this to the current iframe height. On narrower embeds/mobile,
-      // rows can wrap to 2–4 lines, so the iframe must grow to fit 10 rows while
-      // rows 11+ remain inside this fixed viewport and scroll internally.
-      const desiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
+      // Natural table viewport: table header + the selected row cap.
+      // Desktop/wide iframes should FIT inside the copied iframe height.
+      // Mobile/narrow iframes should keep the taller natural table and let the
+      // branded outer widget scroll, because mobile text wraps more.
+      const naturalDesiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
+
+      let isFramedForFit = false;
+      try {
+        isFramedForFit = !!window.frameElement || window.self !== window.top;
+      } catch(e) {
+        isFramedForFit = true;
+      }
+
+      const viewportWForFit = Math.ceil(
+        (document.documentElement && document.documentElement.clientWidth) ||
+        window.innerWidth ||
+        0
+      );
+      const mobileFrameScrollForFit = !!isFramedForFit && viewportWForFit > 0 && viewportWForFit <= 640;
+
+      let desiredH = naturalDesiredH;
+
+      if (isFramedForFit && !mobileFrameScrollForFit) {
+        const iframeViewportH = Math.max(
+          320,
+          Math.ceil(window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0)
+        );
+
+        const currentScrollerH = Math.ceil(scroller.getBoundingClientRect().height || scroller.offsetHeight || 0);
+        const currentWidgetH = Math.ceil(widgetRoot.getBoundingClientRect().height || widgetRoot.offsetHeight || 0);
+        const nonScrollerChromeH = Math.max(0, currentWidgetH - currentScrollerH);
+        const availableScrollerH = Math.max(180, iframeViewportH - nonScrollerChromeH - 2);
+
+        // This is the key desktop rule: shrink the table body first so the footer
+        // remains visible within height=800/780/etc. The inner table can still
+        // scroll for rows 11+ or when the viewport is reduced.
+        desiredH = Math.max(180, Math.min(naturalDesiredH, availableScrollerH));
+      }
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
@@ -4153,8 +4186,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
         widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
       } else {
-        // Desktop iframe: do the opposite — no branded outer widget scroller.
-        // The fixed iframe height should match the desktop widget height.
+        // Desktop iframe: no branded outer widget scroller. The table body
+        // is clamped in syncMeasuredScrollerHeight(), so the footer stays visible
+        // inside the fixed iframe height.
         widgetRoot.style.setProperty('max-height', 'none', 'important');
         widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
         widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
