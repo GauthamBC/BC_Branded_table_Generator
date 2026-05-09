@@ -2379,11 +2379,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
 
     /* ✅ Fixed-height iframe guard
-       The generated iframe height is treated as the available viewport. The
-       table body itself keeps the natural 10-row desktop height instead of
-       being shrunk first. If the full widget is taller than the iframe viewport
-       on desktop or mobile, the outer widget gets a branded vertical scroller. */
-    .vi-table-embed.bt-is-framed-overflow{
+       Both desktop AND mobile iframes get a branded vertical scroller. The
+       inner table body always lays out the natural 10-row height, so when the
+       widget overflows the iframe (typical on mobile because text wraps, or on
+       desktop only if the embed height is intentionally short), the BRANDED
+       outer widget scrolls. If the iframe is tall enough — the typical desktop
+       case — no scrollbar appears at all. This eliminates the old "desktop
+       inner-table scroll while mobile shows all rows" inversion. */
+    .vi-table-embed.bt-is-framed,
+    .vi-table-embed.bt-is-mobile-framed{
       max-height: 100vh;
       max-height: 100dvh;
       overflow-x: hidden !important;
@@ -2394,16 +2398,20 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
     }
-    .vi-table-embed.bt-is-framed-overflow::-webkit-scrollbar{ width: 8px; height: 10px; }
-    .vi-table-embed.bt-is-framed-overflow::-webkit-scrollbar-track{ background: transparent; }
-    .vi-table-embed.bt-is-framed-overflow::-webkit-scrollbar-thumb{
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar,
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar{ width: 8px; height: 10px; }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar-track,
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-track{ background: transparent; }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb,
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px;
       border: 2px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
       background-clip: content-box;
     }
-    .vi-table-embed.bt-is-framed-overflow::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
+    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb:hover,
+    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     .vi-table-embed.align-left { --cell-align:left; }
     .vi-table-embed.align-center { --cell-align:center; }
@@ -4069,12 +4077,19 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const horizontalReserve = needsXScroll ? 12 : 0;
 
       // Natural table viewport: table header + the selected row cap.
-      // Important: do not shrink the desktop table body just because the iframe
-      // has a fixed height. A desktop/wide embed should show the full 10-row
-      // viewport when height=800/780 is sufficient. If the whole widget still
-      // becomes taller than the iframe, syncOuterIframeToWidget() adds the
-      // branded OUTER scroll instead.
-      const desiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
+      // ✅ Always use the natural height on BOTH desktop and mobile iframes so
+      // the table body lays out all 10 rows (no inner-table vertical scrollbar
+      // hiding rows). If the resulting widget is taller than the fixed iframe
+      // height, the OUTER widget scrolls instead (handled in
+      // syncOuterIframeToWidget). This guarantees we never end up in the bad
+      // state where desktop has an inner scrollbar but mobile shows all rows.
+      // - Iframe tall enough → no scrolling anywhere (typical desktop case).
+      // - Iframe too short → outer widget scrolls on both desktop and mobile
+      //   (mobile hits this more often because rows wrap taller).
+      // - Page size > 10 rows → inner table body still scrolls for rows 11+
+      //   (handled in the requestAnimationFrame block below).
+      const naturalDesiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
+      const desiredH = naturalDesiredH;
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
@@ -4109,11 +4124,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
-    // Keep a fixed outer iframe height. The copied iframe snippet owns the
-    // available height. Desktop keeps the full natural 10-row table viewport; if
-    // the whole widget is taller than the iframe, the branded OUTER widget scrolls.
-    // This prevents the bad case where desktop scrolls inside the table body while
-    // mobile shows everything with no outer scroll.
+    // Keep a fixed outer iframe height. The inner table body now always uses
+    // the natural 10-row height, so when the widget becomes taller than the
+    // iframe viewport (mobile wrapping, or a deliberately short iframe on
+    // desktop), the BRANDED OUTER WIDGET scrolls inside the iframe. This
+    // guarantees the table body never internally clips rows on desktop while
+    // mobile shows all of them — both surfaces behave the same way.
     function syncOuterIframeToWidget(){
       if (!widgetRoot) return;
 
@@ -4124,12 +4140,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         isFramed = true;
       }
 
-      widgetRoot.classList.toggle('bt-is-framed', !!isFramed);
+      const viewportW = Math.ceil(
+        (document.documentElement && document.documentElement.clientWidth) ||
+        window.innerWidth ||
+        0
+      );
+      const mobileFrameScroll = !!isFramed && viewportW > 0 && viewportW <= 640;
 
-      if (!isFramed) {
-        widgetRoot.classList.remove('bt-is-framed-overflow');
-        return;
-      }
+      widgetRoot.classList.toggle('bt-is-framed', !!isFramed);
+      widgetRoot.classList.toggle('bt-is-mobile-framed', !!mobileFrameScroll);
+
+      if (!isFramed) return;
 
       try {
         // Remove the browser's default body gap inside hosted iframe pages.
@@ -4146,33 +4167,22 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         }
       } catch(e) {}
 
-      const iframeViewportH = Math.max(
-        320,
-        Math.ceil(window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0)
-      );
-      const naturalWidgetH = Math.ceil(
-        widgetRoot.scrollHeight ||
-        widgetRoot.getBoundingClientRect().height ||
-        widgetRoot.offsetHeight ||
-        0
-      );
-      const needsOuterScroll = naturalWidgetH > iframeViewportH + 2;
-
-      widgetRoot.classList.toggle('bt-is-framed-overflow', !!needsOuterScroll);
-
-      if (needsOuterScroll) {
-        widgetRoot.style.setProperty('max-height', '100dvh', 'important');
-        widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
-        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
-      } else {
-        widgetRoot.style.setProperty('max-height', 'none', 'important');
-        widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
-        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
-      }
+      // ✅ Unified iframe behaviour for desktop AND mobile:
+      // The widget root is bounded by the iframe viewport (100dvh) and scrolls
+      // internally when content overflows. If the iframe is tall enough for the
+      // natural 10-row layout (typical desktop case), no scrollbar appears. If
+      // the iframe is shorter than the rendered widget (typical mobile case
+      // because text wraps), the branded widget scrolls. The inner table body
+      // never gets force-clamped, so we can't end up with desktop showing fewer
+      // rows than mobile.
+      widgetRoot.style.setProperty('max-height', '100dvh', 'important');
+      widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
+      widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
 
       try {
-        // Important: do NOT overwrite the iframe height here. The iframe height
-        // entered by the user remains the source of truth.
+        // Important: do NOT overwrite the iframe height here. The copied iframe
+        // snippet owns the desktop height; any vertical overflow is handled by
+        // the branded internal scroller above.
         if (window.frameElement) {
           window.frameElement.style.overflow = 'hidden';
         }
