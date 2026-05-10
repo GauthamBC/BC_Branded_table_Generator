@@ -3726,34 +3726,32 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
 
 /* ✅ Mobile/narrow iframe no-gap fix
-   Only when embedded on narrow screens, make the widget fill the iframe and
-   give any spare height to the table scroller instead of leaving blank space
-   above the footer. Desktop remains unchanged. */
+   Mobile must NOT stretch the widget/table to the copied iframe height. The
+   widget wraps its real content, then the parent iframe snippet can shrink to
+   that measured height. If the table itself is taller than the chosen viewport,
+   only the table scroller scrolls. Desktop sizing is unchanged. */
 .vi-table-embed.bt-is-mobile-framed{
-  height: 100vh !important;
-  height: 100dvh !important;
-  min-height: 100vh !important;
-  min-height: 100dvh !important;
-  max-height: 100vh !important;
-  max-height: 100dvh !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
   overflow: hidden !important;
 }
 .vi-table-embed.bt-is-mobile-framed #bt-block{
-  flex: 1 1 auto !important;
+  flex: 0 0 auto !important;
   min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
 }
 .vi-table-embed.bt-is-mobile-framed #bt-block .dw-card{
-  flex: 1 1 auto !important;
+  flex: 0 0 auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
 .vi-table-embed.bt-is-mobile-framed #bt-block .dw-scroll{
   min-height: 0 !important;
   overflow-x: auto !important;
-  overflow-y: scroll !important;
+  overflow-y: auto !important;
 }
 #bt-block thead th{
   position: sticky;
@@ -4147,16 +4145,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         : naturalDesiredH;
 
       // Mobile/narrow iframe fix:
-      // Do NOT stretch the table body just to fill a tall iframe. That creates
-      // the blank white block between the last visible row and the footer.
-      // Instead, use the natural table height when it fits, and only clamp to
-      // the available iframe space when the table genuinely needs to scroll.
+      // Use the natural table height when it fits, and only clamp to the
+      // available iframe viewport when the table is genuinely taller than the
+      // iframe. Never stretch the table just to fill spare iframe height.
       const desiredH = mobileFrameForSizing
         ? Math.min(naturalDesiredH, mobileAvailableH)
         : naturalDesiredH;
 
       if (card){
-        card.style.setProperty('flex', mobileFrameForSizing ? '1 1 auto' : '0 0 auto', 'important');
+        card.style.setProperty('flex', '0 0 auto', 'important');
         card.style.setProperty('height', desiredH + 'px', 'important');
         card.style.setProperty('max-height', desiredH + 'px', 'important');
         card.style.setProperty('min-height', '0', 'important');
@@ -4185,6 +4182,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         scroller.style.setProperty('overflow-y', (hasExtraRows || overflowsVertically) ? 'scroll' : 'hidden', 'important');
         scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
         syncOuterIframeToWidget();
+        scheduleEmbedFrameHeight();
       });
     }
 
@@ -4251,23 +4249,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       try {
         if (window.frameElement) {
           window.frameElement.style.overflow = 'hidden';
-
-          // Mobile-only iframe shrink-wrap: if the copied iframe height is taller
-          // than the actual widget, shrink the iframe to the widget content. This
-          // removes the empty white space below the footer without changing the
-          // desktop iframe height/behaviour. If the widget needs more height than
-          // the current iframe, we keep the original height and let the branded
-          // table scroller handle it.
-          if (mobileFrameScroll) {
-            const actualWidgetH = Math.ceil(widgetRoot.getBoundingClientRect().height || widgetRoot.scrollHeight || 0);
-            const currentFrameH = Math.ceil(window.frameElement.getBoundingClientRect().height || window.innerHeight || 0);
-            if (actualWidgetH > 0 && currentFrameH > 0 && actualWidgetH < currentFrameH - 2) {
-              window.frameElement.style.height = actualWidgetH + 'px';
-              window.frameElement.setAttribute('height', String(actualWidgetH));
-            }
-          }
         }
       } catch(e) {}
+
+      scheduleEmbedFrameHeight();
     }
 
     window.addEventListener('load', () => {
@@ -4592,11 +4577,39 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }catch(e){}
     }
 
+    function syncEmbedFrameHeight(){
+      // For the published iframe snippet: send the real widget height to the
+      // parent page. The parent listener only applies it on mobile/narrow embeds,
+      // so desktop keeps its copied iframe height.
+      try{
+        const widget = widgetRoot || document.querySelector('section.vi-table-embed') || document.body;
+        if(!widget) return;
+        const rect = widget.getBoundingClientRect();
+        const h = Math.max(180, Math.ceil(rect.height || widget.scrollHeight || 0));
+        window.parent.postMessage({
+          type: 'bt-table-resize',
+          height: h,
+          href: String(window.location.href || '')
+        }, '*');
+      }catch(e){}
+    }
+
+    function scheduleEmbedFrameHeight(){
+      requestAnimationFrame(()=>{
+        syncEmbedFrameHeight();
+        setTimeout(syncEmbedFrameHeight, 80);
+        setTimeout(syncEmbedFrameHeight, 260);
+      });
+    }
+
     function scheduleStreamlitFrameHeight(){
       requestAnimationFrame(()=>{
         syncStreamlitFrameHeight();
+        syncEmbedFrameHeight();
         setTimeout(syncStreamlitFrameHeight, 80);
+        setTimeout(syncEmbedFrameHeight, 80);
         setTimeout(syncStreamlitFrameHeight, 260);
+        setTimeout(syncEmbedFrameHeight, 260);
       });
     }
 
@@ -6661,16 +6674,40 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
 
+    iframe_id = "bt-iframe-" + re.sub(r"[^a-zA-Z0-9_-]", "", str(abs(hash(url)) % 1000000000))
+    safe_url = html_mod.escape(url, quote=True)
+
     return (
         f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">'
-        f'<iframe class="bt-responsive-iframe" '
+        f'<iframe id="{iframe_id}" class="bt-responsive-iframe" '
         f'style="border: 0; border-radius: 0; overflow: hidden; display: block;" '
-        f'src="{html_mod.escape(url, quote=True)}" '
+        f'src="{safe_url}" '
         f'width="100%" '
         f'height="{h}" '
+        f'data-desktop-height="{h}" '
         f'scrolling="no" '
         f'sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox">'
-        f'</iframe></div>'
+        f'</iframe>'
+        f'<script>(function(){{'
+        f'var iframe=document.getElementById({json.dumps(iframe_id)});'
+        f'if(!iframe)return;'
+        f'var desktopH={h};'
+        f'function isMobile(){{return (iframe.getBoundingClientRect().width||window.innerWidth||0)<=640;}}'
+        f'function applyHeight(nextH){{'
+        f'nextH=parseInt(nextH,10);'
+        f'if(!nextH||nextH<180)return;'
+        f'if(isMobile()){{iframe.style.height=nextH+"px";iframe.setAttribute("height",String(nextH));}}'
+        f'else{{iframe.style.height=desktopH+"px";iframe.setAttribute("height",String(desktopH));}}'
+        f'}}'
+        f'window.addEventListener("message",function(e){{'
+        f'if(!e||!e.data||e.source!==iframe.contentWindow)return;'
+        f'if(e.data.type==="bt-table-resize")applyHeight(e.data.height);'
+        f'}},false);'
+        f'window.addEventListener("resize",function(){{'
+        f'if(!isMobile()){{iframe.style.height=desktopH+"px";iframe.setAttribute("height",String(desktopH));}}'
+        f'}},{{passive:true}});'
+        f'}})();</script>'
+        f'</div>'
     )
 
 
