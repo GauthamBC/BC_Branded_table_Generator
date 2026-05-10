@@ -6587,10 +6587,9 @@ def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
 def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     """Build the clean copy/paste iframe snippet shown in the app.
 
-    The iframe height is already calculated by the app, so the snippet does not
-    need an extra <style> block or mobile height override. Keeping the snippet
-    inline-only makes it safer to paste into WordPress/custom HTML blocks without
-    adding page-level CSS.
+    The numeric height remains as a no-script fallback, but the hosted page also
+    posts its true rendered height so narrow/mobile embeds can remove any blank
+    tail below the iframe before the following page text.
     """
     url = (url or "").strip()
     if not url:
@@ -6606,15 +6605,34 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     max_width = 920 if brand_clean == "canada sports betting" else 720
 
     return (
-        f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">'
+        f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0; line-height: 0; overflow: hidden;">'
         f'<iframe class="bt-responsive-iframe" '
-        f'style="border: 0; border-radius: 0; overflow: hidden; display: block;" '
+        f'style="border: 0; border-radius: 0; overflow: hidden; display: block; width: 100%; max-width: 100%; height: {h}px; vertical-align: top;" '
         f'src="{html_mod.escape(url, quote=True)}" '
         f'width="100%" '
         f'height="{h}" '
         f'scrolling="no" '
         f'sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox">'
-        f'</iframe></div>'
+        f'</iframe>'
+        f'<script>(function(){{'
+        f'var s=document.currentScript;'
+        f'var f=s&&s.previousElementSibling;'
+        f'if(!f||String(f.tagName).toLowerCase()!=="iframe")return;'
+        f'function setH(v){{'
+        f'var h=Math.ceil(Number(v)||0);'
+        f'if(!Number.isFinite(h)||h<180)return;'
+        f'h=Math.max(180,Math.min(2400,h));'
+        f'f.style.height=h+"px";'
+        f'f.setAttribute("height",String(h));'
+        f'}}'
+        f'window.addEventListener("message",function(e){{'
+        f'if(e.source!==f.contentWindow)return;'
+        f'var d=e.data||{{}};'
+        f'if(d.type!=="bt:setFrameHeight")return;'
+        f'setH(d.height);'
+        f'}},false);'
+        f'}})();</script>'
+        f'</div>'
     )
 
 
