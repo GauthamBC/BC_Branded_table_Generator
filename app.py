@@ -1291,7 +1291,7 @@ def compute_widget_table_max_height(row_count: int) -> int:
 # ✅ Fixed iframe/table body sizing
 # =========================================================
 # Default/fallback height. Actual preview/embed height is now estimated per table.
-FIXED_IFRAME_HEIGHT_PX = 800
+FIXED_IFRAME_HEIGHT_PX = 680
 # Kept for backward compatibility only. The live widget now uses flex sizing
 # inside the widget frame so the footer is never pushed out of view.
 FIXED_TABLE_SCROLL_HEIGHT_PX = 588
@@ -2314,7 +2314,15 @@ def get_brand_meta(brand: str) -> dict:
 # HTML Template (UPDATED)
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>[[TITLE_TEXT]]</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body style="margin:0; background:transparent;">
 <section class="vi-table-embed [[BRAND_CLASS]] [[FOOTER_ALIGN_CLASS]] [[FOOTER_EMBED_MODE_CLASS]] [[CELL_ALIGN_CLASS]]" data-embed-position="[[EMBED_POSITION]]" style="width:100%;max-width:100%;margin:0;
          font:14px/1.35 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
@@ -5291,7 +5299,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const clone = document.documentElement.cloneNode(true);
     
       const cloneTb = clone.querySelector('#bt-block tbody');
-      if (!cloneTb) return '<!doctype html>\n' + clone.outerHTML;
+      if (!cloneTb) return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
     
       const liveRows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
       const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
@@ -5305,7 +5313,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const empty = cloneTb.querySelector('.dw-empty');
       if (empty) empty.style.display = 'none';
     
-      return '<!doctype html>\n' + clone.outerHTML;
+      return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
     }
     
     async function onEmbedCurrentClick(){
@@ -5348,7 +5356,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     function getCurrentViewHtml(){
       const clone = document.documentElement.cloneNode(true);
       const cloneTb = clone.querySelector('#bt-block table.dw-table tbody');
-      if(!cloneTb) return '<!doctype html>\n' + clone.outerHTML;
+      if(!cloneTb) return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
     
       const liveRows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
       const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
@@ -5362,7 +5370,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const empty = cloneTb.querySelector('.dw-empty');
       if(empty) empty.style.display = 'none';
     
-      return '<!doctype html>\n' + clone.outerHTML;
+      return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
     }
 
     async function onEmbedClick(){
@@ -5402,6 +5410,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   })();
   </script>
 </section>
+</body>
+</html>
 
 """
 
@@ -6095,6 +6105,7 @@ def generate_table_html_from_df(
         .replace("[[TABLE_ROWS]]", table_rows_html)
         .replace("[[COLSPAN]]", colspan)
         .replace("[[TITLE]]", html_mod.escape(title_display))
+        .replace("[[TITLE_TEXT]]", html_mod.escape(title_display or "Table"))
         .replace("[[SUBTITLE]]", subtitle_html)
         .replace("[[BRAND_LOGO_URL]]", brand_logo_url)
         .replace("[[BRAND_LOGO_ALT]]", html_mod.escape(brand_logo_alt))
@@ -6535,7 +6546,7 @@ def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
     except Exception:
         return False
 
-def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
+def build_iframe_snippet(url: str, height: int = 680, brand: str = "") -> str:
     """Build the clean copy/paste iframe snippet shown in the app.
 
     This follows the simpler inspiration embed: a max-width wrapper, a fixed
@@ -6552,8 +6563,8 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
         h = FIXED_IFRAME_HEIGHT_PX
     h = max(320, min(1400, h))
 
-    brand_clean = (brand or "").strip().lower()
-    max_width = 920 if brand_clean == "canada sports betting" else 720
+    # Match the preferred production embed format used by the reference HTML.
+    max_width = 920
 
     return (
         f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">'
@@ -9787,10 +9798,9 @@ if main_tab == "Create New Table":
                                     if live:
 
 
-                                        published_iframe_height = int(final_publish_height or estimated_publish_height or FIXED_IFRAME_HEIGHT_PX)
-
-
-                                        published_iframe_height = max(320, min(900, published_iframe_height))
+                                        # Use the same stable production iframe height as the reference embed.
+                                        # The table HTML handles internal scrolling, so this should not be inflated.
+                                        published_iframe_height = 680
 
 
                                         st.session_state["bt_iframe_height"] = published_iframe_height
