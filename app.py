@@ -3723,6 +3723,38 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   touch-action:pan-x pan-y !important;
   overscroll-behavior:auto !important;
 }
+
+
+/* ✅ Mobile/narrow iframe no-gap fix
+   Only when embedded on narrow screens, make the widget fill the iframe and
+   give any spare height to the table scroller instead of leaving blank space
+   above the footer. Desktop remains unchanged. */
+.vi-table-embed.bt-is-mobile-framed{
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+.vi-table-embed.bt-is-mobile-framed #bt-block{
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+.vi-table-embed.bt-is-mobile-framed #bt-block .dw-card{
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.vi-table-embed.bt-is-mobile-framed #bt-block .dw-scroll{
+  min-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: scroll !important;
+}
 #bt-block thead th{
   position: sticky;
   top: 0;
@@ -3768,42 +3800,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   min-height: 1px !important;
   margin: 0 !important;
   padding: 0 !important;
-}
-
-/* ✅ Mobile/narrow iframe bottom-space fix
-   In narrow iframes, the copied iframe height can be taller than the rendered
-   widget. Without this, the footer appears and the remaining iframe area stays
-   as empty white space. Only the mobile framed view is stretched to the iframe
-   viewport, and the extra space is given to the table scroller above the footer. */
-.vi-table-embed.bt-is-mobile-framed{
-  height: 100vh !important;
-  height: 100dvh !important;
-  min-height: 100vh !important;
-  min-height: 100dvh !important;
-  max-height: 100vh !important;
-  max-height: 100dvh !important;
-}
-.vi-table-embed.bt-is-mobile-framed #bt-block{
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-}
-.vi-table-embed.bt-is-mobile-framed #bt-block .dw-card{
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-}
-.vi-table-embed.bt-is-mobile-framed #bt-block .dw-scroll{
-  height: auto !important;
-  max-height: none !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: scroll !important;
 }
 
 </style>
@@ -4149,12 +4145,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const mobileAvailableH = viewportHForSizing > 0
         ? Math.max(180, viewportHForSizing - fixedChromeH)
         : naturalDesiredH;
+
+      // Mobile/narrow iframe fix:
+      // Use the full available space between the controls/page-status/footer, not
+      // only the natural 10-row table height. This stops the white gap from being
+      // left under the page-status/footer area in fixed-height mobile iframes.
       const desiredH = mobileFrameForSizing
-        ? Math.min(naturalDesiredH, mobileAvailableH)
+        ? mobileAvailableH
         : naturalDesiredH;
 
       if (card){
-        card.style.setProperty('flex', '0 0 auto', 'important');
+        card.style.setProperty('flex', mobileFrameForSizing ? '1 1 auto' : '0 0 auto', 'important');
         card.style.setProperty('height', desiredH + 'px', 'important');
         card.style.setProperty('max-height', desiredH + 'px', 'important');
         card.style.setProperty('min-height', '0', 'important');
@@ -4234,7 +4235,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         widgetRoot.style.setProperty('height', '100dvh', 'important');
         widgetRoot.style.setProperty('min-height', '100dvh', 'important');
         widgetRoot.style.setProperty('max-height', '100dvh', 'important');
-        widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
+        widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
         widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
       } else {
         widgetRoot.style.removeProperty('height');
