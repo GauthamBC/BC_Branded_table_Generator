@@ -4147,11 +4147,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         : naturalDesiredH;
 
       // Mobile/narrow iframe fix:
-      // Use the full available space between the controls/page-status/footer, not
-      // only the natural 10-row table height. This stops the white gap from being
-      // left under the page-status/footer area in fixed-height mobile iframes.
+      // Do NOT stretch the table body just to fill a tall iframe. That creates
+      // the blank white block between the last visible row and the footer.
+      // Instead, use the natural table height when it fits, and only clamp to
+      // the available iframe space when the table genuinely needs to scroll.
       const desiredH = mobileFrameForSizing
-        ? mobileAvailableH
+        ? Math.min(naturalDesiredH, mobileAvailableH)
         : naturalDesiredH;
 
       if (card){
@@ -4228,13 +4229,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         }
       } catch(e) {}
 
-      // Desktop should not get the branded outer/table scrolling treatment.
-      // Mobile frames keep the bounded branded viewport so the table can scroll
-      // inside the iframe instead of stretching the full page.
+      // Desktop stays untouched. On mobile/narrow frames, let the widget wrap
+      // its real content height instead of forcing a 100dvh box, because a forced
+      // tall root creates empty space inside/around the table. The table scroller
+      // itself is still clamped by syncMeasuredScrollerHeight() when the table is
+      // taller than the available mobile iframe space.
       if (mobileFrameScroll) {
-        widgetRoot.style.setProperty('height', '100dvh', 'important');
-        widgetRoot.style.setProperty('min-height', '100dvh', 'important');
-        widgetRoot.style.setProperty('max-height', '100dvh', 'important');
+        widgetRoot.style.setProperty('height', 'auto', 'important');
+        widgetRoot.style.setProperty('min-height', '0', 'important');
+        widgetRoot.style.setProperty('max-height', 'none', 'important');
         widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
         widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
       } else {
@@ -4246,11 +4249,23 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       }
 
       try {
-        // Important: do NOT overwrite the iframe height here. The copied iframe
-        // snippet owns the desktop height; any vertical overflow is handled by
-        // the branded internal scroller above.
         if (window.frameElement) {
           window.frameElement.style.overflow = 'hidden';
+
+          // Mobile-only iframe shrink-wrap: if the copied iframe height is taller
+          // than the actual widget, shrink the iframe to the widget content. This
+          // removes the empty white space below the footer without changing the
+          // desktop iframe height/behaviour. If the widget needs more height than
+          // the current iframe, we keep the original height and let the branded
+          // table scroller handle it.
+          if (mobileFrameScroll) {
+            const actualWidgetH = Math.ceil(widgetRoot.getBoundingClientRect().height || widgetRoot.scrollHeight || 0);
+            const currentFrameH = Math.ceil(window.frameElement.getBoundingClientRect().height || window.innerHeight || 0);
+            if (actualWidgetH > 0 && currentFrameH > 0 && actualWidgetH < currentFrameH - 2) {
+              window.frameElement.style.height = actualWidgetH + 'px';
+              window.frameElement.setAttribute('height', String(actualWidgetH));
+            }
+          }
         }
       } catch(e) {}
     }
