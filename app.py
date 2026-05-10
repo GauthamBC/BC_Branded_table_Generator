@@ -2315,6 +2315,7 @@ def get_brand_meta(brand: str) -> dict:
 # =========================================================
 HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|bar_max_overrides={}|brand='Canada Sports Betting'|branded_title_color=True|cell_align='Center'|center_titles=False|col_header_overrides={}|header_wrap_target='Off'|header_wrap_words=2|embed_position='Header'|footer_logo_align='Center'|footer_logo_h=36|footer_notes=''|header_style='Keep original'|heat_columns=[]|heat_overrides={}|heat_strength=0.55|heatmap_style='Branded heatmap'|show_embed=True|show_footer=True|show_footer_notes=False|show_header=True|show_heat_scale=False|show_page_numbers=True|show_pager=True|show_search=True|striped=True|subtitle='Subheading'|subtitle_style='Keep original'|title='Table 1'|title_style='Keep original' -->
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -2328,7 +2329,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
          color:#181a1f;background:#ffffff;border:1px solid rgba(var(--brand-500-rgb),.12);border-radius:0;
          box-shadow:inset 0 1px 0 rgba(255,255,255,.85);">
 <style>
-    /* Page-safe embed: do not style html/body, because this HTML may be pasted directly into WordPress. */
+    /* Scoped reset only. Do not style html/body so this cannot affect the host CMS page. */
     .vi-table-embed{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     .vi-table-embed, .vi-table-embed * { box-sizing:border-box; font-family:inherit; }
 
@@ -2384,18 +2385,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       overflow: hidden;
       isolation: isolate;
       position: relative;
-    }
-
-    /* ✅ Iframe-safe natural-height layout
-       Mirrors the stable inspiration HTML: the widget wraps its actual content
-       instead of being forced to fill the iframe viewport. Vertical scrolling is
-       handled by the table body only when the selected rows genuinely overflow. */
-    .vi-table-embed.bt-is-iframe,
-    .vi-table-embed.bt-is-inline-page{
-      height: auto;
-      min-height: 0;
-      max-height: none;
-      overflow: hidden;
     }
 
     .vi-table-embed.align-left { --cell-align:left; }
@@ -2512,7 +2501,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       padding:14px 18px;
       min-height:var(--footer-h);
       height:var(--footer-h);
-      flex:0 0 var(--footer-h);
+      flex:0 0 88px;
       background:rgba(var(--brand-500-rgb), .045);
       backdrop-filter:none;
       display:flex;
@@ -2898,7 +2887,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block .dw-btn[data-page]{ width: 34px; padding: 0; }
 
 
-    /* Export button — source of truth for body, header, and footer */
+    /* Embed/Download button — source of truth for body, header, and footer */
     .vi-table-embed button.dw-btn.dw-download,
     .vi-table-embed .dw-btn.dw-download,
     .vi-table-embed .dw-download,
@@ -3132,7 +3121,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       overscroll-behavior: auto;
-      scrollbar-gutter: stable;
+      scrollbar-gutter: auto;
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
       position: relative;
@@ -3175,9 +3164,8 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     }
     #bt-block .dw-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
-    /* Optional top horizontal scroller test. Sits between the widget header/controls and the table header row. */
+    /* Optional top horizontal scroller. This is the only intentional addition versus the reference table logic. */
     #bt-block .dw-top-scroll{
-      /* No separate visual box: keep only the actual scrollbar strip visible. */
       height: 10px; min-height: 10px; max-height: 10px;
       margin: 0 !important;
       padding: 0 !important;
@@ -3195,17 +3183,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     #bt-block .dw-top-scroll.vi-hide{ display:none !important; }
     #bt-block .dw-top-scroll-inner{ height: 1px; min-height: 1px; width: 100%; margin:0 !important; padding:0 !important; }
     #bt-block .dw-top-scroll::-webkit-scrollbar{ width: 8px; height: 10px; }
-    #bt-block .dw-top-scroll::-webkit-scrollbar-track{
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-    }
+    #bt-block .dw-top-scroll::-webkit-scrollbar-track{ background: transparent !important; border: 0 !important; box-shadow: none !important; }
     #bt-block .dw-top-scroll::-webkit-scrollbar-thumb{
       background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
       border-radius: 9999px; border: 2px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.22); background-clip: content-box;
     }
     #bt-block .dw-top-scroll::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
+
 
     #bt-block table.dw-table {
       width: max-content;   /* allow columns to grow so headers can fit */
@@ -3415,6 +3400,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       border-radius: 999px;
       background: rgba(0,0,0,.55);
       color: #ffffff;
+  border: 1px solid rgba(255,255,255,.12);
       white-space: nowrap;
       max-width: 100%;
     }
@@ -3423,12 +3409,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     
     #bt-block tbody tr:not(.dw-empty) td{ background:#ffffff; } /* base */
     #bt-block tbody tr.dw-zebra-odd  td{ background:var(--row-stripe-bg); } /* striped */
+    
     [[STRIPE_CSS]]
-
-
-
-
-    #bt-block tbody td{
+#bt-block tbody td{
       border-bottom: 1px solid rgba(var(--brand-500-rgb), .08);
     }
     #bt-block tbody tr:hover td{
@@ -3451,7 +3434,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed .vi-footer {
       display:flex;
       align-items:center;
-      padding:14px 18px;
+      padding:10px 18px;
       min-height:var(--footer-h);
       height:var(--footer-h);
       border-top:1px solid rgba(var(--brand-500-rgb), .16);
@@ -3649,7 +3632,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     .vi-table-embed.export-mode .vi-table-header{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-controls,
     .vi-table-embed.export-mode #bt-block .dw-page-status{ display:none !important; }
-    .vi-table-embed.export-mode #bt-block .dw-top-scroll{ display:none !important; }
     .vi-table-embed.export-mode #bt-block .dw-scroll{ max-height:none !important; height:auto !important; overflow:visible !important; }
     .vi-table-embed.export-mode #bt-block thead th{ position:static !important; }
     .vi-table-embed.export-mode #bt-block tbody tr:hover,
@@ -3708,8 +3690,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
   touch-action:pan-x pan-y !important;
   overscroll-behavior:auto !important;
 }
-
-
 #bt-block thead th{
   position: sticky;
   top: 0;
@@ -3717,44 +3697,568 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 
 
-/* ✅ Final top scrollbar spacing fix
-   The old visible "box" was caused by #bt-block top padding above the
-   top horizontal scrollbar when controls/search/pager were hidden.
-   Keep the scrollbar itself, but remove the padded container space so it
-   sits directly between the header and the table header row. */
-#bt-block{
-  padding-top: 0 !important;
+/* ✅ Header hover tooltips — added only for column explanations */
+#bt-block thead th[data-tooltip]{
+  position: sticky;
+  top: 0;
+  z-index: 60;
 }
-#bt-block .dw-controls:not(.vi-hide){
-  margin-top: 12px !important;
+
+#bt-block thead th[data-tooltip] .dw-th-label{
+  cursor: help;
 }
-#bt-block .dw-controls.vi-hide{
+
+#bt-block thead th[data-tooltip]::before{
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%) translateY(-4px);
+  width: max-content;
+  max-width: 270px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--brand-600) 0%, var(--brand-700) 100%);
+  color: #ffffff;
+  font: 600 12px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  text-align: center;
+  box-shadow: 0 14px 30px rgba(17,24,39,.24);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+  z-index: 9999;
+}
+
+#bt-block thead th[data-tooltip]::after{
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 2px);
+  transform: translateX(-50%) translateY(-4px);
+  border-width: 0 6px 6px 6px;
+  border-style: solid;
+  border-color: transparent transparent #379c47 transparent;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+  z-index: 9999;
+}
+
+#bt-block thead th[data-tooltip]:hover::before,
+#bt-block thead th[data-tooltip]:hover::after,
+#bt-block thead th[data-tooltip]:focus-visible::before,
+#bt-block thead th[data-tooltip]:focus-visible::after{
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 640px){
+  #bt-block thead th[data-tooltip]::before{
+    max-width: 220px;
+    padding: 9px 10px;
+    font-size: 11.5px;
+  }
+}
+
+
+
+
+
+/* ======================================================
+   ✅ FINAL FIX: remove the blank right-side scroll gutter
+   ======================================================
+   Cause: the scroll box was reserving/painting space for the vertical
+   scrollbar and bottom fade overlays, which showed up as a white strip
+   after the final table column inside narrow iframes.
+*/
+#bt-block .dw-card,
+#bt-block .dw-scroll{
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+}
+
+#bt-block .dw-scroll{
+  scrollbar-gutter: auto !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+}
+
+/* The decorative top/bottom fade overlays can create an invisible scroll width.
+   Removing them stops the final horizontal position from landing on empty space. */
+#bt-block .dw-scroll::before,
+#bt-block .dw-scroll::after{
   display: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
+  content: none !important;
 }
-#bt-block .dw-controls.vi-hide + .dw-top-scroll,
-#bt-block .dw-top-scroll{
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  outline: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
+
+#bt-block table.dw-table{
+  width: max-content !important;
+  min-width: 100% !important;
+  margin: 0 !important;
+  border-right: 0 !important;
+}
+
+#bt-block thead th:last-child,
+#bt-block tbody td:last-child{
+  border-right: 0 !important;
+}
+
+/* Keep the horizontal scrollbar visible, but stop the vertical scrollbar from
+   taking up a permanent white gutter on the right. The table still scrolls
+   vertically with mouse wheel / trackpad / touch. */
+#bt-block .dw-scroll::-webkit-scrollbar:vertical{
+  width: 0 !important;
+  display: none !important;
+}
+
+#bt-block .dw-scroll::-webkit-scrollbar:horizontal{
   height: 10px !important;
-  min-height: 10px !important;
-  max-height: 10px !important;
-  flex: 0 0 10px !important;
-  line-height: 0 !important;
 }
-#bt-block .dw-top-scroll-inner{
-  height: 1px !important;
-  min-height: 1px !important;
-  margin: 0 !important;
-  padding: 0 !important;
+
+/* Firefox: avoid reserving extra scrollbar space. */
+#bt-block .dw-scroll{
+  scrollbar-width: thin;
+}
+
+/* ======================================================
+   ✅ Button label fix: stop “/ Download” wrapping outside the green pill
+   ====================================================== */
+.vi-table-embed button.dw-btn.dw-download,
+.vi-table-embed .dw-btn.dw-download,
+.vi-table-embed .dw-download,
+.vi-table-embed .vi-header-actions button,
+.vi-table-embed .footer-embed-wrap button{
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  line-height: 1 !important;
+  min-width: max-content !important;
+}
+
+@media (max-width: 720px){
+  .vi-table-embed button.dw-btn.dw-download,
+  .vi-table-embed .dw-btn.dw-download,
+  .vi-table-embed .dw-download,
+  .vi-table-embed .vi-header-actions button,
+  .vi-table-embed .footer-embed-wrap button{
+    font-size: 0 !important;
+    color: transparent !important;
+    text-indent: -9999px !important;
+    width: auto !important;
+    min-width: 82px !important;
+    max-width: 92px !important;
+    padding-inline: 16px !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .vi-table-embed button.dw-btn.dw-download::after,
+  .vi-table-embed .dw-btn.dw-download::after,
+  .vi-table-embed .dw-download::after,
+  .vi-table-embed .vi-header-actions button::after,
+  .vi-table-embed .footer-embed-wrap button::after{
+    content: "Embed" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    text-indent: 0 !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+  }
+}
+
+/* ======================================================
+   ✅ REAL SCROLL-END FIX
+   The hidden header tooltip pseudo-elements were still counted in
+   the horizontal scroll width. That created the white blank space
+   after the final column when scrolled fully right.
+   ====================================================== */
+#bt-block thead th[data-tooltip]::before,
+#bt-block thead th[data-tooltip]::after{
+  display: none !important;
+}
+
+#bt-block thead th[data-tooltip]:hover::before,
+#bt-block thead th[data-tooltip]:hover::after,
+#bt-block thead th[data-tooltip]:focus-visible::before,
+#bt-block thead th[data-tooltip]:focus-visible::after{
+  display: block !important;
+}
+
+/* Make the horizontal scroll range come only from the table itself. */
+#bt-block .dw-scroll{
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: auto !important;
+}
+
+#bt-block table.dw-table{
+  display: table !important;
+  width: max-content !important;
+  min-width: max-content !important;
+  max-width: none !important;
+}
+
+@supports (width: max(100%, max-content)){
+  #bt-block table.dw-table{
+    width: max(100%, max-content) !important;
+    min-width: max-content !important;
+  }
+}
+
+.vi-table-embed .dw-btn.dw-download,
+.vi-table-embed .dw-download,
+.vi-table-embed .vi-header-actions button,
+.vi-table-embed .footer-embed-wrap button{
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+}
+
+
+
+/* ======================================================
+   ✅ Tooltip position fix
+   - Show header tooltip ABOVE the header cells
+   - Keep first and last header tooltips one-sided so they never bleed out
+   ====================================================== */
+#bt-block thead th[data-tooltip]{
+  overflow: visible !important;
+}
+
+#bt-block thead th[data-tooltip]::before{
+  top: auto !important;
+  bottom: calc(100% + 10px) !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) translateY(6px) !important;
+  max-width: min(270px, calc(100vw - 32px)) !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  z-index: 9999 !important;
+}
+
+#bt-block thead th[data-tooltip]::after{
+  top: auto !important;
+  bottom: calc(100% + 4px) !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) translateY(6px) !important;
+  border-width: 6px 6px 0 6px !important;
+  border-style: solid !important;
+  border-color: var(--brand-700) transparent transparent transparent !important;
+  z-index: 9999 !important;
+}
+
+#bt-block thead th[data-tooltip]:hover::before,
+#bt-block thead th[data-tooltip]:hover::after,
+#bt-block thead th[data-tooltip]:focus-visible::before,
+#bt-block thead th[data-tooltip]:focus-visible::after{
+  transform: translateX(-50%) translateY(0) !important;
+}
+
+/* First column: anchor from the left so the tooltip stays inside the iframe */
+#bt-block thead th[data-tooltip]:first-child::before{
+  left: 12px !important;
+  right: auto !important;
+  transform: translateX(0) translateY(6px) !important;
+  text-align: left !important;
+}
+#bt-block thead th[data-tooltip]:first-child::after{
+  left: 24px !important;
+  right: auto !important;
+  transform: translateX(0) translateY(6px) !important;
+}
+#bt-block thead th[data-tooltip]:first-child:hover::before,
+#bt-block thead th[data-tooltip]:first-child:hover::after,
+#bt-block thead th[data-tooltip]:first-child:focus-visible::before,
+#bt-block thead th[data-tooltip]:first-child:focus-visible::after{
+  transform: translateX(0) translateY(0) !important;
+}
+
+/* Last column: anchor from the right so the tooltip stays inside the iframe */
+#bt-block thead th[data-tooltip]:last-child::before{
+  left: auto !important;
+  right: 12px !important;
+  transform: translateX(0) translateY(6px) !important;
+  text-align: left !important;
+}
+#bt-block thead th[data-tooltip]:last-child::after{
+  left: auto !important;
+  right: 24px !important;
+  transform: translateX(0) translateY(6px) !important;
+}
+#bt-block thead th[data-tooltip]:last-child:hover::before,
+#bt-block thead th[data-tooltip]:last-child:hover::after,
+#bt-block thead th[data-tooltip]:last-child:focus-visible::before,
+#bt-block thead th[data-tooltip]:last-child:focus-visible::after{
+  transform: translateX(0) translateY(0) !important;
+}
+
+@media (max-width: 640px){
+  #bt-block thead th[data-tooltip]::before{
+    max-width: min(220px, calc(100vw - 24px)) !important;
+    padding: 9px 10px !important;
+    font-size: 11.5px !important;
+  }
+  #bt-block thead th[data-tooltip]:first-child::before{
+    left: 8px !important;
+  }
+  #bt-block thead th[data-tooltip]:first-child::after{
+    left: 20px !important;
+  }
+  #bt-block thead th[data-tooltip]:last-child::before{
+    right: 8px !important;
+  }
+  #bt-block thead th[data-tooltip]:last-child::after{
+    right: 20px !important;
+  }
+}
+
+
+/* ======================================================
+   ✅ FINAL TOOLTIP FIX
+   Use a real floating tooltip layer instead of header pseudo-elements.
+   This prevents the sticky header / scroll container from clipping it.
+   ====================================================== */
+#bt-block thead th[data-tooltip]::before,
+#bt-block thead th[data-tooltip]::after,
+#bt-block thead th[data-tooltip]:hover::before,
+#bt-block thead th[data-tooltip]:hover::after,
+#bt-block thead th[data-tooltip]:focus-visible::before,
+#bt-block thead th[data-tooltip]:focus-visible::after{
+  display: none !important;
+  content: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.bt-floating-tooltip{
+  position: fixed !important;
+  left: 0;
+  top: 0;
+  z-index: 2147483647 !important;
+  max-width: min(280px, calc(100vw - 18px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #379c47 !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  border: 1px solid #2f8d3f !important;
+  font: 700 12px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  text-align: center;
+  box-shadow: 0 16px 34px rgba(17,24,39,.28);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  isolation: isolate;
+}
+
+.bt-floating-tooltip.is-visible{
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0);
+}
+
+.bt-floating-tooltip::after{
+  content: "";
+  position: absolute;
+  left: var(--arrow-x, 50%);
+  bottom: -6px;
+  transform: translateX(-50%);
+  border-width: 6px 6px 0 6px;
+  border-style: solid;
+  border-color: #379c47 transparent transparent transparent;
+}
+
+.bt-floating-tooltip.is-below::after{
+  bottom: auto;
+  top: -6px;
+  border-width: 0 6px 6px 6px;
+  border-color: transparent transparent var(--brand-700) transparent;
+}
+
+@media (max-width: 640px){
+  .bt-floating-tooltip{
+    max-width: min(230px, calc(100vw - 16px));
+    padding: 9px 10px;
+    font-size: 11.5px;
+  }
+}
+
+
+
+/* ======================================================
+   ✅ MOBILE CMS/IFRAME FIX
+   Desktop stays unchanged. On phones, the widget is locked to the iframe height
+   and only the table area scrolls, keeping the footer and footer note visible.
+   ====================================================== */
+@media (max-width: 640px){
+  /* Scoped to this widget only. No html/body/page-level rules. */
+  .vi-table-embed{
+    width:100% !important;
+    height:100vh !important;
+    max-height:100vh !important;
+    min-height:0 !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+  }
+
+  .vi-table-embed .vi-table-header{
+    flex:0 0 auto !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  #bt-block{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+    padding:0 !important;
+  }
+
+  #bt-block .dw-card{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+  }
+
+  #bt-block .dw-scroll{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow-x:auto !important;
+    overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch !important;
+    touch-action:pan-x pan-y !important;
+    overscroll-behavior:auto !important;
+    scrollbar-width:thin !important;
+    scrollbar-color:var(--scroll-thumb) rgba(var(--brand-500-rgb), .12) !important;
+  }
+
+  #bt-block .dw-scroll::-webkit-scrollbar:vertical{
+    width:8px !important;
+    display:block !important;
+  }
+
+  #bt-block .dw-scroll::-webkit-scrollbar:horizontal{
+    height:10px !important;
+    display:block !important;
+  }
+
+  #bt-block .dw-scroll::-webkit-scrollbar-track{
+    background:rgba(var(--brand-500-rgb), .08) !important;
+  }
+
+  #bt-block .dw-scroll::-webkit-scrollbar-thumb{
+    background:linear-gradient(180deg, var(--brand-500) 0%, var(--brand-700) 100%) !important;
+    border-radius:999px !important;
+    border:2px solid rgba(255,255,255,.75) !important;
+    background-clip:content-box !important;
+  }
+
+  .vi-table-embed .vi-footer{
+    flex:0 0 auto !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:hidden !important;
+    padding:12px 12px !important;
+  }
+
+  .vi-table-embed .footer-inner{
+    height:auto !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+    gap:10px !important;
+  }
+
+  .vi-table-embed .footer-notes{
+    max-height:82px !important;
+    overflow-y:auto !important;
+    scrollbar-width:thin !important;
+    scrollbar-color:var(--scroll-thumb) rgba(var(--brand-500-rgb), .12) !important;
+  }
+
+  .vi-table-embed .footer-notes::-webkit-scrollbar{
+    width:6px !important;
+  }
+
+  .vi-table-embed .footer-notes::-webkit-scrollbar-thumb{
+    background:var(--brand-500) !important;
+    border-radius:999px !important;
+  }
+}
+
+
+
+/* ======================================================
+   ✅ PAGE-SAFE OVERRIDE
+   If this HTML is pasted directly into a CMS page instead of loaded
+   inside an iframe, do not lock the page/body or trap page scrolling.
+   The iframe-only height lock is applied only when JS adds .bt-is-iframe.
+   ====================================================== */
+@media (max-width: 640px){
+  .vi-table-embed.bt-is-inline-page{
+    height:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow:visible !important;
+  }
+
+  .vi-table-embed.bt-is-inline-page #bt-block,
+  .vi-table-embed.bt-is-inline-page #bt-block .dw-card{
+    height:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow:visible !important;
+  }
+
+  .vi-table-embed.bt-is-inline-page #bt-block .dw-scroll{
+    height:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow-x:auto !important;
+    overflow-y:visible !important;
+    -webkit-overflow-scrolling:touch !important;
+    overscroll-behavior:auto !important;
+    touch-action:auto !important;
+  }
+
+  .vi-table-embed.bt-is-iframe #bt-block .dw-scroll,
+  .vi-table-embed.bt-is-iframe .footer-notes{
+    overscroll-behavior:auto !important;
+  }
 }
 
 </style>
@@ -3765,7 +4269,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <span class="subtitle">[[SUBTITLE]]</span>
 </div>
 <div class="vi-header-actions [[HEADER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="header">
-<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Export</button>
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-header" type="button">Embed</button>
 </div>
 </div>
 <!-- Table block -->
@@ -3792,9 +4296,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <button aria-label="Previous Page" class="dw-btn" data-page="prev">‹</button>
 <button aria-label="Next Page" class="dw-btn" data-page="next">›</button>
 </div>
-<!-- Export -->
+<!-- Embed/Download -->
 <div class="dw-embed-slot [[BODY_EMBED_TARGET_VIS_CLASS]]" data-embed-target="body"><div class="dw-embed [[EMBED_VIS_CLASS]]">
-<button class="dw-btn dw-download" id="dw-download-png" type="button">Export</button>
+<button class="dw-btn dw-download" id="dw-download-png" type="button">Embed</button>
 <div aria-label="Download Menu" class="dw-download-menu vi-hide" id="dw-download-menu">
 <div class="dw-menu-title" id="dw-menu-title">Choose action</div>
 <!-- Full table options -->
@@ -3843,7 +4347,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 <img alt="[[BRAND_LOGO_ALT]]" decoding="async" height="auto" loading="lazy" src="[[BRAND_LOGO_URL]]" width="160"/>
 </div>
 <div class="footer-embed-wrap [[FOOTER_EMBED_TARGET_VIS_CLASS]]" data-embed-target="footer">
-<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Export</button>
+<button class="dw-btn dw-download dw-embed-trigger dw-embed-trigger-footer" type="button">Embed</button>
 </div>
 </div>
 </div>
@@ -3882,35 +4386,47 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     const controls = root.querySelector('.dw-controls');
     if(!table || !tb || !scroller || !controls) return;
 
-    const controlsHidden = controls.classList.contains('vi-hide');
-
-    function syncTopHorizontalScroller(){
+    function syncTopScroller(){
       if(!topScroller || !topScrollerInner || !table || !scroller) return;
-      const tableWidth = Math.ceil(table.scrollWidth || table.getBoundingClientRect().width || 0);
-      const viewportWidth = Math.ceil(scroller.clientWidth || scroller.getBoundingClientRect().width || 0);
-      const hasHorizontalOverflow = tableWidth > viewportWidth + 2;
-      topScrollerInner.style.width = Math.max(tableWidth, viewportWidth) + 'px';
-      topScroller.classList.toggle('vi-hide', !hasHorizontalOverflow);
-      if (Math.abs(topScroller.scrollLeft - scroller.scrollLeft) > 1){ topScroller.scrollLeft = scroller.scrollLeft; }
+      const scrollWidth = Math.max(table.scrollWidth || 0, scroller.scrollWidth || 0, scroller.clientWidth || 0);
+      topScrollerInner.style.width = scrollWidth + 'px';
+      const needsHorizontal = scrollWidth > (scroller.clientWidth + 2);
+      topScroller.classList.toggle('vi-hide', !needsHorizontal);
+      if (Math.abs(topScroller.scrollLeft - scroller.scrollLeft) > 1) topScroller.scrollLeft = scroller.scrollLeft;
     }
 
-    let syncingHorizontalScroll = false;
-    if(topScroller){
+    let btSyncingHorizontal = false;
+    if (topScroller && topScrollerInner) {
       topScroller.addEventListener('scroll', () => {
-        if(syncingHorizontalScroll) return;
-        syncingHorizontalScroll = true;
+        if(btSyncingHorizontal) return;
+        btSyncingHorizontal = true;
         scroller.scrollLeft = topScroller.scrollLeft;
-        requestAnimationFrame(() => { syncingHorizontalScroll = false; });
-      }, {passive:true});
+        requestAnimationFrame(() => { btSyncingHorizontal = false; });
+      }, { passive: true });
+      scroller.addEventListener('scroll', () => {
+        if(btSyncingHorizontal) return;
+        btSyncingHorizontal = true;
+        topScroller.scrollLeft = scroller.scrollLeft;
+        requestAnimationFrame(() => { btSyncingHorizontal = false; });
+      }, { passive: true });
+      try {
+        const topRO = new ResizeObserver(syncTopScroller);
+        topRO.observe(table);
+        topRO.observe(scroller);
+      } catch(e) {}
+      try {
+        const topMO = new MutationObserver(syncTopScroller);
+        if (tb) topMO.observe(tb, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
+      } catch(e) {}
+      window.addEventListener('resize', syncTopScroller);
+      window.addEventListener('load', syncTopScroller);
+      setTimeout(syncTopScroller, 0);
+      setTimeout(syncTopScroller, 120);
+      setTimeout(syncTopScroller, 450);
     }
-    scroller.addEventListener('scroll', () => {
-      if(!topScroller || syncingHorizontalScroll) return;
-      syncingHorizontalScroll = true;
-      topScroller.scrollLeft = scroller.scrollLeft;
-      requestAnimationFrame(() => { syncingHorizontalScroll = false; });
-    }, {passive:true});
-    window.addEventListener('resize', syncTopHorizontalScroller, {passive:true});
-    requestAnimationFrame(syncTopHorizontalScroller);
+
+
+    const controlsHidden = controls.classList.contains('vi-hide');
 
     const searchFieldWrap = controls.querySelector('.dw-field');
     const searchInput = controls.querySelector('.dw-input');
@@ -3994,29 +4510,18 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     
     function syncMenuOptions(){
       const filtered = isFilterActive();
-      const enoughRowsForBottom10 = ALL_ROWS.length >= 20;
-      const compactImageLabel = ALL_ROWS.length <= 10 ? 'Download Image' : 'Download Top 10';
-
-      // Keep the primary image-download label accurate for compact tables.
-      // The click handler still uses the existing top10 image export path;
-      // when there are 10 rows or fewer, that exports the full table image.
-      if (btnTop10) btnTop10.textContent = compactImageLabel;
-      const legacyTop10Btn = root.querySelector('#dw-dl-top10');
-      if (legacyTop10Btn) legacyTop10Btn.textContent = compactImageLabel;
-
+    
       // Full-table options
       if (btnTop10)   btnTop10.classList.toggle('vi-hide', filtered);
-      // Only show Bottom 10 when the table has 20+ rows. For 19 or fewer rows,
-      // the bottom 10 overlaps too much with the top rows and is not useful.
-      if (btnBottom10) btnBottom10.classList.toggle('vi-hide', filtered || !enoughRowsForBottom10);
+      if (btnBottom10) btnBottom10.classList.toggle('vi-hide', filtered);
       if (btnCsv)     btnCsv.classList.toggle('vi-hide', filtered);
       if (btnEmbed)   btnEmbed.classList.toggle('vi-hide', filtered);
-
+    
       // Current-view options
       if (btnCsvCurrent)  btnCsvCurrent.classList.toggle('vi-hide', !filtered);
       if (btnImgCurrent)  btnImgCurrent.classList.toggle('vi-hide', !filtered);
       if (btnHtmlCurrent) btnHtmlCurrent.classList.toggle('vi-hide', !filtered);
-
+    
       // Optional title clarity
       if (menuTitle){
         menuTitle.textContent = filtered ? 'Current view actions' : 'Choose action';
@@ -4040,7 +4545,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       scroller.style.overflowY = 'auto';
       scroller.style.webkitOverflowScrolling = 'touch';
       scroller.style.touchAction = 'pan-x pan-y';
-      scroller.style.overscrollBehavior = 'contain';
+      scroller.style.overscrollBehavior = 'auto';
 
       const visibleRows = Array.from(tb.rows).filter(r =>
         !r.classList.contains('dw-empty') && r.style.display !== 'none'
@@ -4054,11 +4559,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
       const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
 
-      // Natural-height table logic, copied from the cleaner inspiration embed:
-      // 1) short tables use their real row height so the footer follows the last row;
-      // 2) tables with 10+ rows use a stable 10-row viewport;
-      // 3) the table body scrolls only when the current page/filtered view needs it;
-      // 4) nothing is stretched just to fill a fixed iframe.
+      // ✅ Short-table logic:
+      // If the FULL table has fewer than 10 rows, size the viewport to the actual
+      // number of rows so the footer sits immediately after the last row.
+      // If the FULL table has 10+ rows, keep the stable 10-row viewport so paged
+      // views and long tables do not shrink/jump around.
       const rowCap = (ALL_ROWS.length > 0 && ALL_ROWS.length < 10) ? ALL_ROWS.length : 10;
       const measuredCapRows = visibleRows.slice(0, rowCap);
       const measuredCapRowsH = measuredCapRows.reduce((sum, row) => {
@@ -4067,10 +4572,40 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const averageMeasuredRowH = measuredCapRows.length
         ? Math.ceil(measuredCapRowsH / measuredCapRows.length)
         : fallbackRowH;
-      const rowCapH = averageMeasuredRowH * Math.max(1, rowCap);
+      const rowCapH = averageMeasuredRowH * rowCap;
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const horizontalReserve = needsXScroll ? 12 : 0;
-      const desiredH = Math.max(160, headerTableH + rowCapH + horizontalReserve);
+
+      // Hard rule: the viewport is table header + exactly 10 measured rows.
+      // Do NOT clamp this to the current iframe height. On narrower embeds/mobile,
+      // rows can wrap to 2–4 lines, so the iframe must grow to fit 10 rows while
+      // rows 11+ remain inside this fixed viewport and scroll internally.
+      let desiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
+
+      // ✅ Mobile CMS/iframe fix:
+      // In narrow CMS iframes, the header + wrapped table rows can become taller than
+      // the fixed iframe height. Keep the whole widget inside the iframe and make the
+      // table viewport scroll vertically, so the footer and footer note never get cut off.
+      const isMobileEmbedViewport = window.matchMedia('(max-width: 640px)').matches;
+      if (isMobileEmbedViewport && isInsideIframe) {
+        const viewportH = Math.max(320, Math.ceil(window.innerHeight || document.documentElement.clientHeight || 680));
+        const headerOuterH = header ? Math.ceil(header.getBoundingClientRect().height || header.offsetHeight || 0) : 0;
+        const footerOuterH = footer ? Math.ceil(footer.getBoundingClientRect().height || footer.offsetHeight || 0) : 0;
+        const controlsOuterH = controlsRow ? Math.ceil(controlsRow.getBoundingClientRect().height || controlsRow.offsetHeight || 0) : 0;
+        const statusOuterH = statusRow ? Math.ceil(statusRow.getBoundingClientRect().height || statusRow.offsetHeight || 0) : 0;
+        const blockPaddingReserve = 8;
+
+        desiredH = Math.max(120, viewportH - headerOuterH - footerOuterH - controlsOuterH - statusOuterH - blockPaddingReserve);
+
+        widgetRoot.style.setProperty('height', viewportH + 'px', 'important');
+        widgetRoot.style.setProperty('max-height', viewportH + 'px', 'important');
+        widgetRoot.style.setProperty('min-height', '0', 'important');
+        widgetRoot.style.setProperty('overflow', 'hidden', 'important');
+      } else {
+        widgetRoot.style.removeProperty('height');
+        widgetRoot.style.removeProperty('max-height');
+        widgetRoot.style.removeProperty('min-height');
+      }
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
@@ -4080,12 +4615,15 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         card.style.setProperty('overflow', 'hidden', 'important');
       }
 
+      // Use an !important CSS variable because a later responsive CSS block also
+      // targets .dw-scroll. This was the bit that made 15/20/All show extra rows
+      // but prevented the scroll container from actually scrolling.
       scroller.style.setProperty('--bt-scroll-h', desiredH + 'px');
       scroller.style.setProperty('height', desiredH + 'px', 'important');
       scroller.style.setProperty('max-height', desiredH + 'px', 'important');
       scroller.style.setProperty('min-height', '0', 'important');
       scroller.style.setProperty('overflow-x', 'auto', 'important');
-      scroller.style.setProperty('overflow-y', 'auto', 'important');
+      scroller.style.setProperty('overflow-y', 'scroll', 'important');
       scroller.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
       scroller.style.setProperty('touch-action', 'pan-x pan-y', 'important');
       scroller.style.setProperty('overscroll-behavior', 'auto', 'important');
@@ -4099,50 +4637,28 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         scroller.style.setProperty('overflow-y', (hasExtraRows || overflowsVertically) ? 'scroll' : 'hidden', 'important');
         scroller.classList.toggle('compact-fit', !(hasExtraRows || overflowsVertically));
         syncOuterIframeToWidget();
-        scheduleEmbedFrameHeight();
+        syncTopScroller();
       });
     }
 
-    // Keep iframe pages content-led, like the inspiration HTML.
-    // We only remove browser/body gaps inside an iframe; the widget itself keeps
-    // natural height and the table body handles any needed vertical scrolling.
+    // Keep the outer iframe/component trimmed to the actual widget height.
+    // This removes the white/bordered dead-space that can appear below the footer
+    // when Streamlit or WordPress gives the iframe a slightly taller fixed height.
     function syncOuterIframeToWidget(){
-      if (!widgetRoot) return;
-
-      let isFramed = false;
       try {
-        isFramed = !!window.frameElement || window.self !== window.top;
-      } catch(e) {
-        isFramed = true;
-      }
-
-      widgetRoot.classList.toggle('bt-is-iframe', !!isFramed);
-      widgetRoot.classList.toggle('bt-is-inline-page', !isFramed);
-
-      if (isFramed) {
-        try {
-          if (document.documentElement) {
-            document.documentElement.style.margin = '0';
-            document.documentElement.style.padding = '0';
-            document.documentElement.style.overflow = 'hidden';
-          }
-          if (document.body) {
-            document.body.style.margin = '0';
-            document.body.style.padding = '0';
-            document.body.style.overflow = 'hidden';
-          }
-          if (window.frameElement) {
-            window.frameElement.style.overflow = 'hidden';
-          }
-        } catch(e) {}
-      }
-
-      widgetRoot.style.setProperty('height', 'auto', 'important');
-      widgetRoot.style.setProperty('min-height', '0', 'important');
-      widgetRoot.style.setProperty('max-height', 'none', 'important');
-      widgetRoot.style.setProperty('overflow', 'hidden', 'important');
-
-      scheduleEmbedFrameHeight();
+        // On mobile, do not grow the parent iframe to the full wrapped content height.
+        // The table area handles the vertical scrolling instead.
+        if (window.matchMedia('(max-width: 640px)').matches) return;
+        if (!widgetRoot || !window.frameElement) return;
+        const rect = widgetRoot.getBoundingClientRect();
+        const h = Math.ceil(rect.height || widgetRoot.offsetHeight || 0);
+        if (!h || h < 120) return;
+        window.frameElement.style.height = h + 'px';
+        window.frameElement.style.minHeight = h + 'px';
+        window.frameElement.style.maxHeight = h + 'px';
+        window.frameElement.setAttribute('height', String(h));
+        window.frameElement.style.overflow = 'hidden';
+      } catch(e) {}
     }
 
     window.addEventListener('load', () => {
@@ -4451,58 +4967,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
-    function syncStreamlitFrameHeight(){
-      // Tighten the Streamlit iframe to the actual widget content height, so no
-      // blank white space appears after the footer in the app page.
-      try{
-        const root = document.querySelector('#bt-block') || document.body;
-        const rect = root.getBoundingClientRect();
-        const bodyH = Math.max(0, document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0);
-        const h = Math.max(180, Math.ceil(Math.max(rect.bottom, bodyH)));
-        window.parent.postMessage({
-          isStreamlitMessage: true,
-          type: 'streamlit:setFrameHeight',
-          height: h
-        }, '*');
-      }catch(e){}
-    }
-
-    function syncEmbedFrameHeight(){
-      // For the published iframe snippet: send the real widget height to the
-      // parent page. The parent listener only applies it on mobile/narrow embeds,
-      // so desktop keeps its copied iframe height.
-      try{
-        const widget = widgetRoot || document.querySelector('section.vi-table-embed') || document.body;
-        if(!widget) return;
-        const rect = widget.getBoundingClientRect();
-        const h = Math.max(180, Math.ceil(rect.height || widget.scrollHeight || 0));
-        window.parent.postMessage({
-          type: 'bt-table-resize',
-          height: h,
-          href: String(window.location.href || '')
-        }, '*');
-      }catch(e){}
-    }
-
-    function scheduleEmbedFrameHeight(){
-      requestAnimationFrame(()=>{
-        syncEmbedFrameHeight();
-        setTimeout(syncEmbedFrameHeight, 80);
-        setTimeout(syncEmbedFrameHeight, 260);
-      });
-    }
-
-    function scheduleStreamlitFrameHeight(){
-      requestAnimationFrame(()=>{
-        syncStreamlitFrameHeight();
-        syncEmbedFrameHeight();
-        setTimeout(syncStreamlitFrameHeight, 80);
-        setTimeout(syncEmbedFrameHeight, 80);
-        setTimeout(syncStreamlitFrameHeight, 260);
-        setTimeout(syncEmbedFrameHeight, 260);
-      });
-    }
-
     function renderPage(){
       // Always operate on CURRENT DOM order (after sortBy re-inserts rows)
       const ordered = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
@@ -4526,7 +4990,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         applyVisibleZebra();
         syncMenuOptions();
         requestAnimationFrame(syncMeasuredScrollerHeight);
-        scheduleStreamlitFrameHeight();
         return;
       }
     
@@ -4561,7 +5024,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       applyVisibleZebra();
       syncMenuOptions();
       requestAnimationFrame(syncMeasuredScrollerHeight);
-      scheduleStreamlitFrameHeight();
     }
 
     if(hasSearch){
@@ -5019,11 +5481,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
             flex:none !important;
           }
           .vi-table-embed.export-mode .vi-footer{
-            min-height:var(--footer-h) !important;
-            height:var(--footer-h) !important;
-            flex:0 0 var(--footer-h) !important;
-            padding-top:14px !important;
-            padding-bottom:14px !important;
+            min-height:88px !important;
+            height:88px !important;
+            flex:0 0 88px !important;
+            padding-top:10px !important;
+            padding-bottom:10px !important;
           }
           /* ✅ PNG export only: remove the little top breathing room above the table */
           .vi-table-embed.export-mode #bt-block{
@@ -5033,11 +5495,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
           .vi-table-embed.export-mode #bt-block .dw-card,
           .vi-table-embed.export-mode #bt-block .dw-scroll{
             margin-top:0 !important;
-          }
-          .vi-table-embed.export-mode .vi-table-header{
-            min-height:var(--footer-h) !important;
-            height:var(--footer-h) !important;
-            flex:0 0 var(--footer-h) !important;
           }
           .vi-table-embed.export-mode .vi-table-header{
             background:rgba(var(--brand-500-rgb), .045) !important;
@@ -5299,7 +5756,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const clone = document.documentElement.cloneNode(true);
     
       const cloneTb = clone.querySelector('#bt-block tbody');
-      if (!cloneTb) return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
+      if (!cloneTb) return '<!doctype html>\n' + clone.outerHTML;
     
       const liveRows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
       const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
@@ -5313,7 +5770,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const empty = cloneTb.querySelector('.dw-empty');
       if (empty) empty.style.display = 'none';
     
-      return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
+      return '<!doctype html>\n' + clone.outerHTML;
     }
     
     async function onEmbedCurrentClick(){
@@ -5356,7 +5813,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     function getCurrentViewHtml(){
       const clone = document.documentElement.cloneNode(true);
       const cloneTb = clone.querySelector('#bt-block table.dw-table tbody');
-      if(!cloneTb) return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
+      if(!cloneTb) return '<!doctype html>\n' + clone.outerHTML;
     
       const liveRows = Array.from(tb.rows).filter(r => !r.classList.contains('dw-empty'));
       const cloneRows = Array.from(cloneTb.rows).filter(r => !r.classList.contains('dw-empty'));
@@ -5370,7 +5827,7 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const empty = cloneTb.querySelector('.dw-empty');
       if(empty) empty.style.display = 'none';
     
-      return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8"/>\n<meta content="width=device-width, initial-scale=1" name="viewport"/>\n<title>' + document.title + '</title>\n</head>\n<body style="margin:0; background:transparent;">\n' + clone.outerHTML + '\n</body>\n</html>';
+      return '<!doctype html>\n' + clone.outerHTML;
     }
 
     async function onEmbedClick(){
@@ -5401,19 +5858,111 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
     if(hasEmbed && btnImgCurrent) btnImgCurrent.addEventListener('click', ()=> downloadDomPng('current'));
     if(hasEmbed && btnHtmlCurrent) btnHtmlCurrent.addEventListener('click', onEmbedCurrentClick);
 
-    window.addEventListener('resize', ()=>{ syncMeasuredScrollerHeight(); scheduleStreamlitFrameHeight(); });
-    window.addEventListener('load', ()=>{ syncMeasuredScrollerHeight(); scheduleStreamlitFrameHeight(); });
+    window.addEventListener('resize', syncMeasuredScrollerHeight);
+    window.addEventListener('load', syncMeasuredScrollerHeight);
     renderPage();
     syncMenuOptions();
     syncMeasuredScrollerHeight();
-    scheduleStreamlitFrameHeight();
+    syncTopScroller();
   })();
   </script>
+
+<script>
+(function(){
+  const root = document.querySelector('.vi-table-embed');
+  if (!root) return;
+
+  const heads = Array.from(root.querySelectorAll('#bt-block thead th[data-tooltip]'));
+  if (!heads.length) return;
+
+  let tip = document.querySelector('.bt-floating-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'bt-floating-tooltip';
+    tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+  }
+
+  let active = null;
+
+  function clamp(value, min, max){
+    return Math.max(min, Math.min(value, max));
+  }
+
+  function positionTooltip(){
+    if (!active || !tip.classList.contains('is-visible')) return;
+
+    const text = active.getAttribute('data-tooltip') || '';
+    if (!text) return;
+
+    tip.textContent = text;
+
+    const viewportW = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const viewportH = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    const rect = active.getBoundingClientRect();
+
+    tip.style.maxWidth = Math.min(viewportW - 16, viewportW <= 640 ? 230 : 280) + 'px';
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+
+    const tRect = tip.getBoundingClientRect();
+    const gap = 10;
+    const edge = 8;
+
+    let left = rect.left + (rect.width / 2) - (tRect.width / 2);
+    left = clamp(left, edge, viewportW - tRect.width - edge);
+
+    /* Prefer above the header so row-one values stay visible. If there is genuinely
+       no room above, place it below as a fallback rather than clipping the text. */
+    let top = rect.top - tRect.height - gap;
+    let below = false;
+
+    if (top < edge) {
+      top = rect.bottom + gap;
+      below = true;
+      if (top + tRect.height > viewportH - edge) {
+        top = clamp(rect.top - tRect.height - gap, edge, viewportH - tRect.height - edge);
+        below = false;
+      }
+    }
+
+    const headerCenter = rect.left + rect.width / 2;
+    const arrowX = clamp(headerCenter - left, 14, tRect.width - 14);
+
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    tip.style.setProperty('--arrow-x', arrowX + 'px');
+    tip.classList.toggle('is-below', below);
+  }
+
+  function showTooltip(e){
+    active = e.currentTarget;
+    tip.textContent = active.getAttribute('data-tooltip') || '';
+    tip.classList.add('is-visible');
+    requestAnimationFrame(positionTooltip);
+  }
+
+  function hideTooltip(){
+    active = null;
+    tip.classList.remove('is-visible', 'is-below');
+  }
+
+  heads.forEach(th => {
+    th.addEventListener('mouseenter', showTooltip);
+    th.addEventListener('focus', showTooltip);
+    th.addEventListener('mouseleave', hideTooltip);
+    th.addEventListener('blur', hideTooltip);
+  });
+
+  const scroller = root.querySelector('#bt-block .dw-scroll');
+  if (scroller) scroller.addEventListener('scroll', positionTooltip, { passive: true });
+  window.addEventListener('scroll', positionTooltip, { passive: true });
+  window.addEventListener('resize', positionTooltip);
+})();
+</script>
 </section>
 </body>
-</html>
-
-"""
+</html>"""
 
 # =========================================================
 # Generator
