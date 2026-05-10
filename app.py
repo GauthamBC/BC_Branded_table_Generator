@@ -2378,40 +2378,17 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       position: relative;
     }
 
-    /* ✅ Fixed-height iframe guard
-       Both desktop AND mobile iframes get a branded vertical scroller. The
-       inner table body always lays out the natural 10-row height, so when the
-       widget overflows the iframe (typical on mobile because text wraps, or on
-       desktop only if the embed height is intentionally short), the BRANDED
-       outer widget scrolls. If the iframe is tall enough — the typical desktop
-       case — no scrollbar appears at all. This eliminates the old "desktop
-       inner-table scroll while mobile shows all rows" inversion. */
-    .vi-table-embed.bt-is-framed,
-    .vi-table-embed.bt-is-mobile-framed{
-      max-height: 100vh;
-      max-height: 100dvh;
-      overflow-x: hidden !important;
-      overflow-y: auto !important;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      scrollbar-gutter: stable;
-      scrollbar-width: thin;
-      scrollbar-color: var(--scroll-thumb) rgba(255,255,255,.2);
+    /* ✅ Iframe-safe natural-height layout
+       Mirrors the stable inspiration HTML: the widget wraps its actual content
+       instead of being forced to fill the iframe viewport. Vertical scrolling is
+       handled by the table body only when the selected rows genuinely overflow. */
+    .vi-table-embed.bt-is-iframe,
+    .vi-table-embed.bt-is-inline-page{
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      overflow: hidden;
     }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar,
-    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar{ width: 8px; height: 10px; }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar-track,
-    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-track{ background: transparent; }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb,
-    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-thumb{
-      background: linear-gradient(180deg, #f26461 0%, var(--scroll-thumb) 100%);
-      border-radius: 9999px;
-      border: 2px solid transparent;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
-      background-clip: content-box;
-    }
-    .vi-table-embed.bt-is-framed::-webkit-scrollbar-thumb:hover,
-    .vi-table-embed.bt-is-mobile-framed::-webkit-scrollbar-thumb:hover{ background: var(--brand-600); }
 
     .vi-table-embed.align-left { --cell-align:left; }
     .vi-table-embed.align-center { --cell-align:center; }
@@ -3725,34 +3702,6 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 }
 
 
-/* ✅ Mobile/narrow iframe no-gap fix
-   Mobile must NOT stretch the widget/table to the copied iframe height. The
-   widget wraps its real content, then the parent iframe snippet can shrink to
-   that measured height. If the table itself is taller than the chosen viewport,
-   only the table scroller scrolls. Desktop sizing is unchanged. */
-.vi-table-embed.bt-is-mobile-framed{
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  overflow: hidden !important;
-}
-.vi-table-embed.bt-is-mobile-framed #bt-block{
-  flex: 0 0 auto !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-}
-.vi-table-embed.bt-is-mobile-framed #bt-block .dw-card{
-  flex: 0 0 auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-}
-.vi-table-embed.bt-is-mobile-framed #bt-block .dw-scroll{
-  min-height: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: auto !important;
-}
 #bt-block thead th{
   position: sticky;
   top: 0;
@@ -3966,6 +3915,14 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
     const embedWrap = controls.querySelector('.dw-embed');
     const widgetRoot = document.querySelector('section.vi-table-embed');
+    const isInsideIframe = (() => {
+      try { return window.self !== window.top; }
+      catch(e) { return true; }
+    })();
+    if (widgetRoot) {
+      widgetRoot.classList.toggle('bt-is-iframe', isInsideIframe);
+      widgetRoot.classList.toggle('bt-is-inline-page', !isInsideIframe);
+    }
     const downloadBtn = embedWrap ? embedWrap.querySelector('#dw-download-png') : null;
     const headerTrigger = widgetRoot ? widgetRoot.querySelector('.dw-embed-trigger-header') : null;
     const footerTrigger = widgetRoot ? widgetRoot.querySelector('.dw-embed-trigger-footer') : null;
@@ -4089,11 +4046,11 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
 
       const fallbackRowH = window.matchMedia('(max-width: 640px)').matches ? 42 : 44;
 
-      // ✅ Short-table logic:
-      // If the FULL table has fewer than 10 rows, size the viewport to the actual
-      // number of rows so the footer sits immediately after the last row.
-      // If the FULL table has 10+ rows, keep the stable 10-row viewport so paged
-      // views and long tables do not shrink/jump around.
+      // Natural-height table logic, copied from the cleaner inspiration embed:
+      // 1) short tables use their real row height so the footer follows the last row;
+      // 2) tables with 10+ rows use a stable 10-row viewport;
+      // 3) the table body scrolls only when the current page/filtered view needs it;
+      // 4) nothing is stretched just to fill a fixed iframe.
       const rowCap = (ALL_ROWS.length > 0 && ALL_ROWS.length < 10) ? ALL_ROWS.length : 10;
       const measuredCapRows = visibleRows.slice(0, rowCap);
       const measuredCapRowsH = measuredCapRows.reduce((sum, row) => {
@@ -4102,55 +4059,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const averageMeasuredRowH = measuredCapRows.length
         ? Math.ceil(measuredCapRowsH / measuredCapRows.length)
         : fallbackRowH;
-      const rowCapH = averageMeasuredRowH * rowCap;
+      const rowCapH = averageMeasuredRowH * Math.max(1, rowCap);
       const needsXScroll = table.scrollWidth > scroller.clientWidth + 2;
       const horizontalReserve = needsXScroll ? 12 : 0;
-
-      // Natural table viewport: table header + the selected row cap.
-      // Desktop keeps the full natural table height so the first page can show
-      // without an inner vertical scrollbar. Mobile frames clamp the table area
-      // to the available iframe space so the table scrolls and the footer stays
-      // reachable/visible.
-      const naturalDesiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
-
-      let isFramedForSizing = false;
-      try {
-        isFramedForSizing = !!window.frameElement || window.self !== window.top;
-      } catch(e) {
-        isFramedForSizing = true;
-      }
-      const viewportWForSizing = Math.ceil(
-        (document.documentElement && document.documentElement.clientWidth) ||
-        window.innerWidth ||
-        0
-      );
-      const viewportHForSizing = Math.ceil(
-        (document.documentElement && document.documentElement.clientHeight) ||
-        window.innerHeight ||
-        0
-      );
-      const mobileFrameForSizing = !!isFramedForSizing && viewportWForSizing > 0 && viewportWForSizing <= 640;
-      const rootStyles = window.getComputedStyle ? window.getComputedStyle(widgetRoot) : null;
-      const rootPadY = rootStyles
-        ? ((parseFloat(rootStyles.paddingTop) || 0) + (parseFloat(rootStyles.paddingBottom) || 0))
-        : 22;
-      const fixedChromeH =
-        (header ? Math.ceil(header.getBoundingClientRect().height || header.offsetHeight || 0) : 0) +
-        (footer ? Math.ceil(footer.getBoundingClientRect().height || footer.offsetHeight || 0) : 0) +
-        (controlsRow ? Math.ceil(controlsRow.getBoundingClientRect().height || controlsRow.offsetHeight || 0) : 0) +
-        (statusRow ? Math.ceil(statusRow.getBoundingClientRect().height || statusRow.offsetHeight || 0) : 0) +
-        rootPadY + 16;
-      const mobileAvailableH = viewportHForSizing > 0
-        ? Math.max(180, viewportHForSizing - fixedChromeH)
-        : naturalDesiredH;
-
-      // Mobile/narrow iframe fix:
-      // Use the natural table height when it fits, and only clamp to the
-      // available iframe viewport when the table is genuinely taller than the
-      // iframe. Never stretch the table just to fill spare iframe height.
-      const desiredH = mobileFrameForSizing
-        ? Math.min(naturalDesiredH, mobileAvailableH)
-        : naturalDesiredH;
+      const desiredH = Math.max(160, headerTableH + rowCapH + horizontalReserve);
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
@@ -4160,15 +4072,12 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         card.style.setProperty('overflow', 'hidden', 'important');
       }
 
-      // Use an !important CSS variable because a later responsive CSS block also
-      // targets .dw-scroll. This was the bit that made 15/20/All show extra rows
-      // but prevented the scroll container from actually scrolling.
       scroller.style.setProperty('--bt-scroll-h', desiredH + 'px');
       scroller.style.setProperty('height', desiredH + 'px', 'important');
       scroller.style.setProperty('max-height', desiredH + 'px', 'important');
       scroller.style.setProperty('min-height', '0', 'important');
       scroller.style.setProperty('overflow-x', 'auto', 'important');
-      scroller.style.setProperty('overflow-y', 'scroll', 'important');
+      scroller.style.setProperty('overflow-y', 'auto', 'important');
       scroller.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
       scroller.style.setProperty('touch-action', 'pan-x pan-y', 'important');
       scroller.style.setProperty('overscroll-behavior', 'auto', 'important');
@@ -4186,10 +4095,9 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
-    // Keep a fixed outer iframe height. Desktop uses the natural table height
-    // so the first page can sit open without a vertical table scrollbar. Mobile
-    // keeps the branded iframe viewport bounded, allowing the table area to
-    // scroll when rows wrap taller on narrow screens.
+    // Keep iframe pages content-led, like the inspiration HTML.
+    // We only remove browser/body gaps inside an iframe; the widget itself keeps
+    // natural height and the table body handles any needed vertical scrolling.
     function syncOuterIframeToWidget(){
       if (!widgetRoot) return;
 
@@ -4200,57 +4108,31 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         isFramed = true;
       }
 
-      const viewportW = Math.ceil(
-        (document.documentElement && document.documentElement.clientWidth) ||
-        window.innerWidth ||
-        0
-      );
-      const mobileFrameScroll = !!isFramed && viewportW > 0 && viewportW <= 640;
+      widgetRoot.classList.toggle('bt-is-iframe', !!isFramed);
+      widgetRoot.classList.toggle('bt-is-inline-page', !isFramed);
 
-      widgetRoot.classList.toggle('bt-is-framed', !!isFramed);
-      widgetRoot.classList.toggle('bt-is-mobile-framed', !!mobileFrameScroll);
-
-      if (!isFramed) return;
-
-      try {
-        // Remove the browser's default body gap inside hosted iframe pages.
-        // This is applied only when framed, so direct WordPress paste remains scoped.
-        if (document.documentElement) {
-          document.documentElement.style.margin = '0';
-          document.documentElement.style.padding = '0';
-          document.documentElement.style.overflow = 'hidden';
-        }
-        if (document.body) {
-          document.body.style.margin = '0';
-          document.body.style.padding = '0';
-          document.body.style.overflow = 'hidden';
-        }
-      } catch(e) {}
-
-      // Desktop stays untouched. On mobile/narrow frames, let the widget wrap
-      // its real content height instead of forcing a 100dvh box, because a forced
-      // tall root creates empty space inside/around the table. The table scroller
-      // itself is still clamped by syncMeasuredScrollerHeight() when the table is
-      // taller than the available mobile iframe space.
-      if (mobileFrameScroll) {
-        widgetRoot.style.setProperty('height', 'auto', 'important');
-        widgetRoot.style.setProperty('min-height', '0', 'important');
-        widgetRoot.style.setProperty('max-height', 'none', 'important');
-        widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
-        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
-      } else {
-        widgetRoot.style.removeProperty('height');
-        widgetRoot.style.removeProperty('min-height');
-        widgetRoot.style.setProperty('max-height', 'none', 'important');
-        widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
-        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      if (isFramed) {
+        try {
+          if (document.documentElement) {
+            document.documentElement.style.margin = '0';
+            document.documentElement.style.padding = '0';
+            document.documentElement.style.overflow = 'hidden';
+          }
+          if (document.body) {
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+            document.body.style.overflow = 'hidden';
+          }
+          if (window.frameElement) {
+            window.frameElement.style.overflow = 'hidden';
+          }
+        } catch(e) {}
       }
 
-      try {
-        if (window.frameElement) {
-          window.frameElement.style.overflow = 'hidden';
-        }
-      } catch(e) {}
+      widgetRoot.style.setProperty('height', 'auto', 'important');
+      widgetRoot.style.setProperty('min-height', '0', 'important');
+      widgetRoot.style.setProperty('max-height', 'none', 'important');
+      widgetRoot.style.setProperty('overflow', 'hidden', 'important');
 
       scheduleEmbedFrameHeight();
     }
@@ -6656,10 +6538,9 @@ def is_page_live_with_hash(url: str, expected_hash: str) -> bool:
 def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     """Build the clean copy/paste iframe snippet shown in the app.
 
-    The iframe height is already calculated by the app, so the snippet does not
-    need an extra <style> block or mobile height override. Keeping the snippet
-    inline-only makes it safer to paste into WordPress/custom HTML blocks without
-    adding page-level CSS.
+    This follows the simpler inspiration embed: a max-width wrapper, a fixed
+    calculated iframe height, no page-level CSS, and no extra resize listener.
+    The published HTML handles table scrolling internally.
     """
     url = (url or "").strip()
     if not url:
@@ -6674,40 +6555,16 @@ def build_iframe_snippet(url: str, height: int = 800, brand: str = "") -> str:
     brand_clean = (brand or "").strip().lower()
     max_width = 920 if brand_clean == "canada sports betting" else 720
 
-    iframe_id = "bt-iframe-" + re.sub(r"[^a-zA-Z0-9_-]", "", str(abs(hash(url)) % 1000000000))
-    safe_url = html_mod.escape(url, quote=True)
-
     return (
         f'<div class="bt-responsive-iframe-wrap" style="max-width: {max_width}px; margin: 0 auto; padding: 0;">'
-        f'<iframe id="{iframe_id}" class="bt-responsive-iframe" '
+        f'<iframe class="bt-responsive-iframe" '
         f'style="border: 0; border-radius: 0; overflow: hidden; display: block;" '
-        f'src="{safe_url}" '
+        f'src="{html_mod.escape(url, quote=True)}" '
         f'width="100%" '
         f'height="{h}" '
-        f'data-desktop-height="{h}" '
         f'scrolling="no" '
         f'sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-popups-to-escape-sandbox">'
-        f'</iframe>'
-        f'<script>(function(){{'
-        f'var iframe=document.getElementById({json.dumps(iframe_id)});'
-        f'if(!iframe)return;'
-        f'var desktopH={h};'
-        f'function isMobile(){{return (iframe.getBoundingClientRect().width||window.innerWidth||0)<=640;}}'
-        f'function applyHeight(nextH){{'
-        f'nextH=parseInt(nextH,10);'
-        f'if(!nextH||nextH<180)return;'
-        f'if(isMobile()){{iframe.style.height=nextH+"px";iframe.setAttribute("height",String(nextH));}}'
-        f'else{{iframe.style.height=desktopH+"px";iframe.setAttribute("height",String(desktopH));}}'
-        f'}}'
-        f'window.addEventListener("message",function(e){{'
-        f'if(!e||!e.data||e.source!==iframe.contentWindow)return;'
-        f'if(e.data.type==="bt-table-resize")applyHeight(e.data.height);'
-        f'}},false);'
-        f'window.addEventListener("resize",function(){{'
-        f'if(!isMobile()){{iframe.style.height=desktopH+"px";iframe.setAttribute("height",String(desktopH));}}'
-        f'}},{{passive:true}});'
-        f'}})();</script>'
-        f'</div>'
+        f'</iframe></div>'
     )
 
 
