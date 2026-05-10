@@ -4077,19 +4077,45 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       const horizontalReserve = needsXScroll ? 12 : 0;
 
       // Natural table viewport: table header + the selected row cap.
-      // ✅ Always use the natural height on BOTH desktop and mobile iframes so
-      // the table body lays out all 10 rows (no inner-table vertical scrollbar
-      // hiding rows). If the resulting widget is taller than the fixed iframe
-      // height, the OUTER widget scrolls instead (handled in
-      // syncOuterIframeToWidget). This guarantees we never end up in the bad
-      // state where desktop has an inner scrollbar but mobile shows all rows.
-      // - Iframe tall enough → no scrolling anywhere (typical desktop case).
-      // - Iframe too short → outer widget scrolls on both desktop and mobile
-      //   (mobile hits this more often because rows wrap taller).
-      // - Page size > 10 rows → inner table body still scrolls for rows 11+
-      //   (handled in the requestAnimationFrame block below).
+      // Desktop keeps the full natural table height so the first page can show
+      // without an inner vertical scrollbar. Mobile frames clamp the table area
+      // to the available iframe space so the table scrolls and the footer stays
+      // reachable/visible.
       const naturalDesiredH = Math.max(180, headerTableH + rowCapH + horizontalReserve);
-      const desiredH = naturalDesiredH;
+
+      let isFramedForSizing = false;
+      try {
+        isFramedForSizing = !!window.frameElement || window.self !== window.top;
+      } catch(e) {
+        isFramedForSizing = true;
+      }
+      const viewportWForSizing = Math.ceil(
+        (document.documentElement && document.documentElement.clientWidth) ||
+        window.innerWidth ||
+        0
+      );
+      const viewportHForSizing = Math.ceil(
+        (document.documentElement && document.documentElement.clientHeight) ||
+        window.innerHeight ||
+        0
+      );
+      const mobileFrameForSizing = !!isFramedForSizing && viewportWForSizing > 0 && viewportWForSizing <= 640;
+      const rootStyles = window.getComputedStyle ? window.getComputedStyle(widgetRoot) : null;
+      const rootPadY = rootStyles
+        ? ((parseFloat(rootStyles.paddingTop) || 0) + (parseFloat(rootStyles.paddingBottom) || 0))
+        : 22;
+      const fixedChromeH =
+        (header ? Math.ceil(header.getBoundingClientRect().height || header.offsetHeight || 0) : 0) +
+        (footer ? Math.ceil(footer.getBoundingClientRect().height || footer.offsetHeight || 0) : 0) +
+        (controlsRow ? Math.ceil(controlsRow.getBoundingClientRect().height || controlsRow.offsetHeight || 0) : 0) +
+        (statusRow ? Math.ceil(statusRow.getBoundingClientRect().height || statusRow.offsetHeight || 0) : 0) +
+        rootPadY + 16;
+      const mobileAvailableH = viewportHForSizing > 0
+        ? Math.max(180, viewportHForSizing - fixedChromeH)
+        : naturalDesiredH;
+      const desiredH = mobileFrameForSizing
+        ? Math.min(naturalDesiredH, mobileAvailableH)
+        : naturalDesiredH;
 
       if (card){
         card.style.setProperty('flex', '0 0 auto', 'important');
@@ -4124,12 +4150,10 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
       });
     }
 
-    // Keep a fixed outer iframe height. The inner table body now always uses
-    // the natural 10-row height, so when the widget becomes taller than the
-    // iframe viewport (mobile wrapping, or a deliberately short iframe on
-    // desktop), the BRANDED OUTER WIDGET scrolls inside the iframe. This
-    // guarantees the table body never internally clips rows on desktop while
-    // mobile shows all of them — both surfaces behave the same way.
+    // Keep a fixed outer iframe height. Desktop uses the natural table height
+    // so the first page can sit open without a vertical table scrollbar. Mobile
+    // keeps the branded iframe viewport bounded, allowing the table area to
+    // scroll when rows wrap taller on narrow screens.
     function syncOuterIframeToWidget(){
       if (!widgetRoot) return;
 
@@ -4167,17 +4191,18 @@ HTML_TEMPLATE_TABLE = r"""<!-- BT_PUBLISH_HASH:bar_columns=[]|bar_fixed_w=200|ba
         }
       } catch(e) {}
 
-      // ✅ Unified iframe behaviour for desktop AND mobile:
-      // The widget root is bounded by the iframe viewport (100dvh) and scrolls
-      // internally when content overflows. If the iframe is tall enough for the
-      // natural 10-row layout (typical desktop case), no scrollbar appears. If
-      // the iframe is shorter than the rendered widget (typical mobile case
-      // because text wraps), the branded widget scrolls. The inner table body
-      // never gets force-clamped, so we can't end up with desktop showing fewer
-      // rows than mobile.
-      widgetRoot.style.setProperty('max-height', '100dvh', 'important');
-      widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
-      widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      // Desktop should not get the branded outer/table scrolling treatment.
+      // Mobile frames keep the bounded branded viewport so the table can scroll
+      // inside the iframe instead of stretching the full page.
+      if (mobileFrameScroll) {
+        widgetRoot.style.setProperty('max-height', '100dvh', 'important');
+        widgetRoot.style.setProperty('overflow-y', 'auto', 'important');
+        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      } else {
+        widgetRoot.style.setProperty('max-height', 'none', 'important');
+        widgetRoot.style.setProperty('overflow-y', 'hidden', 'important');
+        widgetRoot.style.setProperty('overflow-x', 'hidden', 'important');
+      }
 
       try {
         // Important: do NOT overwrite the iframe height here. The copied iframe
